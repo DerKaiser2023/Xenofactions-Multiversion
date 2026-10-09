@@ -1,15 +1,25 @@
 [
   {
-    "modid": "examplemod",
-    "name": "ExampleMod",
-    "description": "Portable domain logic with a Minecraft-specific adapter.",
+    "modid": "hfr",
+    "name": "Xenofactions",
+    "description": "Factions, cities, territory, shops, map editing and competitive gamemodes.",
     "version": "${fullVersion}",
-    "mcversion": "1.7.10",
+    "mcversion": "${minecraftTarget}",
     "authorList": [
-      "GlowingFederal"
+      "Ragex",
+      "Zealot / Black Trollface",
+      "Fedward"
     ],
-    "dependencies": ["Forge@[10.13.4.1614,)"],
-    "requiredMods": ["Forge@[10.13.4.1614,)"],
-    "useDependencyInformation": true
+    "credits": "Original Xenofactions contributors",
+    "url": "",
+    "logoFile": "assets/hfr/textures/logo.png",
+    "screenshots": [],
+    "useDependencyInformation": true,
+    "requiredMods": [
+      "Forge@[10.13.4.1614,)"
+    ],
+    "dependencies": [
+      "Forge@[10.13.4.1614,)"
+    ]
   }
 ]

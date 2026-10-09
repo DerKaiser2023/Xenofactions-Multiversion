@@ -6,4 +6,4 @@ pluginManagement {
     }
 }
 plugins { id 'com.gtnewhorizons.gtnhsettingsconvention' version '2.0.34' }
-rootProject.name = 'ExampleMod-1.7.10'
+rootProject.name = 'Xenofactions-1.7.10'

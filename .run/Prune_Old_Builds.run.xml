@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="ExampleMod - Prune Old Builds" type="GradleRunConfiguration" factoryName="Gradle">
+  <configuration default="false" name="Xenofactions - Prune Old Builds" type="GradleRunConfiguration" factoryName="Gradle">
     <ExternalSystemSettings>
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
       <option name="externalSystemIdString" value="GRADLE" />

@@ -1,6 +1,0 @@
-{
-  "parent": "${generatedParent}",
-  "textures": {
-    "layer0": "examplemod:${itemTextures}/example_item"
-  }
-}

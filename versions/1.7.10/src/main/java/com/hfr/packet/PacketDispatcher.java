@@ -1,0 +1,130 @@
+package com.hfr.packet;
+
+import com.hfr.lib.RefStrings;
+import com.hfr.main.MainRegistry;
+import com.hfr.packet.client.*;
+import com.hfr.packet.effect.*;
+import com.hfr.packet.tile.*;
+import com.hfr.packet.wallart.*;
+import com.hfr.packet.builder.*;
+
+import cpw.mods.fml.common.network.NetworkRegistry;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
+import cpw.mods.fml.relauncher.Side;
+import net.minecraft.entity.player.EntityPlayerMP;
+
+public class PacketDispatcher {
+
+	//public static void sendTo(IMessage message, EntityPlayerMP player) {
+	//	MainRegistry.network.sendTo(message, player);
+	//}
+
+	//Mark 1 Packet Sending Device
+	public static final SimpleNetworkWrapper wrapper = NetworkRegistry.INSTANCE.newSimpleChannel(RefStrings.MODID);
+
+	public static final void registerPackets()
+	{
+		int i = 0;
+		wrapper.registerMessage(TERadarPacket.Handler.class, TERadarPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TERadarDestructorPacket.Handler.class, TERadarDestructorPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TESirenPacket.Handler.class, TESirenPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(AuxElectricityPacket.Handler.class, AuxElectricityPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TEFFPacket.Handler.class, TEFFPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(AuxButtonPacket.Handler.class, AuxButtonPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(TEVaultPacket.Handler.class, TEVaultPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TEMissilePacket.Handler.class, TEMissilePacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(ParticleBurstPacket.Handler.class, ParticleBurstPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(ParticleControlPacket.Handler.class, ParticleControlPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(ItemDesignatorPacket.Handler.class, ItemDesignatorPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(VRadarPacket.Handler.class, VRadarPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(VRadarDestructorPacket.Handler.class, VRadarDestructorPacket.class, i++, Side.CLIENT);
+		//first successful serialized packet, eliminates race conditions between sender and destructor
+		wrapper.registerMessage(SRadarPacket.Handler.class, SRadarPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(AuxGaugePacket.Handler.class, AuxGaugePacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(CityCenterPacket.Handler.class, CityCenterPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(CityCenterGuiPacket.Handler.class, CityCenterGuiPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(CityRenameGuiPacket.Handler.class, CityRenameGuiPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(CityRenamePacket.Handler.class, CityRenamePacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(CityRelocationGuiPacket.Handler.class, CityRelocationGuiPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(CityRelocationResponsePacket.Handler.class, CityRelocationResponsePacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(TESRadarPacket.Handler.class, TESRadarPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(RailgunCallbackPacket.Handler.class, RailgunCallbackPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(RailgunFirePacket.Handler.class, RailgunFirePacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(RailgunRotationPacket.Handler.class, RailgunRotationPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(CBTPacket.Handler.class, CBTPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(StockPacket.Handler.class, StockPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(StockDisplayPacket.Handler.class, StockDisplayPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(SchematicPreviewPacket.Handler.class, SchematicPreviewPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(BuilderPacket.Handler.class, BuilderPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(SchemOfferPacket.Handler.class, SchemOfferPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(SLBMCommandPacket.Handler.class, SLBMCommandPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(SLBMOfferPacket.Handler.class, SLBMOfferPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(ClowderFlagPacket.Handler.class, ClowderFlagPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(FactionFlagMetadataPacket.ClientHandler.class, FactionFlagMetadataPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(FactionFlagMetadataPacket.ServerHandler.class, FactionFlagMetadataPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(FactionFlagBytesPacket.Handler.class, FactionFlagBytesPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(ClowderBorderPacket.Handler.class, ClowderBorderPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(ClaimOverlayPacket.Handler.class, ClaimOverlayPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(ExplosionSoundPacket.Handler.class, ExplosionSoundPacket.class, i++, Side.CLIENT);
+		//wrapper.registerMessage(OfferPacket.Handler.class, OfferPacket.class, i++, Side.CLIENT);
+		//you are now on the server, so fucking WORK
+		//Oh GOD DAMMIT of course this fucking packet only works properly on the FUCKING CLIENT!!!
+		//meaning. THAT WE NEED TO DO SOME BULLSHIT TO GET IT TO THE SERVER. OR PRIORITIZE THE SERVER OR SOMETHING
+		//FUCK I DONT EVEN FUCKING KNOW THIS IS SUCH A FUCKING SHITHOLE CODEBASE
+
+		wrapper.registerMessage(OfferPacket.ServerHandler.class, OfferPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(OfferPacket.ClientHandler.class, OfferPacket.class, i++, Side.CLIENT);
+
+		wrapper.registerMessage(RVIPacket.Handler.class, RVIPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(CumPacket.Handler.class, CumPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(PlayerDataPacket.Handler.class, PlayerDataPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(AuxParticlePacketNT.Handler.class, AuxParticlePacketNT.class, i++, Side.CLIENT);
+		wrapper.registerMessage(ReseatRequestPacket.Handler.class, ReseatRequestPacket.class, i++, Side.SERVER);
+
+		wrapper.registerMessage(WallArtConfigurePacket.Handler.class, WallArtConfigurePacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(WallArtOpenGuiPacket.Handler.class, WallArtOpenGuiPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(WallArtImageRequestPacket.Handler.class, WallArtImageRequestPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(WallArtImageChunkPacket.Handler.class, WallArtImageChunkPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TDMKitGuiPacket.Handler.class, TDMKitGuiPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TDMKitSelectPacket.Handler.class, TDMKitSelectPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(TDMKitSelectResultPacket.Handler.class, TDMKitSelectResultPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TDMStatusPacket.Handler.class, TDMStatusPacket.class, i++, Side.CLIENT);
+		// Preserve the retired spectator-target packet ID so every later discriminator stays stable.
+		wrapper.registerMessage(
+				LegacyTDMSpectatorCompatibilityPacket.Handler.class,
+				LegacyTDMSpectatorCompatibilityPacket.class,
+				i++,
+				Side.CLIENT);
+		wrapper.registerMessage(TDMMapVoteGuiPacket.Handler.class, TDMMapVoteGuiPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TDMMapVoteSelectPacket.Handler.class, TDMMapVoteSelectPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(TDMMenuActionPacket.Handler.class, TDMMenuActionPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(TDMMenuDataPacket.Handler.class, TDMMenuDataPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(XFMenuDataRequestPacket.Handler.class, XFMenuDataRequestPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(XFMenuDataPacket.Handler.class, XFMenuDataPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(StoneDropSnapshotPacket.Handler.class, StoneDropSnapshotPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(MachineDisplaySnapshotPacket.Handler.class, MachineDisplaySnapshotPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(BuilderDepotRequestPacket.Handler.class, BuilderDepotRequestPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(BuilderDepotSnapshotPacket.Handler.class, BuilderDepotSnapshotPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(BuilderActionPacket.Handler.class, BuilderActionPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(BuilderSchematicPacket.Handler.class, BuilderSchematicPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(BuilderLibraryRequestPacket.Handler.class, BuilderLibraryRequestPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(BuilderLibraryPacket.Handler.class, BuilderLibraryPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(BuilderPlanPacket.Handler.class, BuilderPlanPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(BuilderSchematicDataRequestPacket.Handler.class, BuilderSchematicDataRequestPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(BuilderSchematicDataChunkPacket.Handler.class, BuilderSchematicDataChunkPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TDMSurvivorChoiceGuiPacket.Handler.class, TDMSurvivorChoiceGuiPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TDMSurvivorChoicePacket.Handler.class, TDMSurvivorChoicePacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(TDMSoundPacket.Handler.class, TDMSoundPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(AdminEditorSnapshotPacket.Handler.class, AdminEditorSnapshotPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(AdminEditorActionPacket.Handler.class, AdminEditorActionPacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(com.hfr.packet.client.AdminEditorNavigatePacket.Handler.class, com.hfr.packet.client.AdminEditorNavigatePacket.class, i++, Side.SERVER);
+		wrapper.registerMessage(AdminEditorClosePacket.Handler.class, AdminEditorClosePacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(AdminSelectionSyncPacket.Handler.class, AdminSelectionSyncPacket.class, i++, Side.CLIENT);
+		wrapper.registerMessage(TDMMapOverlayPacket.Handler.class, TDMMapOverlayPacket.class, i++, Side.CLIENT);
+        wrapper.registerMessage(com.hfr.packet.shop.XShopActionPacket.Handler.class, com.hfr.packet.shop.XShopActionPacket.class, i++, Side.SERVER);
+        wrapper.registerMessage(com.hfr.packet.shop.XShopSnapshotPacket.Handler.class, com.hfr.packet.shop.XShopSnapshotPacket.class, i++, Side.CLIENT);
+
+	}
+	
+}

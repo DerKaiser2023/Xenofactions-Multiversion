@@ -1,0 +1,2648 @@
+package com.hfr.clowder;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import com.hfr.blocks.BlockDummyable;
+import com.hfr.blocks.ModBlocks;
+import com.hfr.command.CommandClowder;
+import com.hfr.command.CommandClowderAdmin;
+import com.hfr.config.XFConfig;
+import com.hfr.data.ClowderData;
+import com.hfr.packet.PacketDispatcher;
+import com.hfr.packet.effect.AuxParticlePacketNT;
+//import com.hfr.data.MarketData.Offer;
+import com.hfr.main.MainRegistry;
+import com.hfr.util.XFLog;
+import com.hfr.tileentity.clowder.TileEntityFlag;
+import com.hfr.tileentity.prop.TileEntityProp;
+
+import cpw.mods.fml.common.Loader;
+import net.minecraft.block.Block;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.world.World;
+import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.common.util.ForgeDirection;
+
+//it's like a faction
+//but with cats!
+public class Clowder {
+
+	public HashMap<Clowder, Long> potentialMerges = new HashMap<>();
+
+	public static HashSet<Integer> colours = new HashSet<Integer>();
+
+	private static float prestigeCap = 10000F;
+	private static float prestigeGenCap = 2500F;
+
+	public String uuid;
+	public String name;
+	public String motd;
+	public ClowderFlag flag;
+	public int color;
+	public boolean canChangeColour = true;
+	public boolean canDisband = false;
+	public String customFlagHash = "";
+
+	public int homeX;
+	public int homeY;
+	public int homeZ;
+	public int homeDim;
+	public boolean homeSet = false;
+    /** Designated capital is independent of the city's upgrade level. */
+    public String capitalCityId = "";
+    public boolean capitalDesignated;
+    public long capitalChangeAfter;
+	public HashMap<String, int[]> warps = new HashMap();
+
+	//tracks how many times the clowder has bought from this market option
+	//non-persistent so it won't save when the server stops
+	//public HashMap<Offer, Integer> offerHistory = new HashMap();
+
+	//for limited only x bonus minutes from capping chunks
+	//Limit is found in the MainRegistry class
+	public int bonusPoints = 0;
+
+	//for war delcaration system labjac punjab
+	public Clowder enemy = null;
+	public String enemyS = "nobody2584369";
+
+	//for paying tribute
+	public Clowder suzerain = null;
+	//public Set<String> dickSuckers = new HashSet();
+	public String suzerainS = "nobody2584369";
+
+	//for being a bitch
+	//public boolean bitch = false;
+
+	//for totalen krieg
+	//public boolean totalenKrieg = false;
+	//for total peace
+	//public boolean paxBritannica = false;
+
+	//debug to force offlines to be online
+	//HOW CAN YOU FORCE A PLAYER TO BE ONLINE WITHOUT GETTING INTO THEIR PC? HUH WEEDER?
+	public static boolean forceOnline = false;
+	//we HAD a system for this, it was called SATURDAY IS WAR DAY. IF YOU DON'T LIKE IT YOU LOSE YOUR BASE
+	//NO NEED FOR FUCKING FABRICATE, TREATIES, ALL THIS FUCKING RETARDED SHITLOW DOGSHIT SLOP IN THIS FUCKING MOD
+	//YOU FUCKERS OVER COMPLICATE SHIT FOR NO REASON. NO ONE ASKED FOR THIS FEATURE. NO ONE REQUESTED THIS FEATURE
+	//NO ONE WILL EVER REQUEST FOR THESE FUCKING SHITLOW FEATURES. STOP CODING.
+
+	//for poorly coded treaty system
+	public String treaty1 = "nobody2584369";
+	public String treaty2 = "nobody2584369";
+	public String treaty3 = "nobody2584369";
+	public String treaty4 = "nobody2584369";
+	public String treaty5 = "nobody2584369";
+	public String treaty6 = "nobody2584369";
+	public String treaty7 = "nobody2584369";
+
+	public float treatyTime1 = 0;
+	public float treatyTime2 = 0;
+	public float treatyTime3 = 0;
+	public float treatyTime4 = 0;
+	public float treatyTime5 = 0;
+	public float treatyTime6 = 0;
+	public float treatyTime7 = 0;
+
+	//c retreat tempban
+	//public float retreatBan = 0;
+
+	//for tributary/bitch stuff
+	//private float peaceTreaty = 0;
+
+	//to prevent sethome abuse
+	public float sethomeDelay = 0;
+
+	//todo: if sethome is exploited by nevrons why wouldn't nevrons want to exploit the FUCKING ALLY WARP SYSTEM?
+	//wait nevermind. it LOOKS like it at least hooks into this. I'm sure weeder/bob shithole code definitely works PROPERLY.
+	//public float setallyDelay = 0;
+
+	//for pussying out system
+	//public boolean targeted = false;
+
+	//for vassal wars not targeting master
+	public boolean vassalTarget = false;
+
+	//unused crap from shitty weeder code fabricate crap annoying bullshit
+	//public boolean hungaryTarget = false;
+
+	//for one-time use war extension for attacker
+	public boolean overtime = false;
+
+	/** Canonical membership and role authority, keyed only by Mojang UUID. */
+	public final Map<UUID, FactionMemberRecord> memberRecords = new HashMap<UUID, FactionMemberRecord>();
+	public final Map<UUID, FactionApplication> applicationsByUuid = new HashMap<UUID, FactionApplication>();
+	/** Legacy import staging only. Never consulted by UUID permission methods. */
+	@Deprecated public String leader;
+	@Deprecated public Set<String> officers = new HashSet<String>();
+	@Deprecated public HashMap<String, Long> members = new HashMap<String, Long>();
+	@Deprecated public Set<String> applications = new HashSet<String>();
+	public int flags = 0;
+
+	//shitty ally system
+	public Set<String> potentialFriends = new HashSet();
+	public HashMap<Clowder, Long> allies = new HashMap();
+	public HashMap<String, Long> alliesS = new HashMap(); //string version since NBT cringe memory gay
+	private final Map<FactionPermission, Boolean> allyPermissions = defaultPermissions(true);
+	private final Map<FactionPermission, Boolean> neutralPermissions = defaultPermissions(false);
+	public Set<String> activeWars = new HashSet();
+	public Set<String> enemyFactionUuids = new HashSet<String>();
+	public HashMap<String, Long> pendingEnemyRemovalTimes = new HashMap<String, Long>();
+	public Set<String> defendingAllies = new HashSet();
+	public HashMap<String, Long> warDeclaredAt = new HashMap();
+	public Set<String> surrenderRequests = new HashSet();
+	public Set<String> ceasefireRequests = new HashSet();
+	public Set<String> peaceRequests = new HashSet();
+	public HashMap<String, Long> noWarUntil = new HashMap();
+	public HashMap<String, Long> formerAllyNoWarUntil = new HashMap();
+	public long belowOnlineThresholdSince = 0L;
+	public int allyWarpX;
+	public int allyWarpY;
+	public int allyWarpZ;
+	public int allyWarpDim;
+	public long buildGraceUntil = 0L;
+	public boolean buildGraceUsed = false;
+	public String surrenderTributeTo = "";
+	public long surrenderTributeUntil = 0L;
+	public int citiesFounded = 0;
+	/** Server-authoritative relocation transaction; item NBT is never authoritative. */
+	public String relocationId = "", relocationCityId = "";
+	public int relocationDim, relocationX, relocationY, relocationZ;
+	public long relocationStarted, relocationExpires;
+	public HashMap<String, List<Long>> cityRelocationHistory = new HashMap<String, List<Long>>();
+	private int lastBankruptcyStage = 0;
+
+	public static List<Clowder> clowders = new ArrayList();
+	public static HashMap<UUID, Clowder> inverseMap = new HashMap<UUID, Clowder>();
+	/** Legacy migration index; it is never used by getClowderFromPlayer. */
+	@Deprecated private static HashMap<String, Clowder> legacyInverseMap = new HashMap<String, Clowder>();
+	public static HashSet<UUID> retreating = new HashSet<UUID>();
+	public static HashMap<Long, ScheduledTeleport> teleports = new HashMap();
+	public static final long ENEMY_REMOVAL_DELAY_MS = 72L * 60L * 60L * 1000L;
+
+	private static Map<FactionPermission, Boolean> defaultPermissions(boolean ally) {
+		Map<FactionPermission, Boolean> result = new java.util.EnumMap<FactionPermission, Boolean>(FactionPermission.class);
+		for(FactionPermission permission : FactionPermission.values())
+			result.put(permission, Boolean.valueOf(ally && (permission == FactionPermission.INTERACT || permission == FactionPermission.SWITCH)));
+		return result;
+	}
+
+	public boolean getTerritoryPermission(FactionRelationship relationship, FactionPermission permission) {
+		Boolean value = (relationship == FactionRelationship.ALLY ? allyPermissions : neutralPermissions).get(permission);
+		return value != null && value.booleanValue();
+	}
+
+	public void setTerritoryPermission(FactionRelationship relationship, FactionPermission permission, boolean allowed, World world) {
+		(relationship == FactionRelationship.ALLY ? allyPermissions : neutralPermissions).put(permission, Boolean.valueOf(allowed));
+		ClowderData.getData(world).markDirty();
+	}
+
+	public boolean isAtWarWith(Clowder other) {
+		if(other == null) return false;
+		return activeWars.contains(other.name) || activeWars.contains(other.uuid) || other.activeWars.contains(name) || other.activeWars.contains(uuid)
+				|| enemyFactionUuids.contains(other.uuid) || other.enemyFactionUuids.contains(uuid);
+	}
+
+	/** Resolves only normal visitors; members and war opponents remain under legacy rules. */
+	public boolean canVisitorAccess(Clowder actor, FactionPermission permission) {
+		if(actor == this) return true;
+		if(actor != null && isAtWarWith(actor)) return false;
+		return getTerritoryPermission(actor != null && allies.containsKey(actor) ? FactionRelationship.ALLY : FactionRelationship.NEUTRAL, permission);
+	}
+
+
+
+	// because we can't have ANYTHING nice
+	private float prestige = 0;
+	private float prestigeGen = 0;
+	private float prestigeReq = 0;
+	private float fabricateTime = 0;
+	private float canDeclareTime = 0;
+	private float warTime = 0;
+
+	public static final float STARTING_PRESTIGE = 250F;
+	public static final float BASE_PRESTIGE_GEN = 25F;
+	public static final float WAR_DECLARATION_COST = 150F;
+	public static final float WAR_DECLARATION_TARGET_PRESTIGE_FACTOR = 0.15F;
+	public static final float WAR_UPKEEP = 75F;
+	public static final float WAR_UPKEEP_HOURLY_GROWTH = 0.25F;
+	public static final float WAR_UPKEEP_HOURLY_GROWTH_SQUARED = 0.05F;
+	public static final float CITY_FOUNDING_COST_GROWTH = 0.50F;
+	public static final float SURRENDER_TRIBUTE_RATE = 0.50F;
+	public static final long SURRENDER_TRIBUTE_TIME = 84L * 60L * 60L * 1000L;
+	public static final float FINANCIAL_CRISIS_UPKEEP_MULT = 1.25F;
+	public static final float NATIONAL_COLLAPSE_UPKEEP_MULT = 1.50F;
+	public static final float FALLEN_NATION_UPKEEP_MULT = 2.00F;
+	public static final float tentRate = -75F;
+	public static final float medTentRate = -5F;
+	public static final float BlastRate = 5F;
+	public static final float GrainRate = 3F;
+	public static final float UniRate = 60F;
+	public static final float FedRate = 30F;
+	public static final float TempleRate = 90F;
+	public static final float statueRate = 15F;
+	public static final float flagRate = 0F;
+	public static final float flagReq = 10F;
+
+	public static float tentRate() { return -XFConfig.warpTentUpkeep; }
+	public static float medTentRate() { return -XFConfig.medTentUpkeep; }
+	public static float BlastRate() { return XFConfig.blastFurnacePrestige; }
+	public static float GrainRate() { return XFConfig.grainmillPrestige; }
+	public static float UniRate() { return XFConfig.universityPrestige; }
+	public static float FedRate() { return XFConfig.federalReservePrestige; }
+	public static float TempleRate() { return XFConfig.templePrestige; }
+	public static float statueRate() { return XFConfig.statuePrestige; }
+	public static float flagRate() { return XFConfig.cityCenterPrestige; }
+	public static float flagReq() { return XFConfig.cityClaimUpkeep; }
+
+	//this mod is so fucking retarded I guarantee you theres like 16 different ways this shit can be exploited
+	//or is just SHIT coding. and that's coming from a MCHELI developer.
+
+
+
+	//i guess you have to do this horseshit for the save to work
+
+
+
+
+
+	//minute timer for war declarations and war timer
+//	public static void updateWars(World world) {
+//
+//		for(Clowder clowder : clowders) {
+//
+//			//actually nvm send the message every 3 minutes
+//			boolean isDivisibleBy5fab = clowder.getFabricatetime() % 5 == 0;
+//
+//
+//			//initialize memory again just to be safe every minute
+//			{
+//				//memory memes so i can save clowders as strings for enemy and suzerain shit
+//				if(clowder.suzerainS == "nobody2584369")
+//					clowder.suzerain = null;
+//				else
+//					clowder.suzerain = getClowderFromName(clowder.suzerainS);
+//
+//				if(clowder.enemyS == "nobody2584369")
+//					clowder.enemy = null;
+//				else
+//					clowder.enemy = getClowderFromName(clowder.enemyS);
+//			}
+//
+//			if(clowder.treaty1 == "")
+//			{
+//				clowder.treaty1 = "nobody2584369";
+//				clowder.treatyTime1 = 0;
+//			}
+//			if(clowder.treaty2 == "")
+//			{
+//				clowder.treaty2 = "nobody2584369";
+//				clowder.treatyTime2 = 0;
+//			}
+//			if(clowder.treaty3 == "")
+//			{
+//				clowder.treaty3 = "nobody2584369";
+//				clowder.treatyTime3 = 0;
+//			}
+//			if(clowder.treaty4 == "")
+//			{
+//				clowder.treaty4 = "nobody2584369";
+//				clowder.treatyTime4 = 0;
+//			}
+//			if(clowder.treaty5 == "")
+//			{
+//				clowder.treaty5 = "nobody2584369";
+//				clowder.treatyTime5 = 0;
+//			}
+//			if(clowder.treaty6 == "")
+//			{
+//				clowder.treaty6 = "nobody2584369";
+//				clowder.treatyTime6 = 0;
+//			}
+//			if(clowder.treaty7 == "")
+//			{
+//				clowder.treaty7 = "nobody2584369";
+//				clowder.treatyTime7 = 0;
+//			}
+//
+//
+//
+//			//end of initialize again
+//
+//
+//
+//
+//
+//			/*
+//			if(clowder.peaceTreaty > 60)
+//				clowder.peaceTreaty = 60;
+//				*/
+//
+//
+//			//poorly coded anti fabrication bullying treaty
+//			//timers
+//			if (clowder.treatyTime1 > 0)
+//				clowder.treatyTime1 --;
+//			if (clowder.treatyTime2 > 0)
+//				clowder.treatyTime2 --;
+//			if (clowder.treatyTime3 > 0)
+//				clowder.treatyTime3 --;
+//			if (clowder.treatyTime4 > 0)
+//				clowder.treatyTime4 --;
+//			if (clowder.treatyTime5 > 0)
+//				clowder.treatyTime5 --;
+//			if (clowder.treatyTime6 > 0)
+//				clowder.treatyTime6 --;
+//			if (clowder.treatyTime7 > 0)
+//				clowder.treatyTime7 --;
+//
+//			//if timer done, "null" the treaties
+//			if (clowder.treatyTime1 <= 1 && clowder.treaty1 != "nobody2584369")
+//				clowder.treaty1 = "nobody2584369";
+//			if (clowder.treatyTime2 <= 1 && clowder.treaty2 != "nobody2584369")
+//				clowder.treaty2 = "nobody2584369";
+//			if (clowder.treatyTime3 <= 1 && clowder.treaty3 != "nobody2584369")
+//				clowder.treaty3 = "nobody2584369";
+//			if (clowder.treatyTime4 <= 1 && clowder.treaty4 != "nobody2584369")
+//				clowder.treaty4 = "nobody2584369";
+//			if (clowder.treatyTime5 <= 1 && clowder.treaty5 != "nobody2584369")
+//				clowder.treaty5 = "nobody2584369";
+//			if (clowder.treatyTime6 <= 1 && clowder.treaty6 != "nobody2584369")
+//				clowder.treaty6 = "nobody2584369";
+//			if (clowder.treatyTime7 <= 1 && clowder.treaty7 != "nobody2584369")
+//				clowder.treaty7 = "nobody2584369";
+//
+//			clowder.save(world);
+//
+//
+//
+//			if(clowder.getFabricatetime() > -1 && (clowder.enemy)!=null && clowder.getWartime() <= 0 && clowder.getCanDeclareTime() <= 0 && clowder.enemy != clowder.suzerain)
+//			{
+//				//float fabricateTime = clowder.getFabricatetime();
+//
+//				//fabricateTime *= (float)Math.pow(0.99, clowder.getFabricatetime());
+//
+//				//spam message per minute during last 1 min
+//				if(clowder.getFabricatetime()<5 && clowder.getFabricatetime()>2 && clowder.getCanDeclareTime() == 0 && clowder.getWartime() == 0 && clowder.enemy != clowder.suzerain)
+//				{
+//					clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "War declaration will be ready in " + (int)(clowder.getFabricatetime()-2) + " minutes!"));
+//					clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + clowder.name + " will be able to attack us in " + (int)(clowder.getFabricatetime()-2) + " minute(s)!"));
+//				}
+//
+//
+//				clowder.addFabricateTime(-1, world);
+//			}
+//
+//			//for revolt waiting time
+//			if(clowder.getFabricatetime() > 0 && (clowder.enemy)!=null && clowder.getWartime() <= 0 && clowder.getCanDeclareTime() <= 0 && clowder.enemy == clowder.suzerain)
+//			{
+//				clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "If our oppressors don't strike back, we will be free in " + (int)(clowder.getFabricatetime()-1) + " minutes!"));
+//				clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.ERROR + clowder.name + " will break free from us in " + (int)(clowder.getFabricatetime()-1) + " minute(s)!"));
+//				clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + " Use /c suppress " + clowder.name + " to forcefully stop them! (Will start civil-war)"));
+//				clowder.addFabricateTime(-1, world);
+//			}
+//
+//
+//
+//
+//			//handling vassal notifications
+//
+//
+//
+//			if (isDivisibleBy5fab)
+//			{
+//				//fabricate timer countdown per minute
+//				if(clowder.valid())
+//				{
+//					if(clowder.getFabricatetime() > -1 && (clowder.enemy)!=null && clowder.getCanDeclareTime() == 0 && clowder.getWartime() == 0)
+//					{
+//						//float fabricateTime = clowder.getFabricatetime();
+//
+//						//fabricateTime *= (float)Math.pow(0.99, clowder.getFabricatetime());
+//
+//						//dont hsow the message if its a revolt
+//						if (clowder.enemy != clowder.suzerain)
+//							clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + clowder.name + " will be able to attack us in " + (int)(clowder.getFabricatetime()-1) + " minute(s)!"));
+//						//if there is enough time to retreat, also suggest retreat to victim. not for revolts
+//						if(clowder.getFabricatetime() > 10 && clowder.enemy != clowder.suzerain)
+//						{
+//							clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.TITLE + "Officers can use /c retreat to try to cancel this attack!"));
+//							clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.TITLE + "Retreating makes you the aggressor's bitch, so choose wisely!"));
+//						}
+//					}
+//				}
+//			}
+//
+//			//if(clowder.enemy == null)
+//			//{
+//			//	clowder.pussy(world);
+//			//}
+//
+//
+//
+//			//if fabricate time is 1 minute left be ready for war      added extra enemy null check to prevent random declarations ready generating for free
+//			if(clowder.valid() && clowder.getFabricatetime() > -1 && clowder.getFabricatetime() <= 1.5 && clowder.enemy != null && clowder.getCanDeclareTime() == 0 && clowder.getWartime() == 0)
+//			{
+//
+//				if(clowder.enemy != clowder.suzerain)
+//				{
+//					//10 minutes you can instantly start war and fabricate timer is set to 0, nvm changed to 3 hours per hungary suggestion
+//					clowder.endFabricateTime(world);
+//					clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "War declaration is ready! Officers can /c declare for the next 4 hours!"));
+//				}
+//				//for revolt fabrication time end sending unltimatum
+//				else if (clowder.enemy == clowder.suzerain && clowder.getFabricatetime()==0 && clowder.getWartime() == 0)
+//				{
+//					//rebels break free peacefully and win some prestige
+//					clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "Our former masters lacked the will to oppose us! We have peacefully broken free of their grasp!"));
+//					clowder.notifyAll(world, new ChatComponentText(CommandClowder.INFO + "We also get back some prestige!"));
+//					//clowder.addPrestige(MainRegistry.fabricateCost*1.75f, world);
+//					//former master suffers
+//					clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + clowder.name + " is no longer our vassal!"));
+//					clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.ERROR + "This shameful setback will cost us some prestige..."));
+//					//clowder.enemy.addPrestige(-MainRegistry.fabricateCost, world);
+//					clowder.breakFree(world);
+//
+//				}
+//
+//
+//			}
+//
+//			//when war timer ends
+//			if(clowder.valid() && clowder.getWartime() <= 1.5 && (clowder.enemy)!=null && clowder.getCanDeclareTime() == 0 && clowder.getFabricatetime() == 0)
+//			{
+//				if(clowder.enemy != clowder.suzerain)
+//				{
+//
+//					//end of war treaty
+//					if(clowder.treaty1 == "nobody2584369" && clowder.treaty1 != clowder.enemy.name)
+//					{
+//						clowder.treaty1 = clowder.enemy.name;
+//						clowder.treatyTime1 = 90;
+//						//System.out.println("it tried to treaty1 puppy");
+//					}
+//					else if(clowder.treaty2 == "nobody2584369" && clowder.treaty2 != clowder.enemy.name)
+//					{
+//						clowder.treaty2 = clowder.enemy.name;
+//						clowder.treatyTime2 = 90;
+//					}
+//					else if(clowder.treaty3 == "nobody2584369" && clowder.treaty3 != clowder.enemy.name)
+//					{
+//						clowder.treaty3 = clowder.enemy.name;
+//						clowder.treatyTime3 = 90;
+//					}
+//					else if(clowder.treaty4 == "nobody2584369" && clowder.treaty4 != clowder.enemy.name)
+//					{
+//						clowder.treaty4 = clowder.enemy.name;
+//						clowder.treatyTime4 = 90;
+//					}
+//					else if(clowder.treaty5 == "nobody2584369" && clowder.treaty5 != clowder.enemy.name)
+//					{
+//						clowder.treaty5 = clowder.enemy.name;
+//						clowder.treatyTime5 = 90;
+//					}
+//					else if(clowder.treaty6 == "nobody2584369" && clowder.treaty6 != clowder.enemy.name)
+//					{
+//						clowder.treaty6 = clowder.enemy.name;
+//						clowder.treatyTime6 = 90;
+//					}
+//					else if(clowder.treaty7 == "nobody2584369" && clowder.treaty7 != clowder.enemy.name)
+//					{
+//						clowder.treaty7 = clowder.enemy.name;
+//						clowder.treatyTime7 = 90;
+//					}
+//
+//
+//
+//
+//					//war ended
+//					clowder.endWarTime(world);
+//
+//
+//
+//					clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "The war period has ended! Pack it up boys!"));
+//					clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + clowder.enemy.name + " also gets a 1.5 hour grace period."));
+//					clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + clowder.name + "'s war against us has ended!"));
+//
+//					//unmarks being a vassal targeting war
+//					clowder.vassalTarget = false;
+//					//unmarks victim as being the attacker's target
+//					clowder.enemy = null;
+//					clowder.enemyS = "nobody2584369";
+//					if(clowder.suzerain != null)
+//					{
+//						clowder.suzerain.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "Our vassal, " + clowder.name + ", has finished their war!"));
+//					}
+//					//resets overtime
+//					clowder.overtime = false;
+//					//and reset bonus minutes
+//					clowder.bonusPoints = 0;
+//				}
+//				//for revolts
+//
+//			}
+//
+//			//if master loses a revolt (war score went up to 60 minutes
+//			if(clowder.valid() && clowder.getWartime() >= 60 && clowder.enemy == clowder.suzerain && clowder.getCanDeclareTime() == 0 && clowder.getFabricatetime() == 0)
+//			{
+//				clowder.endWarTime(world);
+//				clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "Our revolt has succeeded. We are now independent!"));
+//				clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "We also get back our prestige!"));
+//				clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + clowder.name + "'s revolt against us has cost us too much."));
+//				clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "We have no choice but to let them leave the alliance. (for now)"));
+//				//unmarks victim as being targeted
+//				//clowder.enemy.targeted = false;
+//				//unmarks victim as being the attacker's target
+//				clowder.enemy = null;
+//				clowder.enemyS = "nobody2584369";
+//
+//				//get back prestige revolt cost
+//				//clowder.addPrestige(MainRegistry.fabricateCost*2, world);
+//				//unbitches bitches
+//				//clowder.bitch = false;
+//				clowder.suzerain = null;
+//				clowder.suzerainS = "nobody2584369";
+//
+//				//ClowderData.getData(world).markDirty();
+//			}
+//
+//
+//
+//			//didnt declare war within the 10 minutes i mean 3 hours
+//			if(clowder.valid() && clowder.getCanDeclareTime() <= 1.5 && (clowder.enemy)!=null && clowder.getWartime() <= 0 && clowder.getFabricatetime() <= 0 && clowder.enemy != clowder.suzerain)
+//			{
+//				//you missed the 10 minutes
+//				//clowder.endDeclareTime(world);
+//				//clowder.enemy.targeted = false;
+//				clowder.vassalTarget = false;
+//				clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + clowder.name + "'s war fabrication against us has expired!"));
+//				//clowder.pussy(world);
+//				clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "Too late! War fabrication has expired!"));
+//				clowder.notifyAll(world, new ChatComponentText(CommandClowder.TITLE + "We also get most of our prestige back!"));
+//				//clowder.addPrestige(MainRegistry.fabricateCost*0.9f, world);
+//
+//				//target is no longer enemy
+//				clowder.enemy = null;
+//				clowder.enemyS = "nobody2584369";
+//			}
+//
+//
+//
+//			//war time ticker
+//			if(clowder.valid() && clowder.getWartime() > 0 && (clowder.enemy)!=null) {
+//
+//				//float fabricateTime = clowder.getWartime();
+//
+//				//fabricateTime *= (float)Math.pow(0.99, clowder.getFabricatetime());
+//
+//				clowder.addWarTime(-1, world);
+//
+//				//during a revolt, if master pussies out, rebels get war score (timer going up to 1 hour means rebel victory)    also dont tick up if peace treaty so no 10 minute free conquest revolt timers from newly bitched
+//				//if(clowder.enemy == clowder.suzerain && !clowder.enemy.isRaidable() && clowder.peaceTreaty <= 0)
+//				//{
+//				//	clowder.addWarTime(2, world);
+//				//}
+//
+//
+//
+//
+//
+//
+//
+//
+//				//ping everyone about war status every 5 minutes  nevermind glitches out if decimal minutes from casualties
+//				/*
+//				boolean isDivisibleBy5 = clowder.getWartime() % 5 == 0;
+//
+//				if (isDivisibleBy5)
+//		        {
+//					clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "War will last for about " + clowder.getWartime() + " more minutes!"));
+//					clowder.notifyAll(world, new ChatComponentText(CommandClowder.TITLE + "War can be extended by using (WIP) but if we take casualties, it will end faster!"));
+//					clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + clowder.name + "'s war against us will last for about " + clowder.getWartime() + " more minutes!"));
+//					clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.TITLE + "War may be extended if " + clowder.name + " uses (WIP), but we can speed up the war by killing their members!"));
+//		        }
+//				*/
+//			}
+//
+//			//can declare war time ticks down per minute
+//			if(clowder.valid() && clowder.getCanDeclareTime() > 0 && clowder.enemy != null) {
+//
+//				//float canDeclareTime = clowder.getWartime();
+//
+//				//fabricateTime *= (float)Math.pow(0.99, clowder.getFabricatetime());
+//				clowder.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "Our officers have " + (int)(clowder.getCanDeclareTime()-1) + " minutes to officially declare war with /c declare!"));
+//				clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + (clowder.name) + " can declare war against us for the next " + (int)(clowder.getCanDeclareTime()-1) + " minutes!"));
+//				//suggest a preemptive strike
+//				clowder.enemy.notifyAll(world, new ChatComponentText(CommandClowder.TITLE + "We can start the war now with /c preemptive " + (clowder.name) ));
+//				clowder.addCanDeclareTime(-1, world);
+//			}
+//
+//
+//
+//
+//		}
+//	}
+
+	//annoying and retarded
+
+	//for cancelling wars/fabrications
+	//public void pussy(World world) {
+	//	fabricateTime = 0;
+	//	canDeclareTime = 0;
+	//	//if(enemy != null)
+	//	//	enemy.targeted = false;
+	//	enemy = null;
+	//	enemyS = "nobody2584369";
+	//	warTime = 0;
+	//	overtime = false;
+	//	bonusPoints = 0;
+	//	vassalTarget = false;
+	//	this.save(world);
+	//}
+
+	//YOU DONT GET TO DO THAT THIS IS A WAR SERVER
+
+	public Clowder split(String name, String[] players, World world) {
+
+		Clowder newClowder = new Clowder();
+
+		String newLeader = null;
+		boolean movedAnyone = false;
+
+		for (String p : players) {
+
+			if (!this.members.containsKey(p)) continue;
+
+			movedAnyone = true;
+
+			// Preserve officer status
+			boolean wasOfficer = this.officers.contains(p);
+
+			// Remove from old
+			this.members.remove(p);
+			this.officers.remove(p);
+
+			if (p.equals(this.leader)) {
+				this.leader = null;
+			}
+
+			// Add to new
+			newClowder.members.put(p, time());
+			legacyInverseMap.put(p, newClowder);
+
+			if (wasOfficer) {
+				newClowder.officers.add(p);
+			}
+
+			if (newLeader == null) {
+				newLeader = p;
+			}
+		}
+
+		// 🚫 No valid players → cancel
+		if (!movedAnyone) {
+			return null;
+		}
+
+		// Set name (CRITICAL)
+		newClowder.name = canonicalizeClowderName(name);
+
+		// Assign leader
+		newClowder.leader = newLeader;
+
+		// Fix old faction leader if needed
+		if (this.leader == null && !this.members.isEmpty()) {
+			this.leader = this.members.keySet().iterator().next();
+		}
+
+		// Stats (your choice)
+		newClowder.prestige = 0;
+		newClowder.prestigeGen = 0;
+
+		// Register
+		clowders.add(newClowder);
+
+		// Notify
+		this.notifyAll(world, new ChatComponentText(
+				CommandClowder.TITLE + "A new faction " + name + " has split off!"
+		));
+
+		newClowder.notifyAll(world, new ChatComponentText(
+				CommandClowder.TITLE + "You are now part of " + name + "!"
+		));
+
+		ClowderData.getData(world).markDirty();
+
+		return newClowder;
+	}
+
+	//memory memes initialize memory shit for labjac poorly coded stuff
+	//... literally could just be saved to txt or something
+	public static void initializeDiplomacy(World world)
+	{
+
+		for(Clowder clowder : clowders)
+		{
+
+			//memory memes so i can save clowders as strings for enemy and suzerain shit
+			if(clowder.suzerainS == "nobody2584369")
+				clowder.suzerain = null;
+			else
+				clowder.suzerain = getClowderFromName(clowder.suzerainS);
+
+			if(clowder.enemyS == "nobody2584369")
+				clowder.enemy = null;
+			else
+				clowder.enemy = getClowderFromName(clowder.enemyS);
+
+			if(clowder.treaty1 == "")
+			{
+				clowder.treaty1 = "nobody2584369";
+				clowder.treatyTime1 = 0;
+			}
+			if(clowder.treaty2 == "")
+			{
+				clowder.treaty2 = "nobody2584369";
+				clowder.treatyTime2 = 0;
+			}
+			if(clowder.treaty3 == "")
+			{
+				clowder.treaty3 = "nobody2584369";
+				clowder.treatyTime3 = 0;
+			}
+			if(clowder.treaty4 == "")
+			{
+				clowder.treaty4 = "nobody2584369";
+				clowder.treatyTime4 = 0;
+			}
+			if(clowder.treaty5 == "")
+			{
+				clowder.treaty5 = "nobody2584369";
+				clowder.treatyTime5 = 0;
+			}
+			if(clowder.treaty6 == "")
+			{
+				clowder.treaty6 = "nobody2584369";
+				clowder.treatyTime6 = 0;
+			}
+			if(clowder.treaty7 == "")
+			{
+				clowder.treaty7 = "nobody2584369";
+				clowder.treatyTime7 = 0;
+			}
+
+			//if(clowder.suzerain==null)
+			//	clowder.bitch = false;
+
+
+			//using shitty strings to trick NBT into being able to memorize your allies
+			for (String friend : clowder.alliesS.keySet())
+			{
+				Clowder ally = getClowderFromName(friend);
+
+				if (ally != null)
+				{
+					clowder.allies.put(ally, time());
+					//System.out.println(ally.name + " added to ally list of " + clowder.name);
+				}
+			}
+
+		}
+		XFLog.debug("Initializing legacy clowder diplomacy systems");
+
+	}
+
+	public void notifyCapture(World world, int x, int z, String type) {
+
+		notifyAll(world, new ChatComponentText(EnumChatFormatting.RED + "One of your " + type + " at X:" + x + " / Z:" + z + " is under attack!"));
+		notifyAll(world, new ChatComponentText(EnumChatFormatting.YELLOW + "If this is a defensive war, the enemy gained 1 minute of extra war-time from taking that chunk!"));
+
+		if(!warps.isEmpty()) {
+
+			double dist = Double.POSITIVE_INFINITY;
+			String closest = "";
+
+			for(String key : warps.keySet()) {
+
+				int[] pos = warps.get(key);
+
+				if(pos != null) {
+
+					double d = Math.sqrt(Math.pow(x - pos[0], 2) + Math.pow(z - pos[2], 2));
+
+					if(d < dist) {
+						dist = d;
+						closest = key;
+					}
+				}
+			}
+
+			notifyAll(world, new ChatComponentText(EnumChatFormatting.RED + "Your closest warp is " + closest + " (" + ((int)dist) + "m)"));
+		}
+	}
+
+
+
+	//to prevent sethome spam / allypoint spam
+	public void addSethomeDelay(float f, World world) {
+		sethomeDelay += f;
+
+		if(sethomeDelay < 0)
+			sethomeDelay = 0;
+
+		this.save(world);
+	}
+
+	//12 hour peace
+
+	//public float getPeaceTreaty() {
+	//	return peaceTreaty;
+	//}
+
+	public String getDecoratedName() {
+
+		String n = this.name.replace("_", " ").trim();
+		float p = getPrestige();
+
+		if(p < 0)
+			n += " - Bankrupt State";
+		else if(p < 100)
+			n += " - Unorganized Mob";
+		else if(p < 250)
+			n += " - Clan";
+		else if(p < 500)
+			n += " - Tribe";
+		else if(p < 1000)
+			n += " - Chiefdom";
+		else if(p < 1750)
+			n += " - City-State";
+		else if(p < 2750)
+			n += " - Sheikhdom";
+		else if(p < 4000)
+			n += " - Emirate";
+		else if(p < 6000)
+			n += " - Sultanate";
+		else if(p < 8500)
+			n += " - Empire";
+		else
+			n += " - Caliphate";
+
+		return n;
+	}
+
+	public boolean vassalize(World world, String Master, String Vassal) {
+
+		if(getClowderFromName(Master) == null || getClowderFromName(Vassal) == null)
+			return false;
+
+
+
+		getClowderFromName(Vassal).suzerainS = Master;
+		getClowderFromName(Vassal).suzerain = getClowderFromName(Master);
+		ClowderData.getData(world).markDirty();
+
+		return true;
+	}
+
+
+	public boolean markEnemy(World world, String Attacker, String Target) {
+
+		if(getClowderFromName(Attacker) == null || getClowderFromName(Target) == null)
+			return false;
+
+
+
+		getClowderFromName(Attacker).enemyS = Target;
+		getClowderFromName(Attacker).enemy = getClowderFromName(Target);
+		ClowderData.getData(world).markDirty();
+
+		return true;
+	}
+
+	public boolean addAlly(World world, Clowder friend) {
+
+		if (!friend.valid())
+			return false;
+
+		if (allies.get(friend) != null)
+			return false;
+
+		allies.put(friend, time());
+		alliesS.put(friend.name, time()); //nbt compliant version..? what does that mean??
+		//probably fixes ally shit to actually work...?
+		//I fucking hate old labshit weeder and retarded bob code so goddamn much
+		legacyInverseMap.put(name, this); //i dont know wtf the inversemap shit is
+
+		//I fucking HATE everything about this mod.
+
+		ClowderData.getData(world).markDirty();
+
+		return true;
+	}
+
+	public boolean canRaid(Clowder other) {
+		if(other == null || !isAtWarWith(other))
+			return false;
+		if(!this.isRaidable())
+			return false;
+		return other.isRaidableAgainst(this);
+	}
+
+	public boolean isRaidableAgainst(Clowder aggressor) {
+		long now = System.currentTimeMillis();
+		int online = getOnlineMemberCount();
+		if (online >= XFConfig.warOnlinePlayerThreshold) {
+			belowOnlineThresholdSince = 0L;
+			return true;
+		}
+		if (belowOnlineThresholdSince <= 0L)
+			belowOnlineThresholdSince = now;
+		if (now - belowOnlineThresholdSince <= XFConfig.raidGraceAfterOnlineDropMs)
+			return true;
+
+		if(aggressor != null) {
+			Long decl = aggressor.warDeclaredAt.get(this.name);
+			if(decl != null && now - decl >= 12L * 60L * 60L * 1000L)
+				return true;
+		}
+		return false;
+	}
+
+
+	public boolean addMember(World world, String name) {
+		if (FactionMembershipGuard.isBlocked(world))
+			return false;
+
+		if (world.getPlayerEntityByName(name) == null)
+			return false;
+
+		if (legacyInverseMap.containsKey(name) || members.get(name) != null)
+			return false;
+
+
+		EntityPlayer player = world.getPlayerEntityByName(name);
+		UUID uuid = PlayerIdentityService.uuid(player);
+		String profileName = PlayerIdentityService.profileName(player);
+		if(uuid == null || profileName.isEmpty()) return false;
+		members.put(profileName, time());
+		memberRecords.put(uuid, new FactionMemberRecord(uuid, profileName, time(), FactionRole.MEMBER));
+		legacyInverseMap.put(profileName, this);
+		recalculateIMap();
+
+		ClowderData.getData(world).markDirty();
+
+		return true;
+	}
+
+	public boolean removeMember(World world, String name) {
+
+		if (!legacyInverseMap.containsKey(name) && members.get(name) == null)
+			return false;
+
+		members.remove(name);
+		officers.remove(name);
+		legacyInverseMap.remove(name);
+		String normalized = PlayerIdentityService.normalizeName(name);
+		UUID removeUuid = null;
+		for(FactionMemberRecord record : memberRecords.values()) if(normalized.equals(PlayerIdentityService.normalizeName(record.lastKnownName))) { if(removeUuid != null) return false; removeUuid = record.playerUuid; }
+		if(removeUuid != null) memberRecords.remove(removeUuid);
+		recalculateIMap();
+
+		ClowderData.getData(world).markDirty();
+
+		return true;
+	}
+
+	public boolean removeAlly(World world, String name) {
+		Clowder formerAlly = getClowderFromName(name);
+		if (allies.get(formerAlly) == null)
+			return false;
+
+		allies.remove(formerAlly);
+		ClowderData.getData(world).markDirty();
+
+		return true;
+	}
+
+	public void becomeVassal(Clowder vassal, EntityPlayer player, Clowder suzerain) {
+
+		vassal.suzerain = suzerain;
+
+		cleanEnemyRelationReferences(player.worldObj);
+		ClowderData.getData(player.worldObj).markDirty();
+		syncNameplateDataAll();
+	}
+
+	// war declare system
+	public float getFabricatetime() {
+		return fabricateTime;
+	}
+
+	public float getWartime() {
+		return warTime;
+	}
+
+	public float getCanDeclareTime() {
+		return canDeclareTime;
+	}
+
+	public boolean transferOwnership(World world, String key) {
+
+		FactionMemberRecord next = findMemberByName(key);
+		if(next == null) return false;
+		for(FactionMemberRecord record : memberRecords.values()) if(record.role == FactionRole.OWNER) record.role = FactionRole.OFFICER;
+		next.role = FactionRole.OWNER;
+		officers.remove(key);
+		leader = next.lastKnownName;
+		ClowderData.getData(world).markDirty();
+
+		return true;
+	}
+
+	public void promote(World world, String name) {
+		FactionMemberRecord record = findMemberByName(name);
+		if(record == null || record.role != FactionRole.MEMBER) return;
+		record.role = FactionRole.OFFICER;
+		officers.add(record.lastKnownName); // legacy save compatibility only
+		this.save(world);
+	}
+
+	public void demote(World world, String name) {
+
+		FactionMemberRecord record = findMemberByName(name);
+		if(record == null || record.role != FactionRole.OFFICER) return;
+		record.role = FactionRole.MEMBER;
+		officers.remove(record.lastKnownName); // legacy save compatibility only
+		this.save(world);
+	}
+
+	public int getPermLevel(String name) {
+		if(!PlayerIdentityService.usesNames()) return 0;
+		FactionMemberRecord record = findMemberByName(name);
+		return record == null ? 0 : record.role.getPermissionLevel();
+	}
+
+	/** Resolves a command-supplied member name to the canonical record. Not suitable for authorizing the sender. */
+	public FactionMemberRecord findMemberByName(String name) {
+		String key = PlayerIdentityService.normalizeName(name);
+		FactionMemberRecord match = null;
+		for(FactionMemberRecord record : memberRecords.values()) if(key.equals(PlayerIdentityService.normalizeName(record.lastKnownName))) {
+			if(match != null) { if(MainRegistry.logger != null) MainRegistry.logger.error("Ambiguous member name '" + key + "' in " + this.name); return null; }
+			match = record;
+		}
+		return match;
+	}
+
+	public FactionMemberRecord getMember(UUID playerUuid) { return memberRecords.get(playerUuid); }
+	public FactionRole getRole(UUID playerUuid) { FactionMemberRecord r = getMember(playerUuid); return r == null ? null : r.role; }
+	public FactionRole getRole(EntityPlayer player) { FactionMemberRecord r = findMember(player); return r == null ? null : r.role; }
+	public String getOwnerName() {
+		for(FactionMemberRecord record : memberRecords.values()) if(record.role == FactionRole.OWNER) return record.lastKnownName;
+		return "<unresolved legacy owner>";
+	}
+	public int getMemberCount() { return memberRecords.size(); }
+	public List<String> getMemberNames() {
+		List<String> names = new ArrayList<String>();
+		for(FactionMemberRecord record : memberRecords.values()) names.add(record.lastKnownName);
+		return names;
+	}
+	public boolean hasMember(UUID playerUuid) { return playerUuid != null && memberRecords.containsKey(playerUuid); }
+	public boolean isOwner(UUID playerUuid) { FactionMemberRecord r = getMember(playerUuid); return r != null && r.role == FactionRole.OWNER; }
+	public boolean isOfficer(UUID playerUuid) { FactionMemberRecord r = getMember(playerUuid); return r != null && r.role == FactionRole.OFFICER; }
+	public int getPermLevel(UUID playerUuid) { FactionMemberRecord r = getMember(playerUuid); return r == null ? 0 : r.role.getPermissionLevel(); }
+	public int getPermLevel(EntityPlayer player) {
+		FactionMemberRecord record = findMember(player);
+		return record == null ? 0 : record.role.getPermissionLevel();
+	}
+
+	public static String getRoleDisplayName(FactionRole role) {
+		if(role == FactionRole.OWNER) return "Leader";
+		if(role == FactionRole.OFFICER) return "Officer";
+		return "Citizen";
+	}
+
+	public FactionMemberRecord findMember(EntityPlayer player) {
+		if(player == null) return null;
+		if(!PlayerIdentityService.usesNames()) return getMember(PlayerIdentityService.uuid(player));
+		String key = PlayerIdentityService.normalizeName(PlayerIdentityService.profileName(player));
+		FactionMemberRecord match = null;
+		for(FactionMemberRecord candidate : memberRecords.values()) {
+			if(candidate == null || !key.equals(PlayerIdentityService.normalizeName(candidate.lastKnownName))) continue;
+			if(match != null) {
+				if(MainRegistry.logger != null) MainRegistry.logger.error("Ambiguous faction member name '" + key + "' in " + name + "; authorization denied.");
+				return null;
+			}
+			match = candidate;
+		}
+		return match;
+	}
+
+	public boolean updateLastKnownName(EntityPlayer player) {
+		if (player == null) return false;
+		FactionMemberRecord record = findMember(player);
+		String name = PlayerIdentityService.profileName(player);
+		if (record == null || name == null || name.equals(record.lastKnownName)) return false;
+		record.lastKnownName = name;
+		ClowderData data = ClowderData.getData(player.worldObj);
+		if (data != null) data.markDirty();
+		syncNameplateDataAll();
+		return true;
+	}
+
+
+	//public int getBitches(Clowder clowder) {
+//
+	//	int bitches = 0;
+//
+	//	for(Clowder everyone : clowder.clowders)
+	//	{
+	//		//if (everyone.suzerain == clowder && everyone.bitch)
+	//		//	bitches ++;
+	//	}
+//
+	//	return bitches;
+	//}
+
+
+
+	public void setHome(double x, double y, double z, EntityPlayer player) {
+        if (player == null || !isInCapital(player.worldObj, (int)Math.floor(x), (int)Math.floor(z)))
+            throw new IllegalArgumentException("Faction home must be inside the designated capital.");
+
+        this.homeX = (int)Math.floor(x);
+        this.homeY = (int)Math.floor(y);
+        this.homeZ = (int)Math.floor(z);
+		this.homeDim = player != null ? ClowderTerritory.getDimensionId(player.worldObj) : 0;
+		this.homeSet = true;
+
+		if(player != null && player.worldObj != null)
+			ClowderData.getData(player.worldObj).markDirty();
+	}
+
+	public void setAllyWarp(double x, double y, double z, EntityPlayer player) {
+
+		this.allyWarpX = (int) x;
+		this.allyWarpY = (int) y;
+		this.allyWarpZ = (int) z;
+		this.allyWarpDim = player != null ? ClowderTerritory.getDimensionId(player.worldObj) : 0;
+
+		if(player != null && player.worldObj != null)
+			ClowderData.getData(player.worldObj).markDirty();
+	}
+
+	public void rename(String name, EntityPlayer player) {
+
+		this.name = canonicalizeClowderName(name);
+
+		ClowderData.getData(player.worldObj).markDirty();
+		com.hfr.dynmap.XFDynmapIntegration.markDirty();
+	}
+
+	public void setMotd(String motd, EntityPlayer player) {
+
+		this.motd = motd;
+
+		ClowderData.getData(player.worldObj).markDirty();
+	}
+
+	public void setColor(int color, EntityPlayer player) {
+
+		this.color = color;
+
+		ClowderData.getData(player.worldObj).markDirty();
+		com.hfr.dynmap.XFDynmapIntegration.markDirty();
+	}
+
+	public void save(World world) {
+
+		if (world == null)
+			return;
+		ClowderData.getData(world).markDirty();
+	}
+
+	// 0 - created
+	// 1 - not home
+	// 2 - no tent
+	public int tryAddWarp(EntityPlayer player, int x, int y, int z, String name) {
+
+		World world = player.worldObj;
+
+		if (!ClowderTerritory.isPlayerHome(player))
+			return 1;
+
+		Clowder clowder = Clowder.getClowderFromPlayer(player);
+
+		for (int i = 2; i <= 5; i++) {
+
+			ForgeDirection dir = ForgeDirection.getOrientation(i);
+
+			Block block = world.getBlock(x + dir.offsetX * 2, y, z + dir.offsetZ * 2);
+
+			if (block == ModBlocks.tp_tent) {
+
+				int[] pos = ((BlockDummyable) ModBlocks.tp_tent).findCore(world, x + dir.offsetX * 2, y,
+						z + dir.offsetZ * 2);
+
+				if (pos != null) {
+
+					TileEntityProp tent = (TileEntityProp) world.getTileEntity(pos[0], pos[1], pos[2]);
+
+					if (tent.warp.isEmpty() && tent.operational()) {
+
+						tent.warp = name;
+						tent.markDirty();
+
+						clowder.warps.put(name, new int[] { x, y + 1, z, world.provider.dimensionId });
+
+						ClowderData.getData(world).markDirty();
+						return 0;
+					}
+				}
+			}
+		}
+
+		return 2;
+	}
+
+	public boolean isOwner(EntityPlayer player) {
+		return player != null && getPermLevel(player) == FactionRole.OWNER.getPermissionLevel();
+	}
+
+	public void mergeWith(Clowder target, World world) {
+
+		if (target == null || target.uuid.equals(this.uuid)) return;
+		// Canonical transfer. The absorbed owner intentionally becomes an officer,
+		// matching the historical merge design; the target owner remains unique.
+		for(FactionMemberRecord source : new ArrayList<FactionMemberRecord>(memberRecords.values())) {
+			if(target.memberRecords.containsKey(source.playerUuid)) continue;
+			FactionRole role = source.role == FactionRole.OWNER ? FactionRole.OFFICER : source.role;
+			target.memberRecords.put(source.playerUuid,
+					new FactionMemberRecord(source.playerUuid, source.lastKnownName, source.joinedAt, role));
+		}
+
+		// Cancel any active war/fabrication to avoid weird state carryover
+		//this.pussy(world);
+		//not used crap from shitty labjac code
+
+		// 1. Transfer members (CRITICAL: fix legacyInverseMap)
+		for (String member : this.members.keySet()) {
+			target.members.put(member, time());
+			legacyInverseMap.put(member, target);
+		}
+
+		// 2. Transfer officers
+		for (String officer : this.officers) {
+			target.officers.add(officer);
+		}
+
+		// 3. Move leader → officer in target
+		if (this.leader != null && !this.leader.isEmpty()) {
+			target.members.put(this.leader, time());
+			target.officers.add(this.leader);
+			legacyInverseMap.put(this.leader, target);
+		}
+
+		// 4. Merge warps (avoid overwriting)
+		for (String warp : this.warps.keySet()) {
+			if (!target.warps.containsKey(warp)) {
+				target.warps.put(warp, this.warps.get(warp));
+			} else {
+				target.warps.put(warp + "_m", this.warps.get(warp));
+			}
+		}
+
+		// 5. Merge allies (simple add, no duplicates)
+		for (Clowder ally : this.allies.keySet()) {
+			if (ally != target) {
+				target.allies.put(ally, time());
+				target.alliesS.put(ally.name, time());
+			}
+		}
+
+		// 6. Merge one-way enemy relations by UUID and fix OTHER clowders that reference this one
+		for(String enemyUuid : this.enemyFactionUuids) {
+			if(enemyUuid != null && !enemyUuid.equals(target.uuid))
+				target.enemyFactionUuids.add(enemyUuid);
+		}
+		for(String enemyUuid : this.pendingEnemyRemovalTimes.keySet()) {
+			if(enemyUuid != null && !enemyUuid.equals(target.uuid) && !target.pendingEnemyRemovalTimes.containsKey(enemyUuid))
+				target.pendingEnemyRemovalTimes.put(enemyUuid, this.pendingEnemyRemovalTimes.get(enemyUuid));
+		}
+
+		// 6. Fix OTHER clowders that reference this one as ally/enemy
+		for (Clowder c : clowders) {
+			if (c.allies.containsKey(this)) {
+				c.allies.remove(this);
+				c.allies.put(target, time());
+				c.alliesS.remove(this.name);
+				c.alliesS.put(target.name, time());
+			}
+
+			// also fix enemy references
+			if (c.enemy == this) {
+				c.enemy = target;
+				c.enemyS = target.name;
+			}
+			if(c.enemyFactionUuids.remove(this.uuid))
+				c.enemyFactionUuids.add(target.uuid);
+			if(c.pendingEnemyRemovalTimes.containsKey(this.uuid)) {
+				Long removal = c.pendingEnemyRemovalTimes.remove(this.uuid);
+				if(!c.pendingEnemyRemovalTimes.containsKey(target.uuid))
+					c.pendingEnemyRemovalTimes.put(target.uuid, removal);
+			}
+		}
+
+		// 7. Merge stats
+		for (ClowderTerritory.TerritoryMeta meta : ClowderTerritory.territories.values()) {
+			if (meta != null && meta.owner != null && meta.owner.zone == ClowderTerritory.Zone.FACTION && meta.owner.owner == this) {
+				meta.owner.owner = target;
+			}
+		}
+
+		// 8. Merge stats
+		target.addPrestige(this.prestige, world);
+		target.addPrestigeGen(this.prestigeGen, world);
+
+		// 9. Notify both sides
+		target.notifyAll(world, new ChatComponentText(
+				CommandClowder.TITLE + this.name + " merged into " + target.name + "!"
+		));
+		this.notifyAll(world, new ChatComponentText(
+				CommandClowder.TITLE + "Your faction has merged into " + target.name + "!"
+		));
+
+		// 10. Delete this clowder
+		this.disbandClowder(world);
+
+		// 11. Save
+		ClowderData.getData(world).markDirty();
+	}
+
+	public boolean disbandClowder(EntityPlayer player) {
+
+		if (!isOwner(player))
+			return false;
+
+		clowders.remove(this);
+        ClowderData.getData(player.worldObj).clearMarketTerminal(uuid);
+		recalculateIMap();
+		this.leader = "";
+
+		ClowderData.getData(player.worldObj).markDirty();
+
+		return true;
+	}
+
+
+
+	public boolean disbandClowder(World world) {
+
+		clowders.remove(this);
+        ClowderData.getData(world).clearMarketTerminal(uuid);
+		recalculateIMap();
+		this.leader = "";
+		this.members.clear();
+		this.memberRecords.clear();
+		this.applicationsByUuid.clear();
+		this.allies.clear();
+
+		cleanEnemyRelationReferences(world);
+		ClowderData.getData(world).markDirty();
+		syncNameplateDataAll();
+
+		return true;
+
+	}
+
+	public boolean valid() {
+		for(FactionMemberRecord record : memberRecords.values())
+			if(record.role == FactionRole.OWNER) return clowders.contains(this);
+		// An unresolved pre-UUID save stays loadable until the migration binder
+		// creates canonical records; legacy data never overrides existing records.
+		return memberRecords.isEmpty() && leader != null && !leader.isEmpty() && clowders.contains(this);
+	}
+
+	public boolean isRaidable() {
+
+		if (MainRegistry.freeRaid)
+			return true;
+
+		if (Clowder.forceOnline)
+			return true;
+
+		int online = getOnlineMemberCount();
+		if (online >= XFConfig.warOnlinePlayerThreshold) {
+			belowOnlineThresholdSince = 0L;
+			return true;
+		}
+		if (belowOnlineThresholdSince <= 0L)
+			belowOnlineThresholdSince = System.currentTimeMillis();
+		return System.currentTimeMillis() - belowOnlineThresholdSince <= XFConfig.raidGraceAfterOnlineDropMs;
+	}
+
+	public int getOnlineMemberCount() {
+		int online = 0;
+		for (String s : this.members.keySet()) {
+			Long l = this.members.get(s);
+			if (l > System.currentTimeMillis())
+				online++;
+		}
+		return online;
+	}
+
+	public int getPlayersOnline() {
+		return getOnlineMemberCount();
+	}
+
+	// cohesion my fucking balls
+	// if i want a math utility in my clowder class i'll fucking have one
+	public static String round(float f) {
+
+		return "" + Math.floor(f * 10D) / 10D;
+	}
+
+	public float getPrestige() {
+		return prestige;
+	}
+
+	public float getPrestigeGen() {
+		return prestigeGen;
+	}
+
+	public float getPrestigeReq() {
+		return prestigeReq;
+	}
+
+	public void addPrestige(float f, World world) {
+
+		prestige += f;
+		prestige = Math.min(prestige, prestigeCap);
+		this.save(world);
+	}
+
+	public void addPrestigeGen(float f, World world) {
+		prestigeGen += f;
+
+		if (prestigeGen < 0)
+			prestigeGen = 0F;
+
+		prestigeGen = Math.min(prestigeGen, XFConfig.prestigeGenCap);
+		refreshPrestigeDisplays();
+		this.save(world);
+	}
+
+	private void refreshPrestigeDisplays() {
+		for(ClowderTerritory.TerritoryMeta meta : ClowderTerritory.getCityClaims(this)) {
+			if(meta == null)
+				continue;
+			World world = DimensionManager.getWorld(meta.dimensionId);
+			if(world == null)
+				continue;
+			TileEntity te = world.getTileEntity(meta.flagX, meta.flagY, meta.flagZ);
+			if(te instanceof TileEntityFlag)
+				((TileEntityFlag)te).syncPrestigeGauges();
+		}
+	}
+
+	public void addPrestigeReq(float f, World world) {
+		prestigeReq += f;
+
+		if (prestigeReq < 0)
+			prestigeReq = 0F;
+
+		this.save(world);
+	}
+
+	public void multPrestige(float f, World world) {
+		prestige *= f;
+		prestige = (float)(Math.floor(prestige * 10D) / 10D);
+
+		this.save(world);
+	}
+
+	public int getBankruptcyStage() {
+		if(!XFConfig.enableNegativePrestigePenalties)
+			return 0;
+		if(prestige < XFConfig.fallenNationThreshold)
+			return 3;
+		if(prestige < XFConfig.nationalCollapseThreshold)
+			return 2;
+		if(prestige < XFConfig.financialCrisisThreshold)
+			return 1;
+		return 0;
+	}
+
+	public String getBankruptcyStageName() {
+		switch(getBankruptcyStage()) {
+		case 3: return "Fallen Nation";
+		case 2: return "National Collapse";
+		case 1: return "Financial Crisis";
+		default: return "Stable Nation";
+		}
+	}
+
+	public boolean isInFinancialCrisis() {
+		return getBankruptcyStage() >= 1;
+	}
+
+	public boolean areWarpsDisabled() {
+		return getBankruptcyStage() >= 2;
+	}
+
+	public boolean areAllyWarpsDisabled() {
+		return getBankruptcyStage() >= 1;
+	}
+
+	public boolean isInfrastructureDisabled() {
+		return getBankruptcyStage() >= 3;
+	}
+
+	public float getUpkeepMultiplier() {
+		switch(getBankruptcyStage()) {
+		case 3: return XFConfig.fallenNationUpkeepMult;
+		case 2: return XFConfig.nationalCollapseUpkeepMult;
+		case 1: return XFConfig.financialCrisisUpkeepMult;
+		default: return 1F;
+		}
+	}
+
+	public float getWarDeclarationCost(Clowder target) {
+		float targetPrestige = target == null ? 0F : Math.max(0F, target.getPrestige());
+		return XFConfig.warDeclarationBaseCost + targetPrestige * XFConfig.warDeclarationTargetPrestigeFactor;
+	}
+
+	public int getOwnedCityCount() {
+		return ClowderTerritory.getCityClaims(this).size();
+	}
+
+	public void reconcileCitiesFounded(World world) {
+		int current = getOwnedCityCount();
+		if(citiesFounded != current) {
+			citiesFounded = current;
+			save(world);
+		}
+	}
+
+	public float getCityFoundingCost() {
+		return XFConfig.cityUpgradeCost(CityLevel.SETTLEMENT) * (1F + Math.max(0, getOwnedCityCount()) * XFConfig.cityFoundingCostGrowth);
+	}
+
+	public void markCityFounded(World world) {
+		reconcileCitiesFounded(world);
+	}
+
+    public boolean isInCapital(World world, int x, int z) {
+        return world != null && isInCapital(world.provider.dimensionId, x, z);
+    }
+
+    public boolean isInCapital(int dimension, int x, int z) {
+        ClowderTerritory.TerritoryMeta meta = ClowderTerritory.getMetaFromIntCoords(dimension, x, z);
+        return capitalDesignated && meta != null && meta.isCityClaim() && meta.owner != null
+            && meta.owner.zone == ClowderTerritory.Zone.FACTION && meta.owner.owner == this
+            && capitalCityId.equals(meta.cityId);
+    }
+
+    /** One-time legacy migration: preserve an owned home city, otherwise choose deterministic coordinates. */
+    public boolean migrateCapital() {
+        if (capitalDesignated) return false;
+        List<ClowderTerritory.TerritoryMeta> cities = ClowderTerritory.getCityClaims(this);
+        if (cities.isEmpty()) return false;
+        ClowderTerritory.TerritoryMeta chosen = ClowderTerritory.getMetaFromIntCoords(homeDim, homeX, homeZ);
+        if (chosen == null || !chosen.isCityClaim() || chosen.owner == null || chosen.owner.owner != this) {
+            Collections.sort(cities, new java.util.Comparator<ClowderTerritory.TerritoryMeta>() {
+                public int compare(ClowderTerritory.TerritoryMeta a, ClowderTerritory.TerritoryMeta b) {
+                    int v = Integer.compare(a.dimensionId, b.dimensionId);
+                    if (v == 0) v = Integer.compare(a.flagX, b.flagX);
+                    if (v == 0) v = Integer.compare(a.flagY, b.flagY);
+                    return v == 0 ? Integer.compare(a.flagZ, b.flagZ) : v;
+                }
+            });
+            chosen = cities.get(0);
+        }
+        // Older claim loaders could rewrite UUIDs to coordinates while the City Center retained its UUID.
+        net.minecraft.world.World cityWorld = net.minecraftforge.common.DimensionManager.getWorld(chosen.dimensionId);
+        if (cityWorld != null) {
+            net.minecraft.tileentity.TileEntity source = cityWorld.getTileEntity(chosen.flagX, chosen.flagY, chosen.flagZ);
+            if (source instanceof TileEntityFlag) {
+                String stable = ((TileEntityFlag)source).getCityId();
+                if (!stable.equals(chosen.cityId)) {
+                    for (ClowderTerritory.TerritoryMeta meta : ClowderTerritory.territories.values())
+                        if (meta != null && meta.dimensionId == chosen.dimensionId && meta.flagX == chosen.flagX
+                            && meta.flagY == chosen.flagY && meta.flagZ == chosen.flagZ && meta.owner != null && meta.owner.owner == this)
+                            meta.cityId = stable;
+                    chosen.cityId = stable;
+                }
+            }
+        }
+        capitalCityId = chosen.cityId; capitalDesignated = true;
+        homeSet = isInCapital(homeDim, homeX, homeZ);
+        return true;
+    }
+
+    public void designateCapital(EntityPlayer player, ClowderTerritory.TerritoryMeta city) {
+        if (player == null || getPermLevel(player) < 3)
+            throw new IllegalArgumentException("Only the faction leader may change the capital.");
+        if (city == null || !city.isCityClaim() || city.owner == null || city.owner.owner != this
+            || city.owner.zone != ClowderTerritory.Zone.FACTION)
+            throw new IllegalArgumentException("Choose an owned city.");
+        if (capitalDesignated && capitalCityId.equals(city.cityId))
+            throw new IllegalArgumentException("That city is already the capital.");
+        long now = System.currentTimeMillis();
+        if (now < capitalChangeAfter)
+            throw new IllegalArgumentException("Capital change cooldown: " + ((capitalChangeAfter - now + 59999L) / 60000L) + " minutes remaining.");
+        capitalCityId = city.cityId; capitalDesignated = true;
+        capitalChangeAfter = now + com.hfr.config.XFConfig.capitalChangeCooldownHours * 3600000L;
+        if (!isInCapital(homeDim, homeX, homeZ)) homeSet = false;
+        com.hfr.data.ClowderData data = com.hfr.data.ClowderData.getData(player.worldObj);
+        data.clearMarketTerminal(uuid); data.markDirty();
+    }
+
+	public float getHourlyWarCost() {
+		float cost = 0F;
+		long now = System.currentTimeMillis();
+
+		for(String enemyName : activeWars) {
+			Long declaredAt = warDeclaredAt.get(enemyName);
+			long hours = declaredAt == null ? 0L : Math.max(0L, (now - declaredAt) / (60L * 60L * 1000L));
+			float multiplier = 1F + hours * XFConfig.warUpkeepHourlyGrowth + hours * hours * XFConfig.warUpkeepHourlyGrowthSquared;
+			cost += XFConfig.activeWarUpkeep * multiplier;
+		}
+
+		return cost;
+	}
+
+	public float getHourlyUpkeepCost() {
+		return prestigeReq * getUpkeepMultiplier();
+	}
+
+	public float getHourlyNetPrestige() {
+		float effectiveGeneration = isInfrastructureDisabled() ? 0F : prestigeGen;
+		return effectiveGeneration - getHourlyUpkeepCost() - getHourlyWarCost();
+	}
+
+	public void beginSurrenderTribute(Clowder winner, World world) {
+		if(winner == null)
+			return;
+		surrenderTributeTo = winner.name;
+		surrenderTributeUntil = System.currentTimeMillis() + XFConfig.surrenderTributeDurationMs;
+		save(world);
+	}
+
+	public Clowder getSurrenderTributeTarget() {
+		if(surrenderTributeTo == null || surrenderTributeTo.isEmpty() || surrenderTributeUntil <= System.currentTimeMillis())
+			return null;
+		return getClowderFromName(surrenderTributeTo);
+	}
+
+	private void notifyBankruptcyStage(World world, int oldStage, int newStage) {
+		if(oldStage == newStage)
+			return;
+
+		String status = getBankruptcyStageName();
+		notifyAll(world, new ChatComponentText(CommandClowder.CRITICAL + "Prestige status changed to " + status + " (" + round(prestige) + " prestige)."));
+
+		if(newStage >= 1)
+			notifyAll(world, new ChatComponentText(CommandClowder.ERROR + "Financial Crisis: ally warps are disabled and upkeep costs are increased."));
+		if(newStage >= 2)
+			MinecraftServer.getServer().getConfigurationManager().sendChatMsg(new ChatComponentText(EnumChatFormatting.DARK_RED + "[PRESTIGE] " + name + " has entered National Collapse. Warps are disabled."));
+		if(newStage >= 3)
+			MinecraftServer.getServer().getConfigurationManager().sendChatMsg(new ChatComponentText(EnumChatFormatting.DARK_RED + "[PRESTIGE] " + name + " has become a Fallen Nation. Infrastructure and claim building are disabled."));
+	}
+
+	public void updatePrestigeEconomy(World world) {
+		int oldStage = lastBankruptcyStage;
+		float net = getHourlyNetPrestige();
+		Clowder tributeTarget = getSurrenderTributeTarget();
+
+		if(tributeTarget != null) {
+			float tribute = Math.max(0F, isInfrastructureDisabled() ? 0F : prestigeGen) * XFConfig.surrenderPrestigeTransferPercent;
+			net -= tribute;
+			tributeTarget.addPrestige(tribute, world);
+		} else if(surrenderTributeUntil > 0L && surrenderTributeUntil <= System.currentTimeMillis()) {
+			surrenderTributeTo = "";
+			surrenderTributeUntil = 0L;
+		}
+
+		addPrestige(net, world);
+		lastBankruptcyStage = getBankruptcyStage();
+		notifyBankruptcyStage(world, oldStage, lastBankruptcyStage);
+
+		if(lastBankruptcyStage == 1)
+			notifyAll(world, new ChatComponentText(CommandClowder.ERROR + "Prestige warning: net prestige is " + round(getHourlyNetPrestige()) + "/h. Reduce upkeep or end wars before collapse."));
+	}
+
+	public void clearWarStateWith(Clowder target) {
+		if(target == null)
+			return;
+		activeWars.remove(target.name);
+		warDeclaredAt.remove(target.name);
+		peaceRequests.remove(target.name);
+		ceasefireRequests.remove(target.name);
+		surrenderRequests.remove(target.name);
+	}
+
+
+	//war time goes to 10 for retreat bonus level
+	public boolean hasValidBuildGraceHome() {
+		if(!XFConfig.canClaimInDimension(homeDim))
+			return false;
+		ClowderTerritory.TerritoryMeta meta = ClowderTerritory.getMetaFromIntCoords(homeDim, homeX, homeZ);
+		if(meta == null || meta.owner == null)
+			return false;
+        boolean valid = isInCapital(homeDim, homeX, homeZ);
+		return valid && homeSet;
+	}
+
+	public boolean endBuildGraceIfHomeInvalid(World world, boolean notify) {
+		if(!isBuildGraceActive() || hasValidBuildGraceHome())
+			return false;
+		buildGraceUntil = 0L;
+		if(notify)
+			notifyAll(world, new ChatComponentText(CommandClowder.ERROR + "Build grace ended because the faction home is no longer inside owned faction territory."));
+		save(world);
+		return true;
+	}
+
+	public boolean isBuildGraceActive() {
+		return this.buildGraceUntil > System.currentTimeMillis();
+	}
+
+	public static boolean blocksTerritoryAccessForBuildGrace(Clowder movingClowder, Clowder territoryClowder, boolean isWilderness) {
+		if(movingClowder != null && movingClowder.isBuildGraceActive()) {
+			if(isWilderness)
+				return true;
+			if(territoryClowder != null && territoryClowder != movingClowder)
+				return true;
+		}
+
+		if(territoryClowder != null && territoryClowder.isBuildGraceActive()) {
+			if(movingClowder != territoryClowder)
+				return true;
+		}
+
+		return false;
+	}
+
+	public void freeWarTime(World world) {
+		warTime = 10;
+
+		this.save(world);
+	}
+
+	public void saveClowder(int i, NBTTagCompound nbt) {
+		NBTTagList identityMembers = new NBTTagList();
+		for (FactionMemberRecord record : memberRecords.values()) {
+			NBTTagCompound member = new NBTTagCompound();
+			member.setString("uuid", record.playerUuid.toString());
+			member.setString("lastKnownName", record.lastKnownName);
+			member.setLong("joinedAt", record.joinedAt);
+			member.setString("role", record.role.name());
+			identityMembers.appendTag(member);
+		}
+		nbt.setTag(i + "_identityMembers", identityMembers);
+		NBTTagList identityApplications = new NBTTagList();
+		for (FactionApplication application : applicationsByUuid.values()) {
+			NBTTagCompound entry = new NBTTagCompound();
+			entry.setString("uuid", application.playerUuid.toString());
+			entry.setString("lastKnownName", application.lastKnownName);
+			identityApplications.appendTag(entry);
+		}
+		nbt.setTag(i + "_identityApplications", identityApplications);
+		syncAllyNames();
+		nbt.setString(i + "_uuid", this.uuid);
+		nbt.setString(i + "_name", this.name);
+		nbt.setString(i + "_motd", this.motd);
+		nbt.setInteger(i + "_flag", this.flag.ordinal());
+		nbt.setInteger(i + "_color", this.color);
+		nbt.setBoolean(i + "_canChange", canChangeColour);
+		nbt.setBoolean(i + "_canDisband", canDisband);
+		nbt.setString(i + "_customFlagHash", this.customFlagHash == null ? "" : this.customFlagHash);
+		nbt.setInteger(i + "_homeX", this.homeX);
+		nbt.setInteger(i + "_homeY", this.homeY);
+		nbt.setInteger(i + "_homeZ", this.homeZ);
+		nbt.setInteger(i + "_homeDim", this.homeDim);
+		nbt.setBoolean(i + "_homeSet", this.homeSet);
+        nbt.setString(i + "_capitalCityId", capitalCityId);
+        nbt.setBoolean(i + "_capitalDesignated", capitalDesignated);
+        nbt.setLong(i + "_capitalChangeAfter", capitalChangeAfter);
+		nbt.setInteger(i + "_allyWarpX", this.allyWarpX);
+		nbt.setInteger(i + "_allyWarpY", this.allyWarpY);
+		nbt.setInteger(i + "_allyWarpZ", this.allyWarpZ);
+		nbt.setInteger(i + "_allyWarpDim", this.allyWarpDim);
+		nbt.setFloat(i + "_prestige", this.prestige);
+		nbt.setFloat(i + "_prestigeGen", this.prestigeGen);
+		nbt.setFloat(i + "_prestigeReq", this.prestigeReq);
+		nbt.setInteger(i + "_flags", this.flags);
+		nbt.setFloat(i + "_fabricateTime", this.fabricateTime);
+		nbt.setFloat(i + "_warTime", this.warTime);
+		nbt.setFloat(i + "_canDeclareTime", this.canDeclareTime);
+		nbt.setBoolean(i + "_vassalTarget", this.vassalTarget);
+
+		//bitch system
+		//nbt.setBoolean(i + "_bitch", this.bitch);
+
+		//force online
+		nbt.setBoolean(i + "_forceOnline", this.forceOnline);
+
+		//total war
+		//nbt.setBoolean(i + "_totalenKrieg", this.totalenKrieg);
+
+		//total peace
+		//nbt.setBoolean(i + "_paxBritannica", this.paxBritannica);
+
+		//nbt.setFloat(i + "_peaceTreaty", this.peaceTreaty);
+
+		//nbt.setBoolean(i + "_targeted", this.targeted);
+		nbt.setBoolean(i + "_overtime", this.overtime);
+
+		nbt.setString(i + "_enemy",this.enemyS);
+
+		nbt.setString(i + "_suzerain",this.suzerainS);
+
+		nbt.setString(i + "_leader", this.leader);
+		nbt.setInteger(i + "_members", this.members.size());
+		nbt.setInteger(i + "_officers", this.officers.size());
+		nbt.setInteger(i + "_potentialFriends", this.potentialFriends.size());
+		nbt.setInteger(i + "_allies", this.alliesS.size());
+		for(FactionPermission permission : FactionPermission.values()) {
+			nbt.setBoolean(i + "_permissionAlly_" + permission.name(), getTerritoryPermission(FactionRelationship.ALLY, permission));
+			nbt.setBoolean(i + "_permissionNeutral_" + permission.name(), getTerritoryPermission(FactionRelationship.NEUTRAL, permission));
+		}
+		nbt.setInteger(i + "_warps", this.warps.size());
+		nbt.setInteger(i + "_activeWars", this.activeWars.size());
+		nbt.setInteger(i + "_enemyFactionUuids", this.enemyFactionUuids.size());
+		nbt.setInteger(i + "_pendingEnemyRemovalTimes", this.pendingEnemyRemovalTimes.size());
+		nbt.setInteger(i + "_defendingAllies", this.defendingAllies.size());
+		nbt.setInteger(i + "_warDeclaredAt", this.warDeclaredAt.size());
+		nbt.setInteger(i + "_surrenderReq", this.surrenderRequests.size());
+		nbt.setInteger(i + "_ceaseReq", this.ceasefireRequests.size());
+		nbt.setInteger(i + "_peaceReq", this.peaceRequests.size());
+		nbt.setInteger(i + "_noWarUntil", this.noWarUntil.size());
+		nbt.setInteger(i + "_formerAllyNoWar", this.formerAllyNoWarUntil.size());
+		nbt.setLong(i + "_belowOnlineSince", this.belowOnlineThresholdSince);
+		nbt.setLong(i + "_buildGraceUntil", this.buildGraceUntil);
+		nbt.setBoolean(i + "_buildGraceUsed", this.buildGraceUsed);
+		nbt.setString(i + "_surrenderTributeTo", this.surrenderTributeTo == null ? "" : this.surrenderTributeTo);
+		nbt.setLong(i + "_surrenderTributeUntil", this.surrenderTributeUntil);
+		nbt.setInteger(i + "_lastBankruptcyStage", this.lastBankruptcyStage);
+		nbt.setInteger(i + "_citiesFounded", this.citiesFounded);
+		nbt.setString(i + "_relocationId", relocationId);
+		nbt.setString(i + "_relocationCityId", relocationCityId);
+		nbt.setInteger(i + "_relocationDim", relocationDim);
+		nbt.setInteger(i + "_relocationX", relocationX);
+		nbt.setInteger(i + "_relocationY", relocationY);
+		nbt.setInteger(i + "_relocationZ", relocationZ);
+		nbt.setLong(i + "_relocationStarted", relocationStarted);
+		nbt.setLong(i + "_relocationExpires", relocationExpires);
+		int relocationHistoryIndex = 0;
+		for(Map.Entry<String, List<Long>> entry : cityRelocationHistory.entrySet()) {
+			for(Long timestamp : entry.getValue()) {
+				nbt.setString(i + "_relocationHistoryCity_" + relocationHistoryIndex, entry.getKey());
+				nbt.setLong(i + "_relocationHistoryTime_" + relocationHistoryIndex, timestamp.longValue());
+				relocationHistoryIndex++;
+			}
+		}
+		nbt.setInteger(i + "_relocationHistoryCount", relocationHistoryIndex);
+
+		///poorly coded "treaty" system///
+		//nbt.setString(i + "_treaty1", this.treaty1);
+		//nbt.setString(i + "_treaty2", this.treaty2);
+		//nbt.setString(i + "_treaty3", this.treaty3);
+		//nbt.setString(i + "_treaty4", this.treaty4);
+		//nbt.setString(i + "_treaty5", this.treaty5);
+		//nbt.setString(i + "_treaty6", this.treaty6);
+		//nbt.setString(i + "_treaty7", this.treaty7);
+
+		//nbt.setFloat(i + "_treatyTime1", this.treatyTime1);
+		//nbt.setFloat(i + "_treatyTime2", this.treatyTime2);
+		//nbt.setFloat(i + "_treatyTime3", this.treatyTime3);
+		//nbt.setFloat(i + "_treatyTime4", this.treatyTime4);
+		//nbt.setFloat(i + "_treatyTime5", this.treatyTime5);
+		//nbt.setFloat(i + "_treatyTime6", this.treatyTime6);
+		//nbt.setFloat(i + "_treatyTime7", this.treatyTime7);
+
+		//retreat ban
+		//nbt.setFloat(i + "_retreatBan", this.retreatBan);
+
+		//limited chunk cap minute extension
+		nbt.setFloat(i + "_bonusPoints", this.bonusPoints);
+
+		/// SAVE MEMBERS ///
+		for (int j = 0; j < this.members.keySet().size(); j++)
+			nbt.setString(i + "_" + j, (String) this.members.keySet().toArray()[j]);
+
+		// save pending and active allies
+		for (int j = 0; j < this.potentialFriends.size(); j++)
+			nbt.setString(i + "_" + j + "_pfriend", (String) this.potentialFriends.toArray()[j]);
+
+		for (int j = 0; j < this.alliesS.keySet().size(); j++)
+			nbt.setString(i + "_" + j + "_ally", (String) this.alliesS.keySet().toArray()[j]);
+
+		/// SAVE OFFICERS ///
+		for (int j = 0; j < this.officers.size(); j++)
+			nbt.setString(i + "_" + j + "_off", (String) this.officers.toArray()[j]);
+
+		/// SAVE WARPS ///
+		for (int j = 0; j < this.warps.keySet().size(); j++) {
+
+			String name = (String) this.warps.keySet().toArray()[j];
+			int[] coords = this.warps.get(name);
+
+			nbt.setString(i + "_" + j + "_name", name);
+			nbt.setInteger(i + "_" + j + "_x", coords[0]);
+			nbt.setInteger(i + "_" + j + "_y", coords[1]);
+			nbt.setInteger(i + "_" + j + "_z", coords[2]);
+			nbt.setInteger(i + "_" + j + "_dim", coords.length > 3 ? coords[3] : 0);
+		}
+
+		for (int j = 0; j < this.activeWars.size(); j++)
+			nbt.setString(i + "_" + j + "_war", (String) this.activeWars.toArray()[j]);
+		for (int j = 0; j < this.enemyFactionUuids.size(); j++)
+			nbt.setString(i + "_" + j + "_enemyFactionUuid", (String) this.enemyFactionUuids.toArray()[j]);
+		for (int j = 0; j < this.pendingEnemyRemovalTimes.size(); j++) {
+			String id = (String) this.pendingEnemyRemovalTimes.keySet().toArray()[j];
+			nbt.setString(i + "_" + j + "_pendingEnemyUuid", id);
+			nbt.setLong(i + "_" + j + "_pendingEnemyTime", this.pendingEnemyRemovalTimes.get(id));
+		}
+
+		for (int j = 0; j < this.defendingAllies.size(); j++)
+			nbt.setString(i + "_" + j + "_def", (String) this.defendingAllies.toArray()[j]);
+		for (int j = 0; j < this.warDeclaredAt.size(); j++) {
+			String n = (String) this.warDeclaredAt.keySet().toArray()[j];
+			nbt.setString(i + "_" + j + "_wdecl_n", n);
+			nbt.setLong(i + "_" + j + "_wdecl_t", this.warDeclaredAt.get(n));
+		}
+		for (int j = 0; j < this.surrenderRequests.size(); j++)
+			nbt.setString(i + "_" + j + "_sreq", (String) this.surrenderRequests.toArray()[j]);
+		for (int j = 0; j < this.ceasefireRequests.size(); j++)
+			nbt.setString(i + "_" + j + "_creq", (String) this.ceasefireRequests.toArray()[j]);
+		for (int j = 0; j < this.peaceRequests.size(); j++)
+			nbt.setString(i + "_" + j + "_preq", (String) this.peaceRequests.toArray()[j]);
+		for (int j = 0; j < this.noWarUntil.size(); j++) {
+			String n = (String) this.noWarUntil.keySet().toArray()[j];
+			nbt.setString(i + "_" + j + "_nwu_n", n);
+			nbt.setLong(i + "_" + j + "_nwu_t", this.noWarUntil.get(n));
+		}
+		for (int j = 0; j < this.formerAllyNoWarUntil.size(); j++) {
+			String n = (String) this.formerAllyNoWarUntil.keySet().toArray()[j];
+			nbt.setString(i + "_" + j + "_fanwu_n", n);
+			nbt.setLong(i + "_" + j + "_fanwu_t", this.formerAllyNoWarUntil.get(n));
+		}
+	}
+
+	public static Clowder loadClowder(int i, NBTTagCompound nbt) {
+
+		Clowder c = new Clowder();
+
+		c.uuid = nbt.getString(i + "_uuid");
+
+		if (c.uuid.isEmpty())
+			c.uuid = UUID.randomUUID().toString();
+
+		c.name = canonicalizeClowderName(nbt.getString(i + "_name"));
+		c.motd = nbt.getString(i + "_motd");
+		c.flag = ClowderFlag.values()[nbt.getInteger(i + "_flag")];
+		c.color = nbt.getInteger(i + "_color");
+		c.canChangeColour = nbt.getBoolean(i + "_canChange");
+		c.canDisband = nbt.getBoolean(i + "_canDisband");
+		c.customFlagHash = nbt.getString(i + "_customFlagHash");
+		c.homeX = nbt.getInteger(i + "_homeX");
+		c.homeY = nbt.getInteger(i + "_homeY");
+		c.homeZ = nbt.getInteger(i + "_homeZ");
+		if(!nbt.hasKey(i + "_homeDim") && MainRegistry.logger != null) MainRegistry.logger.info("Migrating legacy faction home for " + c.name + " to dimension 0.");
+		c.homeDim = nbt.hasKey(i + "_homeDim") ? nbt.getInteger(i + "_homeDim") : 0;
+		c.homeSet = nbt.hasKey(i + "_homeSet") ? nbt.getBoolean(i + "_homeSet") : false;
+        c.capitalCityId = nbt.getString(i + "_capitalCityId");
+        c.capitalDesignated = nbt.getBoolean(i + "_capitalDesignated");
+        c.capitalChangeAfter = Math.max(0L, nbt.getLong(i + "_capitalChangeAfter"));
+		c.allyWarpX = nbt.getInteger(i + "_allyWarpX");
+		c.allyWarpY = nbt.getInteger(i + "_allyWarpY");
+		c.allyWarpZ = nbt.getInteger(i + "_allyWarpZ");
+		if(!nbt.hasKey(i + "_allyWarpDim") && MainRegistry.logger != null) MainRegistry.logger.info("Migrating legacy ally warp for " + c.name + " to dimension 0.");
+		c.allyWarpDim = nbt.hasKey(i + "_allyWarpDim") ? nbt.getInteger(i + "_allyWarpDim") : 0;
+		c.prestige = nbt.getFloat(i + "_prestige");
+		c.canDeclareTime = Math.max(nbt.getFloat(i + "_canDeclareTime"), 0F);
+		c.fabricateTime = Math.max(nbt.getFloat(i + "_fabricateTime"), 0F);
+		c.warTime = Math.max(nbt.getFloat(i + "_warTime"), 0F);
+		c.prestigeGen = nbt.getFloat(i + "_prestigeGen");
+		c.prestigeReq = Math.max(nbt.getFloat(i + "_prestigeReq"), 0F);
+		//c.peaceTreaty = Math.max(nbt.getFloat(i + "_peaceTreaty"), 0F);
+		c.flags = nbt.getInteger(i + "_flags");
+
+		//bitch system
+		//c.bitch = nbt.getBoolean(i + "_bitch");
+
+		//force online
+		c.forceOnline = nbt.getBoolean(i + "_forceOnline");
+
+		//total war
+		//c.totalenKrieg = nbt.getBoolean(i + "_totalenKrieg");
+
+		//total peace
+		//c.paxBritannica = nbt.getBoolean(i + "_paxBritannica");
+
+		//c.targeted = nbt.getBoolean(i + "_targeted");
+		c.overtime = nbt.getBoolean(i + "_overtime");
+
+		c.enemy = getClowderFromName(nbt.getString(i + "_enemy"));
+		c.suzerain = getClowderFromName(nbt.getString(i + "_suzerain"));
+
+		c.enemyS = nbt.getString(i + "_enemy");
+		c.suzerainS = nbt.getString(i + "_suzerain");
+		c.vassalTarget = nbt.getBoolean(i + "_vassalTarget");
+
+		//poorly coded treaty
+		c.treaty1 = nbt.getString(i + "_treaty1");
+		c.treaty2 = nbt.getString(i + "_treaty2");
+		c.treaty3 = nbt.getString(i + "_treaty3");
+		c.treaty4 = nbt.getString(i + "_treaty4");
+		c.treaty5 = nbt.getString(i + "_treaty5");
+		c.treaty6 = nbt.getString(i + "_treaty6");
+		c.treaty7 = nbt.getString(i + "_treaty7");
+
+		c.treatyTime1 = Math.max(nbt.getFloat(i + "_treatyTime1"), 0F);
+		c.treatyTime2 = Math.max(nbt.getFloat(i + "_treatyTime2"), 0F);
+		c.treatyTime3 = Math.max(nbt.getFloat(i + "_treatyTime3"), 0F);
+		c.treatyTime4 = Math.max(nbt.getFloat(i + "_treatyTime4"), 0F);
+		c.treatyTime5 = Math.max(nbt.getFloat(i + "_treatyTime5"), 0F);
+		c.treatyTime6 = Math.max(nbt.getFloat(i + "_treatyTime6"), 0F);
+		c.treatyTime7 = Math.max(nbt.getFloat(i + "_treatyTime7"), 0F);
+
+		//retreat ban
+		//c.retreatBan = Math.max(nbt.getFloat(i + "_retreatBan"), 0F);
+
+		//limit to conquering a chunk bonus point
+		c.bonusPoints = nbt.getInteger(i + "_bonusPoints");
+
+		c.leader = nbt.getString(i + "_leader");
+		int count = nbt.getInteger(i + "_members");
+		int co = nbt.getInteger(i + "_officers");
+		int cpf = nbt.getInteger(i + "_potentialFriends");
+		int ca = nbt.getInteger(i + "_allies");
+		for(FactionPermission permission : FactionPermission.values()) {
+			String allyKey = i + "_permissionAlly_" + permission.name();
+			String neutralKey = i + "_permissionNeutral_" + permission.name();
+			if(nbt.hasKey(allyKey)) c.allyPermissions.put(permission, Boolean.valueOf(nbt.getBoolean(allyKey)));
+			if(nbt.hasKey(neutralKey)) c.neutralPermissions.put(permission, Boolean.valueOf(nbt.getBoolean(neutralKey)));
+		}
+		if(ca == 0 && nbt.getInteger(i + "_members") > 0 && nbt.hasKey(i + "_0_ally")) {
+			ca = nbt.getInteger(i + "_members");
+			if(MainRegistry.logger != null)
+				MainRegistry.logger.info("Migrating legacy ally list for faction " + c.name + "; using member-count bounded ally entries from old saves.");
+		}
+		int cwarp = nbt.getInteger(i + "_warps");
+		int cwar = nbt.getInteger(i + "_activeWars");
+		int cef = nbt.getInteger(i + "_enemyFactionUuids");
+		int cper = nbt.getInteger(i + "_pendingEnemyRemovalTimes");
+		int cdef = nbt.getInteger(i + "_defendingAllies");
+		int cdecl = nbt.getInteger(i + "_warDeclaredAt");
+		int csreq = nbt.getInteger(i + "_surrenderReq");
+		int ccreq = nbt.getInteger(i + "_ceaseReq");
+		int cpreq = nbt.getInteger(i + "_peaceReq");
+		int cnwu = nbt.getInteger(i + "_noWarUntil");
+		int cfanwu = nbt.getInteger(i + "_formerAllyNoWar");
+		c.belowOnlineThresholdSince = nbt.getLong(i + "_belowOnlineSince");
+		c.buildGraceUntil = nbt.getLong(i + "_buildGraceUntil");
+		c.buildGraceUsed = nbt.getBoolean(i + "_buildGraceUsed");
+		c.surrenderTributeTo = nbt.getString(i + "_surrenderTributeTo");
+		c.surrenderTributeUntil = nbt.getLong(i + "_surrenderTributeUntil");
+		c.lastBankruptcyStage = nbt.hasKey(i + "_lastBankruptcyStage") ? nbt.getInteger(i + "_lastBankruptcyStage") : c.getBankruptcyStage();
+		c.citiesFounded = Math.max(nbt.getInteger(i + "_citiesFounded"), 0);
+		c.relocationId = nbt.getString(i + "_relocationId");
+		c.relocationCityId = nbt.getString(i + "_relocationCityId");
+		c.relocationDim = nbt.getInteger(i + "_relocationDim");
+		c.relocationX = nbt.getInteger(i + "_relocationX"); c.relocationY = nbt.getInteger(i + "_relocationY"); c.relocationZ = nbt.getInteger(i + "_relocationZ");
+		c.relocationStarted = nbt.getLong(i + "_relocationStarted"); c.relocationExpires = nbt.getLong(i + "_relocationExpires");
+		for(int j = 0; j < nbt.getInteger(i + "_relocationHistoryCount"); j++) {
+			String cityId = nbt.getString(i + "_relocationHistoryCity_" + j);
+			List<Long> history = c.cityRelocationHistory.get(cityId);
+			if(history == null) { history = new ArrayList<Long>(); c.cityRelocationHistory.put(cityId, history); }
+			history.add(Long.valueOf(nbt.getLong(i + "_relocationHistoryTime_" + j)));
+		}
+
+		for (int j = 0; j < count; j++)
+			c.members.put(nbt.getString(i + "_" + j), time());
+
+		for (int j = 0; j < cpf; j++)
+			c.potentialFriends.add(nbt.getString(i + "_" + j + "_pfriend"));
+
+		for (int j = 0; j < ca; j++) {
+			String allyName = nbt.getString(i + "_" + j + "_ally");
+			if(allyName != null && !allyName.isEmpty())
+				c.alliesS.put(allyName, time());
+		}
+
+		for (int j = 0; j < co; j++)
+			c.officers.add(nbt.getString(i + "_" + j + "_off"));
+
+		NBTTagList identityMembers = nbt.getTagList(i + "_identityMembers", 10);
+		for (int j = 0; j < identityMembers.tagCount(); j++) {
+			NBTTagCompound member = identityMembers.getCompoundTagAt(j);
+			try {
+				UUID playerUuid = UUID.fromString(member.getString("uuid"));
+				FactionRole role = FactionRole.valueOf(member.getString("role"));
+				c.memberRecords.put(playerUuid, new FactionMemberRecord(playerUuid, member.getString("lastKnownName"), member.getLong("joinedAt"), role));
+			} catch (IllegalArgumentException malformed) {
+				if (MainRegistry.logger != null) MainRegistry.logger.warn("Skipping malformed UUID faction member in " + c.name + ": " + member.getString("uuid"));
+			}
+		}
+		NBTTagList identityApplications = nbt.getTagList(i + "_identityApplications", 10);
+		for (int j = 0; j < identityApplications.tagCount(); j++) {
+			NBTTagCompound entry = identityApplications.getCompoundTagAt(j);
+			try {
+				UUID playerUuid = UUID.fromString(entry.getString("uuid"));
+				c.applicationsByUuid.put(playerUuid, new FactionApplication(playerUuid, entry.getString("lastKnownName")));
+			} catch (IllegalArgumentException malformed) {
+				if (MainRegistry.logger != null) MainRegistry.logger.warn("Skipping malformed faction application UUID in " + c.name);
+			}
+		}
+
+		for (int j = 0; j < cwarp; j++) {
+
+			String name = nbt.getString(i + "_" + j + "_name");
+			if(!nbt.hasKey(i + "_" + j + "_dim") && MainRegistry.logger != null) MainRegistry.logger.info("Migrating legacy faction warp " + name + " for " + c.name + " to dimension 0.");
+			int[] coord = new int[] { nbt.getInteger(i + "_" + j + "_x"), nbt.getInteger(i + "_" + j + "_y"),
+					nbt.getInteger(i + "_" + j + "_z"), nbt.hasKey(i + "_" + j + "_dim") ? nbt.getInteger(i + "_" + j + "_dim") : 0 };
+
+			c.warps.put(name, coord);
+		}
+		for (int j = 0; j < cwar; j++)
+			c.activeWars.add(nbt.getString(i + "_" + j + "_war"));
+		for (int j = 0; j < cef; j++) {
+			String id = nbt.getString(i + "_" + j + "_enemyFactionUuid");
+			if(id != null && !id.isEmpty()) c.enemyFactionUuids.add(id);
+		}
+		for (int j = 0; j < cper; j++) {
+			String id = nbt.getString(i + "_" + j + "_pendingEnemyUuid");
+			if(id != null && !id.isEmpty()) c.pendingEnemyRemovalTimes.put(id, nbt.getLong(i + "_" + j + "_pendingEnemyTime"));
+		}
+		for (int j = 0; j < cdef; j++)
+			c.defendingAllies.add(nbt.getString(i + "_" + j + "_def"));
+		for (int j = 0; j < cdecl; j++)
+			c.warDeclaredAt.put(nbt.getString(i + "_" + j + "_wdecl_n"), nbt.getLong(i + "_" + j + "_wdecl_t"));
+		for (int j = 0; j < csreq; j++)
+			c.surrenderRequests.add(nbt.getString(i + "_" + j + "_sreq"));
+		for (int j = 0; j < ccreq; j++)
+			c.ceasefireRequests.add(nbt.getString(i + "_" + j + "_creq"));
+		for (int j = 0; j < cpreq; j++)
+			c.peaceRequests.add(nbt.getString(i + "_" + j + "_preq"));
+		for (int j = 0; j < cnwu; j++)
+			c.noWarUntil.put(nbt.getString(i + "_" + j + "_nwu_n"), nbt.getLong(i + "_" + j + "_nwu_t"));
+		for (int j = 0; j < cfanwu; j++)
+			c.formerAllyNoWarUntil.put(nbt.getString(i + "_" + j + "_fanwu_n"), nbt.getLong(i + "_" + j + "_fanwu_t"));
+
+		return c;
+	}
+
+	public void notifyLeader(World world, ChatComponentText message) {
+
+		notifyPlayer(world, getOwnerName(), message);
+	}
+
+	public void notifyAll(World world, ChatComponentText message) {
+
+		for (String player : this.members.keySet()) {
+			notifyPlayer(world, player, message);
+		}
+	}
+
+	/*
+	 * failure for pinging everyone with sounds public void soundAll(World world,
+	 * String sound) {
+	 *
+	 * for(String player : this.members.keySet()) { EntityPlayer notif =
+	 * world.getPlayerEntityByName(player);
+	 *
+	 * //world.playSoundEffect(notif.posX, notif.posY, notif.posZ,
+	 * "hfr:item.hoiFabrication", 2.0F, 1.0F); //xddd fuck it ill use flansmod sound
+	 * packet PacketPlaySound.sendSoundPacket(notif.posX, notif.posY, notif.posZ,
+	 * 10f, notif.dimension, "hfr:item.hoiFabrication", false); } }
+	 */
+
+	public void notifyPlayer(World world, String playerName, IChatComponent message) {
+
+		EntityPlayerMP player =
+				MinecraftServer.getServer()
+						.getConfigurationManager()
+						.func_152612_a(playerName);
+
+		if (player != null) {
+			player.addChatMessage(message);
+		}
+	}
+
+	//public void restockMarkets() {
+	//	this.offerHistory.clear();
+	//}
+
+	/// GLOBAL METHODS ///
+	public static void recalculateIMap() {
+
+		inverseMap.clear();
+		legacyInverseMap.clear();
+
+		for (Clowder clowder : clowders) {
+			for (UUID member : clowder.memberRecords.keySet()) {
+				if (!inverseMap.containsKey(member)) inverseMap.put(member, clowder);
+				else if (MainRegistry.logger != null) MainRegistry.logger.warn("UUID " + member + " occurs in multiple factions; ignoring duplicate in " + clowder.name);
+			}
+			for (String member : clowder.members.keySet()) {
+				legacyInverseMap.put(member, clowder);
+			}
+		}
+	}
+
+	private void syncAllyNames() {
+		for(Clowder ally : new ArrayList<Clowder>(allies.keySet())) {
+			if(ally != null && ally.valid())
+				alliesS.put(ally.name, allies.get(ally));
+		}
+	}
+
+	private static void restoreAllyReferences() {
+		for(Clowder clowder : clowders) {
+			clowder.allies.clear();
+			for(String allyName : new HashSet<String>(clowder.alliesS.keySet())) {
+				Clowder ally = getClowderFromName(allyName);
+				if(ally != null && ally != clowder)
+					clowder.allies.put(ally, clowder.alliesS.get(allyName));
+			}
+		}
+	}
+
+	public boolean isEnemyFaction(Clowder target, World world) {
+		processExpiredEnemyRelations(world, System.currentTimeMillis());
+		return target != null && target.uuid != null && enemyFactionUuids.contains(target.uuid);
+	}
+
+	public boolean addEnemyFaction(Clowder target, World world) {
+		if(target == null || target.uuid == null || target.uuid.equals(this.uuid)) return false;
+		boolean changed = enemyFactionUuids.add(target.uuid);
+		Long removed = pendingEnemyRemovalTimes.remove(target.uuid);
+		if(changed || removed != null) markEnemyRelationsDirty(world);
+		return changed;
+	}
+
+	public boolean scheduleEnemyRemoval(Clowder target, World world) {
+		if(target == null || target.uuid == null || !enemyFactionUuids.contains(target.uuid)) return false;
+		if(pendingEnemyRemovalTimes.containsKey(target.uuid)) return false;
+		pendingEnemyRemovalTimes.put(target.uuid, System.currentTimeMillis() + ENEMY_REMOVAL_DELAY_MS);
+		markEnemyRelationsDirty(world);
+		return true;
+	}
+
+	public boolean cancelEnemyRemoval(Clowder target, World world) {
+		if(target == null || target.uuid == null) return false;
+		boolean changed = pendingEnemyRemovalTimes.remove(target.uuid) != null;
+		if(changed) markEnemyRelationsDirty(world);
+		return changed;
+	}
+
+	public long getEnemyRemovalRemaining(Clowder target, long now) {
+		if(target == null || target.uuid == null || !pendingEnemyRemovalTimes.containsKey(target.uuid)) return -1L;
+		return Math.max(0L, pendingEnemyRemovalTimes.get(target.uuid) - now);
+	}
+
+	public boolean processExpiredEnemyRelations(World world, long now) {
+		boolean changed = false;
+		Iterator<Map.Entry<String, Long>> it = pendingEnemyRemovalTimes.entrySet().iterator();
+		while(it.hasNext()) {
+			Map.Entry<String, Long> e = it.next();
+			if(e.getValue() <= now) {
+				enemyFactionUuids.remove(e.getKey());
+				it.remove();
+				changed = true;
+				notifyAll(world, new ChatComponentText(CommandClowder.INFO + "Enemy relation removal has completed."));
+			}
+		}
+		if(changed) markEnemyRelationsDirty(world);
+		return changed;
+	}
+
+	private void markEnemyRelationsDirty(World world) {
+		if(world != null) ClowderData.getData(world).markDirty();
+		syncNameplateDataAll();
+	}
+
+	public static Clowder getClowderFromUuid(String uuid) {
+		if(uuid == null || uuid.isEmpty()) return null;
+		for(Clowder c : clowders) if(uuid.equals(c.uuid)) return c;
+		return null;
+	}
+
+	public static void processExpiredEnemyRelations(World world) {
+		long now = System.currentTimeMillis();
+		for(Clowder c : new ArrayList<Clowder>(clowders)) c.processExpiredEnemyRelations(world, now);
+	}
+
+	public static void cleanEnemyRelationReferences(World world) {
+		HashSet<String> valid = new HashSet<String>();
+		for(Clowder c : clowders) valid.add(c.uuid);
+		boolean changed = false;
+		for(Clowder c : clowders) {
+			changed |= c.enemyFactionUuids.retainAll(valid);
+			changed |= c.pendingEnemyRemovalTimes.keySet().retainAll(valid);
+		}
+		if(changed && world != null) ClowderData.getData(world).markDirty();
+	}
+
+	public static void syncNameplateDataAll() {
+		MinecraftServer server = MinecraftServer.getServer();
+		if(server == null || server.getConfigurationManager() == null) return;
+		for(Object obj : server.getConfigurationManager().playerEntityList) if(obj instanceof EntityPlayerMP) syncNameplateData((EntityPlayerMP)obj);
+	}
+
+	public static void syncNameplateData(EntityPlayerMP viewer) {
+		if(viewer == null || viewer.worldObj == null) return;
+		Clowder own = getClowderFromPlayer(viewer);
+		for(Object obj : viewer.worldObj.playerEntities) if(obj instanceof EntityPlayer) {
+			EntityPlayer pl = (EntityPlayer)obj;
+			Clowder clow = getClowderFromPlayer(pl);
+			String rel = "###";
+			if(clow != null) {
+				String type = "neutral";
+				if(own != null && own.uuid != null && own.uuid.equals(clow.uuid)) type = "own";
+				else if(own != null && own.alliesS.containsKey(clow.name)) type = "ally";
+				else if(own != null && own.isEnemyFaction(clow, viewer.worldObj)) type = "enemy";
+				rel = clow.name + "|" + type;
+			}
+			NBTTagCompound data = new NBTTagCompound();
+			data.setString("type", "clowderNotif");
+			data.setString("player", pl.getUniqueID().toString());
+			data.setString("clowder", rel);
+			PacketDispatcher.wrapper.sendTo(new AuxParticlePacketNT(data, 0, 0, 0), viewer);
+		}
+	}
+
+	public static void readFromNBT(NBTTagCompound nbt) {
+
+		colours.add(ClowderTerritory.SAFEZONE_COLOR);
+		colours.add(ClowderTerritory.WARZONE_COLOR);
+		colours.add(ClowderTerritory.WILDERNESS_COLOR);
+
+		clowders.clear();
+
+		CommandClowderAdmin.WARENABLED = nbt.hasKey("warEnabledRuntime") ? nbt.getBoolean("warEnabledRuntime") : XFConfig.warEnabledDefault;
+		CommandClowderAdmin.WAR_COOLDOWNS_DISABLED = nbt.getBoolean("warCooldownsDisabled");
+		CommandClowderAdmin.WAR_ONLINE_CHECK_DISABLED = nbt.getBoolean("warOnlineCheckDisabled");
+		CommandClowderAdmin.WAR_STATE_CHECK_DISABLED = nbt.getBoolean("warStateCheckDisabled");
+		CommandClowderAdmin.LEGACY_WAR_ENABLED = nbt.getBoolean("legacyWarEnabled");
+
+		int count = nbt.getInteger("clowderCount");
+
+		for (int i = 0; i < count; i++)
+			clowders.add(loadClowder(i, nbt));
+
+		restoreAllyReferences();
+		cleanEnemyRelationReferences(null);
+		recalculateIMap();
+	}
+
+	public static void writeToNBT(NBTTagCompound nbt) {
+
+		nbt.setInteger("factionIdentityDataVersion", 2);
+		nbt.setInteger("clowderCount", clowders.size());
+		nbt.setBoolean("warEnabledRuntime", CommandClowderAdmin.WARENABLED);
+		nbt.setBoolean("warCooldownsDisabled", CommandClowderAdmin.WAR_COOLDOWNS_DISABLED);
+		nbt.setBoolean("warOnlineCheckDisabled", CommandClowderAdmin.WAR_ONLINE_CHECK_DISABLED);
+		nbt.setBoolean("warStateCheckDisabled", CommandClowderAdmin.WAR_STATE_CHECK_DISABLED);
+		nbt.setBoolean("legacyWarEnabled", CommandClowderAdmin.LEGACY_WAR_ENABLED);
+
+		for (int i = 0; i < clowders.size(); i++)
+			clowders.get(i).saveClowder(i, nbt);
+	}
+
+	public static boolean areFriends(EntityPlayer player1, EntityPlayer player2) {
+
+		if (player1 == null)
+			return false;
+		if (player2 == null)
+			return false;
+
+		Clowder c1 = getClowderFromPlayer(player1);
+		Clowder c2 = getClowderFromPlayer(player2);
+
+		if (c1 == null)
+			return false;
+
+		return c1 == c2;
+	}
+
+	public static Clowder getClowderFromPlayer(EntityPlayer player) {
+		if(player == null) return null;
+		if(!PlayerIdentityService.usesNames()) return getClowderFromPlayerUuid(PlayerIdentityService.uuid(player));
+		String key = PlayerIdentityService.normalizeName(PlayerIdentityService.profileName(player));
+		Clowder match = null;
+		for(Clowder faction : clowders) {
+			if(faction.findMember(player) == null) continue;
+			if(match != null) {
+				if(MainRegistry.logger != null) MainRegistry.logger.error("Ambiguous player name '" + key + "' occurs in multiple factions; authorization denied.");
+				return null;
+			}
+			match = faction;
+		}
+		return match;
+	}
+
+	public static Clowder getClowderFromPlayerUuid(UUID playerUuid) { return playerUuid == null ? null : inverseMap.get(playerUuid); }
+	public static void clearIdentityMaps() { inverseMap.clear(); legacyInverseMap.clear(); }
+
+	public static Clowder getClowderFromPlayerName(String key) {
+		// Kept only for source compatibility with non-permission diagnostics.
+		return null;
+	}
+
+	public static Clowder getClowderFromName(String name) {
+
+		String normalizedName = normalizeClowderName(name);
+
+		for (Clowder clowder : clowders) {
+			if (normalizeClowderName(clowder.name).equals(normalizedName))
+				return clowder;
+		}
+
+		return null;
+	}
+
+	public static String normalizeClowderName(String name) {
+
+		return canonicalizeClowderName(name).toLowerCase();
+	}
+
+	public static String canonicalizeClowderName(String name) {
+
+		if (name == null)
+			return "";
+
+		String canonical = name.trim();
+		if (canonical.length() >= 2 && ((canonical.startsWith("\"") && canonical.endsWith("\"")) || (canonical.startsWith("'") && canonical.endsWith("'"))))
+			canonical = canonical.substring(1, canonical.length() - 1).trim();
+
+		return canonical.replaceAll("\\s+", "_");
+	}
+
+	public static Clowder getClowderFromUUID(String uuid) {
+
+		uuid = uuid.toLowerCase();
+
+		for (Clowder clowder : clowders) {
+			if (clowder.uuid != null && clowder.uuid.toLowerCase().equals(uuid))
+				return clowder;
+		}
+
+		return null;
+	}
+
+	public static boolean createClowder(EntityPlayer player, String name) {
+
+		if (player == null || FactionMembershipGuard.isBlocked(player.worldObj))
+			return false;
+
+		String leader = player.getGameProfile().getName();
+		UUID leaderUuid = player.getUniqueID();
+
+		Clowder c = new Clowder();
+
+		c.uuid = UUID.randomUUID().toString();
+		c.name = canonicalizeClowderName(name);
+		c.leader = leader;
+		c.members.put(leader, time());
+		c.memberRecords.put(leaderUuid, new FactionMemberRecord(leaderUuid, leader, time(), FactionRole.OWNER));
+
+		int colour = player.getRNG().nextInt(0x1000000);
+		while (colours.contains(colour))
+			colour = player.getRNG().nextInt(0x1000000);
+
+		c.color = colour;
+		colours.add(colour);
+
+        // The first successfully founded city designates the capital; /c sethome follows it.
+        c.homeSet = false;
+
+		c.setAllyWarp(player.posX, player.posY, player.posZ, player);
+
+		c.motd = "Message of the day!";
+		c.flag = ClowderFlag.TRICOLOR;
+
+		c.prestige = XFConfig.startingPrestige;
+		c.addPrestigeGen(XFConfig.basePrestigeGen, player.worldObj);
+
+		clowders.add(c);
+		inverseMap.put(leaderUuid, c);
+
+		ClowderData.getData(player.worldObj).markDirty();
+		return true;
+	}
+
+	// the thing that adds prestige to prestige bank - allah note
+	private static int saveCooldown = 20; // ticks
+
+	public static void resetWorldState() {
+		clowders.clear();
+		clearIdentityMaps();
+		colours.clear();
+		colours.add(ClowderTerritory.SAFEZONE_COLOR);
+		colours.add(ClowderTerritory.WARZONE_COLOR);
+		colours.add(ClowderTerritory.WILDERNESS_COLOR);
+		retreating.clear();
+		teleports.clear();
+		forceOnline = false;
+		saveCooldown = 20;
+	}
+
+	public static void updatePrestige(World world) {
+		for (Clowder clowder : clowders) {
+			if (clowder.valid()) {
+				//if (clowder.getPrestigeGen() > 0 && clowder.getPrestige() < clowder.getPrestigeReq()) {
+				clowder.updatePrestigeEconomy(world);
+				//}
+				// ... prestige math ...
+			}
+		}
+
+		if (--saveCooldown <= 0) {
+			for (Clowder clowder : clowders) {
+				clowder.save(world);
+			}
+			saveCooldown = 20;
+		}
+	}
+
+	public static long time() {
+		return System.currentTimeMillis();
+	}
+
+	public static class ScheduledTeleport {
+
+		int posX;
+		int posY;
+		int posZ;
+		int dimensionId;
+		String player;
+		String warp;
+		boolean home;
+		boolean rendezvous = false;
+		String allyName;
+
+		public ScheduledTeleport(int dimensionId, int posX, int posY, int posZ, String player, String warp) {
+			this(posX, posY, posZ, player, warp);
+			this.dimensionId = dimensionId;
+		}
+
+		public ScheduledTeleport(int posX, int posY, int posZ, String player, String warp) {
+			this.posX = posX;
+			this.posY = posY;
+			this.posZ = posZ;
+			this.dimensionId = 0;
+			this.player = player;
+			this.warp = warp;
+		}
+
+		public ScheduledTeleport(int dimensionId, int posX, int posY, int posZ, String player, boolean home) {
+			this(posX, posY, posZ, player, home);
+			this.dimensionId = dimensionId;
+		}
+
+		public ScheduledTeleport(int posX, int posY, int posZ, String player, boolean home) {
+			this.posX = posX;
+			this.posY = posY;
+			this.posZ = posZ;
+			this.dimensionId = 0;
+			this.player = player;
+			this.home = home;
+		}
+
+		//for ally warp
+		public ScheduledTeleport(int dimensionId, int posX, int posY, int posZ, String player, boolean home, boolean rendezvous, String allyName) {
+			this(posX, posY, posZ, player, home, rendezvous, allyName);
+			this.dimensionId = dimensionId;
+		}
+
+		public ScheduledTeleport(int posX, int posY, int posZ, String player, boolean home, boolean rendezvous, String allyName) {
+			this.posX = posX;
+			this.posY = posY;
+			this.posZ = posZ;
+			this.dimensionId = 0;
+			this.player = player;
+			this.home = home;
+			this.rendezvous = rendezvous;
+			this.allyName = allyName;
+		}
+	}
+}

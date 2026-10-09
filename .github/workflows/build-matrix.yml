@@ -26,22 +26,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - mc: 1.6.4
-            jdks: "8\n17\n21"
           - mc: 1.7.10
             jdks: "8\n17\n25"
-          - mc: 1.8.9
-            jdks: "8\n21"
-          - mc: 1.12.2
-            jdks: "8\n21"
           - mc: 1.16.5
             jdks: "8\n21"
-          - mc: 1.18.2
-            jdks: "17\n21"
-          - mc: 1.20.1
-            jdks: "17\n21"
-          - mc: 1.21.11
-            jdks: "21"
     env:
       GRADLE_USER_HOME: ${{ github.workspace }}/.ci-gradle/${{ matrix.mc }}
     steps:
@@ -64,6 +52,6 @@ jobs:
         run: python scripts/build.py verify ${{ matrix.mc }} --full-version ${{ inputs.mod-version }}.${{ inputs.build-number }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: examplemod-mc${{ matrix.mc }}
-          path: versions/${{ matrix.mc }}/build/libs/examplemod-${{ inputs.mod-version }}.${{ inputs.build-number }}+mc${{ matrix.mc }}-*.jar
+          name: hfr-mc${{ matrix.mc }}
+          path: versions/${{ matrix.mc }}/build/libs/hfr-${{ inputs.mod-version }}.${{ inputs.build-number }}+mc${{ matrix.mc }}-*.jar
           if-no-files-found: error

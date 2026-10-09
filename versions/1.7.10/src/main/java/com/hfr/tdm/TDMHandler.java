@@ -1,0 +1,437 @@
+package com.hfr.tdm;
+
+import com.hfr.compat.HbmCsgoChargeIntegration;
+import com.hfr.items.ModItems;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.eventhandler.EventPriority;
+import cpw.mods.fml.common.gameevent.TickEvent;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.DamageSource;
+import net.minecraftforge.event.entity.living.LivingAttackEvent;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
+import net.minecraftforge.event.entity.player.AttackEntityEvent;
+import net.minecraftforge.event.entity.player.EntityInteractEvent;
+import net.minecraftforge.event.world.BlockEvent;
+import net.minecraftforge.event.world.WorldEvent;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+
+public class TDMHandler {
+
+    private static final int RESPAWN_RETRY_TICKS = 2;
+    private static final int AUTO_BALANCE_INTERVAL_TICKS = 100;
+    private static final int TEAM_CHANGE_REMINDER_INTERVAL_TICKS = 8 * 60 * 20;
+    private long lastAutoBalanceTick = -1;
+    private long lastRoundTick = -1;
+    private static final class PendingRespawn {
+        int ticks;
+        TDMManager.KitSelectionContext context;
+
+        PendingRespawn(int ticks, TDMManager.KitSelectionContext context) {
+            this.ticks = ticks;
+            this.context = context;
+        }
+    }
+    private static final Map<String, PendingRespawn> pendingRespawns = new HashMap<String, PendingRespawn>();
+    private static final class BorderAnchor {
+        final TDMManager.TDMMap map;
+        final int dimension;
+        final double x, y, z;
+        BorderAnchor(TDMManager.TDMMap map, EntityPlayer player) {
+            this.map = map; this.dimension = player.dimension;
+            this.x = player.posX; this.y = player.posY; this.z = player.posZ;
+        }
+    }
+    private static final Map<String, BorderAnchor> borderAnchors = new HashMap<String, BorderAnchor>();
+    private final Random random = new Random();
+
+    @SubscribeEvent
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.START) {
+            HbmCsgoChargeIntegration.pollBombResults();
+        }
+    }
+
+    @SubscribeEvent
+    public void onWorldUnload(WorldEvent.Unload event) {
+        if (event.world != null && !event.world.isRemote) {
+            TDMBombManager.onWorldUnload(event.world);
+        }
+        if (event.world != null && !event.world.isRemote
+                && event.world.provider.dimensionId == 0) {
+            TDMServerTaskQueue.clear();
+            pendingRespawns.clear();
+            borderAnchors.clear();
+        }
+    }
+
+    @SubscribeEvent
+    public void onClone(PlayerEvent.Clone event) {
+        if (!event.wasDeath) return;
+        borderAnchors.remove(getKey(event.original));
+
+        TDMManager.cancelKitSelection(event.entityPlayer);
+
+        if (TDMManager.isCurrentModeEliminated(event.original)) {
+            TDMSpectatorManager.observe(event.entityPlayer);
+        }
+        // PlayerRespawnEvent owns non-hardcore per-life setup; Clone is too early for a gameplay GUI.
+    }
+
+    @SubscribeEvent
+    public void onRespawn(cpw.mods.fml.common.gameevent.PlayerEvent.PlayerRespawnEvent event) {
+        borderAnchors.remove(getKey(event.player));
+        TDMManager.cancelKitSelection(event.player);
+        if (!TDMManager.isEnabled(event.player.worldObj)) {
+            return;
+        }
+
+        TDMManager.TDMGameMode mode = TDMManager.getGameMode(event.player.worldObj);
+        boolean hardcore = TDMManager.isHardcoreRespawns(event.player.worldObj);
+
+        if (mode == TDMManager.TDMGameMode.BOMB
+                && hardcore
+                && TDMBombManager.isEliminated(event.player)) {
+            TDMSpectatorManager.restore(event.player);
+            tryImmediatePlacement(event.player, TDMManager.KitSelectionContext.NONE);
+            return;
+        }
+        TDMManager.KitSelectionContext context;
+        if (mode == TDMManager.TDMGameMode.FFA || mode == TDMManager.TDMGameMode.DEATHMATCH) {
+            context = TDMManager.KitSelectionContext.LOADOUT_SELECTION;
+        } else if (mode == TDMManager.TDMGameMode.BOMB
+                && hardcore
+                && TDMBombManager.getState() == TDMBombManager.BombRoundState.PRE_ROUND) {
+            context = TDMManager.KitSelectionContext.BUY_PHASE;
+        } else {
+            context = TDMManager.KitSelectionContext.RESPAWN_LOCK;
+        }
+        if (context == TDMManager.KitSelectionContext.BUY_PHASE) {
+            TDMSpectatorManager.restore(event.player);
+        }
+        tryImmediatePlacement(event.player, context);
+    }
+
+    @SubscribeEvent
+    public void onLogin(cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.player.worldObj.isRemote || !TDMManager.isEnabled(event.player.worldObj)) {
+            return;
+        }
+
+        TDMManager.TDMGameMode mode = TDMManager.getGameMode(event.player.worldObj);
+        boolean hardcore = TDMManager.isHardcoreRespawns(event.player.worldObj);
+        if (mode != TDMManager.TDMGameMode.FFA) {
+            TDMManager.getOrAssignPlayerTeam(event.player);
+        }
+
+        boolean activeBombRound = mode == TDMManager.TDMGameMode.BOMB
+                && hardcore
+                && TDMBombManager.getState() != TDMBombManager.BombRoundState.PRE_ROUND
+                && TDMBombManager.getState() != TDMBombManager.BombRoundState.WAITING_FOR_TEAMS;
+        if (activeBombRound) {
+            TDMBombManager.markLateJoinerEliminated(event.player);
+            TDMSpectatorManager.restore(event.player);
+            tryImmediatePlacement(event.player, TDMManager.KitSelectionContext.NONE);
+            return;
+        }
+        if (mode == TDMManager.TDMGameMode.FFA || mode == TDMManager.TDMGameMode.DEATHMATCH) {
+            // Continuous modes grant a live, protected loadout selection immediately.
+            TDMSpectatorManager.restore(event.player);
+            tryImmediatePlacement(event.player, TDMManager.KitSelectionContext.LOADOUT_SELECTION);
+            return;
+        }
+
+        TDMManager.KitSelectionContext context;
+        if (mode == TDMManager.TDMGameMode.BOMB
+                && hardcore
+                && TDMBombManager.getState() == TDMBombManager.BombRoundState.PRE_ROUND) {
+            context = TDMManager.KitSelectionContext.BUY_PHASE;
+        } else {
+            context = TDMManager.KitSelectionContext.RESPAWN_LOCK;
+        }
+        tryImmediatePlacement(event.player, context);
+    }
+
+    @SubscribeEvent
+    public void onLogout(cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent event) {
+        TDMManager.onPlayerDisconnected(event.player.worldObj, event.player);
+        pendingRespawns.remove(getKey(event.player));
+        borderAnchors.remove(getKey(event.player));
+        TDMManager.resetTDMTransientPlayerState(event.player, false);
+        TDMSpectatorManager.forget(event.player);
+    }
+
+    @SubscribeEvent
+    public void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        if (event.player.worldObj.isRemote) return;
+        TDMManager.tickKitSelection(event.player);
+        TDMManager.tickRoundWaiting(event.player);
+
+        if (!TDMManager.isEnabled(event.player.worldObj)) {
+            pendingRespawns.remove(getKey(event.player));
+            borderAnchors.remove(getKey(event.player));
+            TDMSpectatorManager.restore(event.player);
+            return;
+        }
+
+        enforceMapBorder(event.player);
+
+        runRoundTimer(event.player);
+        sendTeamChangeReminder(event.player);
+        runAutoBalance(event.player);
+
+        String playerName = getKey(event.player);
+        PendingRespawn pending = pendingRespawns.get(playerName);
+        if (pending == null) return;
+
+        if (!TDMManager.canPlaceAtTdmSpawn(event.player)) return;
+        if (TDMManager.respawnPlayer(event.player, random)) {
+            pendingRespawns.remove(playerName);
+            if (pending.context == TDMManager.KitSelectionContext.NONE
+                    && TDMManager.isCurrentModeEliminated(event.player)) {
+                TDMManager.putInRoundWaiting(event.player);
+            }
+            if(pending.context==TDMManager.KitSelectionContext.BUY_PHASE)TDMManager.enrollGlobalBuyProtection(event.player);
+            TDMManager.promptForKit(event.player, pending.context);
+        } else if (pending.ticks <= 1) {
+            pendingRespawns.remove(playerName);
+        } else {
+            pending.ticks--;
+        }
+    }
+
+
+    @SubscribeEvent
+    public void onLivingDeath(LivingDeathEvent event) {
+        if (event.entityLiving.worldObj.isRemote) return;
+        if (!(event.entityLiving instanceof EntityPlayer)) return;
+        if (!TDMManager.isEnabled(event.entityLiving.worldObj)) return;
+        if (TDMManager.isMapVoteActive(event.entityLiving.worldObj)) return;
+
+        EntityPlayer victim = (EntityPlayer) event.entityLiving;
+        EntityPlayer attacker = getAttackingPlayer(event.source);
+        if (attacker != null && attacker != victim) {
+            TDMManager.Team victimTeam = TDMManager.getOrAssignPlayerTeam(victim);
+            TDMManager.Team attackerTeam = TDMManager.getOrAssignPlayerTeam(attacker);
+            boolean valid=TDMManager.isCompetitivePlayer(victim)&&TDMManager.isCompetitivePlayer(attacker)&&(TDMManager.isFfaMode(victim.worldObj)||(attackerTeam!=null&&attackerTeam!=victimTeam));
+            if (valid) {
+                TDMManager.recordKill(victim.worldObj, attacker.getCommandSenderName());
+                TDMManager.recordDeath(victim.worldObj, victim.getCommandSenderName());
+                TDMManager.awardKillBuyScore(attacker);
+                TDMManager.awardValidKillResources(attacker);
+                if(!TDMManager.isFfaMode(victim.worldObj))TDMManager.addTeamPointScore(victim.worldObj, attackerTeam);
+            }
+        }
+        if (TDMManager.isBombMode(victim.worldObj)) {
+            TDMBombManager.eliminate(victim);
+        }
+    }
+
+    @SubscribeEvent
+    public void onLivingAttack(LivingAttackEvent event) {
+        if (event.entityLiving.worldObj.isRemote) return;
+        EntityPlayer protectedAttacker=getAttackingPlayer(event.source);
+        if(protectedAttacker!=null&&(TDMManager.isRoundWaiting(protectedAttacker)||TDMManager.isGlobalBombBuyPeriod(protectedAttacker)||TDMManager.hasKitSelectionProtection(protectedAttacker)||TDMSpectatorManager.isObserving(protectedAttacker))){event.setCanceled(true);return;}
+        if (!(event.entityLiving instanceof EntityPlayer)) return;
+        if (!TDMManager.isEnabled(event.entityLiving.worldObj)) return;
+        EntityPlayer victim = (EntityPlayer) event.entityLiving;
+        if(TDMManager.isRoundWaiting(victim)||TDMManager.hasKitSelectionProtection(victim)){event.setCanceled(true);return;}
+        if (TDMManager.isBombMode(event.entityLiving.worldObj) && !TDMBombManager.isRoundActive()) { event.setCanceled(true); return; }
+        if (TDMManager.isFfaMode(event.entityLiving.worldObj)||TDMManager.isFriendlyFireEnabled(event.entityLiving.worldObj)) return;
+        EntityPlayer attacker = getAttackingPlayer(event.source);
+        if (TDMSpectatorManager.isObserving(victim) || (attacker != null && TDMSpectatorManager.isObserving(attacker))) { event.setCanceled(true); return; }
+        if (attacker == null || attacker == victim) return;
+
+        TDMManager.Team victimTeam = TDMManager.getPlayerTeam(victim.worldObj, victim.getCommandSenderName());
+        TDMManager.Team attackerTeam = TDMManager.getPlayerTeam(victim.worldObj, attacker.getCommandSenderName());
+        if (victimTeam != null && victimTeam == attackerTeam) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority=EventPriority.HIGHEST)
+    public void restrictAttack(AttackEntityEvent event){if(TDMManager.isRoundWaiting(event.entityPlayer)||TDMManager.isGlobalBombBuyPeriod(event.entityPlayer)||TDMManager.hasRespawnLockProtection(event.entityPlayer)||TDMSpectatorManager.isObserving(event.entityPlayer))event.setCanceled(true);}
+    @SubscribeEvent(priority=EventPriority.HIGHEST)
+    public void restrictEntityInteract(EntityInteractEvent event){if(TDMManager.isRoundWaiting(event.entityPlayer)||TDMManager.isGlobalBombBuyPeriod(event.entityPlayer)||TDMManager.hasRespawnLockProtection(event.entityPlayer)||TDMSpectatorManager.isObserving(event.entityPlayer))event.setCanceled(true);}
+
+    @SubscribeEvent(priority=EventPriority.HIGHEST)
+    public void restrictPlace(BlockEvent.PlaceEvent event) {
+        if (event.world.isRemote) return;
+        if (TDMManager.isRoundWaiting(event.player)||TDMManager.hasKitSelectionProtection(event.player)||TDMSpectatorManager.isObserving(event.player)
+                || TDMBombManager.shouldRestrictWorldInteraction(event.world)
+                || !TDMBombManager.canPlant(event.player, event.placedBlock, event.x, event.y, event.z, true)) {
+            event.setCanceled(true);
+        }
+    }
+    @SubscribeEvent(priority=EventPriority.LOWEST,receiveCanceled=false)
+    public void acceptedPlace(BlockEvent.PlaceEvent event){if(!event.world.isRemote)TDMBombManager.recordAcceptedPlant(event.player,event.placedBlock,event.x,event.y,event.z);}
+    @SubscribeEvent(priority=EventPriority.HIGHEST)
+    public void restrictBreak(BlockEvent.BreakEvent event) {
+        EntityPlayer player = event.getPlayer();
+        if (player != null && player.getHeldItem() != null && player.getHeldItem().getItem() == ModItems.world_border_wand) {
+            event.setCanceled(true);
+            return;
+        }
+        if (TDMManager.isRoundWaiting(player)||TDMManager.hasKitSelectionProtection(player)||TDMSpectatorManager.isObserving(player)
+                || TDMBombManager.shouldRestrictWorldInteraction(event.world)) {
+            event.setCanceled(true);
+        } else if (TDMBombManager.isTrackedBomb(event.world, event.x, event.y, event.z)) {
+            event.setCanceled(true);
+        }
+    }
+    @SubscribeEvent(priority=EventPriority.HIGHEST)
+    public void restrictInteract(PlayerInteractEvent event) {
+        EntityPlayer player = event.entityPlayer;
+        if (TDMManager.isRoundWaiting(player)||TDMManager.hasKitSelectionProtection(player)||TDMSpectatorManager.isObserving(player)) {
+            event.setCanceled(true);
+            return;
+        }
+        if (isAdminSelectionWand(player)) return;
+        if (TDMBombManager.shouldRestrictWorldInteraction(player.worldObj)) {
+            event.setCanceled(true);
+        }
+    }
+    @SubscribeEvent(priority=EventPriority.HIGHEST)
+    public void restrictPickup(EntityItemPickupEvent event){if(TDMManager.isRoundWaiting(event.entityPlayer)||TDMManager.isGlobalBombBuyPeriod(event.entityPlayer)||TDMManager.hasKitSelectionProtection(event.entityPlayer)){event.setCanceled(true);return;}if(TDMBombManager.isBombStack(event.item.getEntityItem())&&(!TDMManager.isTerrorist(event.entityPlayer)||TDMBombManager.getState()!=TDMBombManager.BombRoundState.LIVE)){event.setCanceled(true);if(TDMBombManager.getState()!=TDMBombManager.BombRoundState.LIVE)event.item.setDead();return;}if(TDMSpectatorManager.isObserving(event.entityPlayer))event.setCanceled(true);}
+
+    private boolean isAdminSelectionWand(EntityPlayer player) {
+        return player != null
+                && player.getHeldItem() != null
+                && player.getHeldItem().getItem() == ModItems.world_border_wand
+                && AdminSelectionManager.canUse(player);
+    }
+
+    private void enforceMapBorder(EntityPlayer player) {
+        String key = getKey(player);
+        TDMManager.TDMMap map = TDMManager.getSelectedMapData(player.worldObj);
+        if (!(player instanceof EntityPlayerMP) || map == null || !map.mapBorderEnabled || !map.bounds.isComplete()
+                || player.dimension != map.bounds.dimension || !TDMManager.isCompetitivePlayer(player)
+                || (player.capabilities.isCreativeMode && player.canCommandSenderUseCommand(4, "tdm"))) {
+            borderAnchors.remove(key);
+            return;
+        }
+        TDMManager.Bombsite bounds = map.bounds;
+        BlockAreaEdges edges = BlockAreaEdges.of(bounds.x1, bounds.z1, bounds.x2, bounds.z2);
+        double half = player.width / 2D;
+        double minX = edges.minX + half, maxX = edges.maxXExclusive - half;
+        double minZ = edges.minZ + half, maxZ = edges.maxZExclusive - half;
+        if (edges.containsPlayer(player.posX, player.posZ, half)) {
+            borderAnchors.put(key, new BorderAnchor(map, player));
+            return;
+        }
+        BorderAnchor anchor = borderAnchors.get(key);
+        if (anchor == null || anchor.map != map || anchor.dimension != player.dimension
+                || anchor.x < minX || anchor.x > maxX || anchor.z < minZ || anchor.z > maxZ) {
+            borderAnchors.remove(key);
+            return;
+        }
+        player.motionX = player.motionZ = 0D;
+        player.fallDistance = 0F;
+        ((EntityPlayerMP)player).playerNetServerHandler.setPlayerLocation(anchor.x, anchor.y, anchor.z, player.rotationYaw, player.rotationPitch);
+    }
+
+
+    private void runRoundTimer(EntityPlayer player) {
+        long worldTime = player.worldObj.getTotalWorldTime();
+        if (lastRoundTick == worldTime) {
+            return;
+        }
+
+        lastRoundTick = worldTime;
+        TDMManager.tickRound(player.worldObj);
+    }
+
+    private void sendTeamChangeReminder(EntityPlayer player) {
+        if (TDMManager.isFfaMode(player.worldObj)) return;
+        long worldTime = player.worldObj.getTotalWorldTime();
+        if (worldTime > 0 && worldTime % TEAM_CHANGE_REMINDER_INTERVAL_TICKS == 0) {
+            player.addChatMessage(new net.minecraft.util.ChatComponentText("Open the TDM menu from the HUD button to change teams."));
+        }
+    }
+
+    private void runAutoBalance(EntityPlayer player) {
+        if (TDMManager.isFfaMode(player.worldObj) || !TDMManager.isAutoBalanceEnabled(player.worldObj)) {
+            return;
+        }
+
+        long worldTime = player.worldObj.getTotalWorldTime();
+        if (lastAutoBalanceTick == worldTime || worldTime % AUTO_BALANCE_INTERVAL_TICKS != 0) {
+            return;
+        }
+
+        lastAutoBalanceTick = worldTime;
+        TDMManager.balanceTeams(player.worldObj);
+    }
+
+    private EntityPlayer getAttackingPlayer(DamageSource source) {
+        if (source == null) {
+            return null;
+        }
+
+        Entity attacker = source.getEntity();
+        if (attacker instanceof EntityPlayer) {
+            return (EntityPlayer) attacker;
+        }
+
+        attacker = source.getSourceOfDamage();
+        if (attacker instanceof EntityPlayer) {
+            return (EntityPlayer) attacker;
+        }
+
+        return null;
+    }
+
+    private void tryImmediatePlacement(EntityPlayer player, TDMManager.KitSelectionContext context) {
+        boolean placed;
+        if (context == TDMManager.KitSelectionContext.NONE) {
+            // Spectators and eliminated hardcore late joiners receive placement, not a new life.
+            placed = TDMManager.placePlayerAtSelectedMapSpawn(player, random);
+        } else {
+            placed = TDMManager.respawnPlayer(player, random);
+        }
+
+        if (placed) {
+            pendingRespawns.remove(getKey(player));
+            if (context == TDMManager.KitSelectionContext.NONE
+                    && TDMManager.isCurrentModeEliminated(player)) {
+                TDMManager.putInRoundWaiting(player);
+            }
+            if (context == TDMManager.KitSelectionContext.BUY_PHASE) {
+                TDMManager.enrollGlobalBuyProtection(player);
+            }
+            if (!TDMSpectatorManager.isObserving(player)
+                    && context != TDMManager.KitSelectionContext.NONE) {
+                TDMManager.promptForKit(player, context);
+            }
+            return;
+        }
+
+        queueRespawn(player, context);
+    }
+
+    private void queueRespawn(EntityPlayer player, TDMManager.KitSelectionContext context) {
+        pendingRespawns.put(
+                getKey(player),
+                new PendingRespawn(RESPAWN_RETRY_TICKS, context)
+        );
+    }
+
+    /** Pending retries carry only lifecycle context; every attempt resolves the current persisted team. */
+    public static void refreshPendingPlacementAfterTeamChange(EntityPlayer player) {
+        if(player==null)return;
+        PendingRespawn pending=pendingRespawns.get(player.getCommandSenderName().toLowerCase());
+        if(pending!=null)pending.ticks=RESPAWN_RETRY_TICKS;
+    }
+
+    private String getKey(EntityPlayer player) {
+        return player.getCommandSenderName().toLowerCase();
+    }
+}

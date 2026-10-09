@@ -1,18 +1,19 @@
 modLoader="javafml"
 loaderVersion="[36,)"
-license="MIT"
+license="See LICENSE"
 [[mods]]
-modId="examplemod"
+modId="hfr"
 version="${fullVersion}"
-displayName="ExampleMod"
-description="Portable domain logic with a Minecraft-specific adapter."
-[[dependencies.examplemod]]
+displayName="Xenofactions"
+authors="Ragex, Zealot / Black Trollface, Fedward"
+description='''Native Xenofactions migration foundation: faction/city inspection and server-owned map-bounds editing. Full gameplay parity with 1.7.10 is not yet implemented.'''
+[[dependencies.hfr]]
 modId="forge"
 mandatory=true
 versionRange="[36.2.34,)"
 ordering="NONE"
 side="BOTH"
-[[dependencies.examplemod]]
+[[dependencies.hfr]]
 modId="minecraft"
 mandatory=true
 versionRange="[1.16.5]"

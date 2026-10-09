@@ -1,0 +1,505 @@
+package com.hfr.config;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import com.hfr.clowder.CityLevel;
+import com.hfr.command.CommandClowderAdmin;
+import com.hfr.main.MainRegistry;
+
+import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.config.Property;
+
+/**
+ * Central server-owner configuration for Xenofactions gameplay systems.
+ *
+ * Defaults intentionally mirror the pre-2.1 hardcoded values so existing worlds keep behaving the same
+ * until a server owner opts into changes.
+ */
+public final class XFConfig {
+
+	private XFConfig() { }
+
+	public static final String CAT_MODULES = "XENOFACTIONS_01_MODULES";
+	public static final String CAT_PRESTIGE_GENERATION = "XENOFACTIONS_02_PRESTIGE_GENERATION";
+	public static final String CAT_PRESTIGE_COSTS = "XENOFACTIONS_03_PRESTIGE_COSTS_UPKEEP";
+	public static final String CAT_BANKRUPTCY = "XENOFACTIONS_04_BANKRUPTCY";
+	public static final String CAT_CLAIMS = "XENOFACTIONS_05_CLAIMS_CITIES";
+	public static final String CAT_WAR = "XENOFACTIONS_06_WAR_DIPLOMACY";
+	public static final String CAT_PROTECTION = "XENOFACTIONS_07_NEW_PLAYER_PROTECTION";
+	public static final String CAT_CUSTOM_FLAGS = "XENOFACTIONS_08_CUSTOM_FLAGS";
+	public static final String CAT_WALL_ART = "XENOFACTIONS_08B_WALL_ART";
+	public static final String CAT_DYNMAP = "XENOFACTIONS_09_DYNMAP";
+	public static final String CAT_JOURNEYMAP = "XENOFACTIONS_09B_JOURNEYMAP_CLIENT";
+	public static final String CAT_PLAYER_IDENTITY = "XENOFACTIONS_09C_PLAYER_IDENTITY";
+
+	public static final String CAT_LEGACY_MACHINES = "XENOFACTIONS_10_MACHINES_POWER";
+	public static final String CAT_LEGACY_DEFENSE = "XENOFACTIONS_11_RADAR_FORCEFIELD";
+	public static final String CAT_LEGACY_WEAPONS = "XENOFACTIONS_12_WEAPONS_EXPLOSIVES";
+	public static final String CAT_LEGACY_WORLD = "XENOFACTIONS_13_WORLD_MOBS_BORDER";
+	public static final String CAT_LEGACY_MARKET = "XENOFACTIONS_14_STOCK_MARKET";
+	public static final String CAT_LEGACY_CHAT = "XENOFACTIONS_15_CHAT_FILTER";
+	public static final String CAT_LEGACY_GENERAL = "XENOFACTIONS_16_GENERAL_LEGACY";
+	public static final String CAT_LEGACY_DEBUG = "XENOFACTIONS_17_DEBUG_LOGGING";
+	public static final String CAT_EARTH_WORLD = "XENOFACTIONS_18_EARTH_WORLD";
+	public static final String CAT_BUILDERS = "XENOFACTIONS_19_BUILDERS";
+	public static final String CAT_TDM = "XENOFACTIONS_20_TDM";
+	public static boolean tdmBombUnknownRemovalAsDefuse = true;
+	public static boolean tdmBombLifecycleDebug = false;
+	public static boolean enableFactionBuilders = true;
+	public static int builderWorkIntervalTicks = 10;
+	public static int builderBlockScanBudget = 64;
+	public static boolean builderAllowWilderness = false;
+	public static int builderMaxSchematicBlocks = 2000000;
+	public static int builderMaxSchematicWidth = 256;
+	public static int builderMaxSchematicHeight = 128;
+	public static int builderMaxSchematicLength = 256;
+	public static int builderMaxUploadBytes = 8 * 1024 * 1024;
+	public static boolean enableEarthWorldType = true;
+	public static String earthWorldTypeName = "earthmap";
+	public static String earthDefaultPackId = "xf-earth-16k-clean";
+	public static String earthBundledCacheDirectory = "";
+	public static String earthLocalMapDirectory = "";
+	public static String earthSourceDirectory = "";
+	public static int earthRasterTileCache = 8;
+	public static boolean earthPregenVegetation = false;
+	public static boolean earthRequireVerifiedHashes = true;
+	public static boolean earthAllowUnverifiedLocalPacks = false;
+	public static boolean earthRequireProfile = true;
+	public static String earthMissingChunkPolicy = "FAIL";
+	public static String earthBoundaryMode = "PROFILE";
+	public static String earthAllowProfileMinecraftVersion = "1.7.10";
+	public static boolean earthLogFallbackChunks = true;
+	public static boolean earthBoundaryEnabled = false;
+	public static int earthBoundaryCenterX = 0;
+	public static int earthBoundaryCenterZ = 0;
+	public static int earthBoundaryRadiusX = 10000;
+	public static int earthBoundaryRadiusZ = 10000;
+	public static int earthBoundarySafetyMargin = 1;
+
+	public static boolean enableDynmapIntegration = true;
+	public static boolean enableJourneyMapIntegration = true;
+	public static boolean journeyMapShowMinimapClaims = true;
+	public static boolean journeyMapShowFullscreenClaims = true;
+	public static boolean journeyMapShowTerritoryLabels = true;
+	public static double journeyMapClaimFillOpacity = 0.18D;
+	public static double journeyMapClaimBorderOpacity = 0.80D;
+	public static double journeyMapClaimBorderWidth = 1.0D;
+	public static boolean enableTDM = true;
+	public static boolean enableCustomFactionFlags = true;
+	public static boolean enableNewPlayerProtection = false;
+	public static boolean enableConquestFlagsCommand = true;
+	public static boolean enableGuideBook = true;
+	public static boolean enableNEIIntegration = true;
+	public static boolean enableSurvivalRecipes = true;
+	public static boolean warEnabledDefault = false;
+	public static boolean enableDebugLogging = false;
+	public static String playerIdentityMode = "AUTO";
+
+	public static float startingPrestige = 250F;
+	public static float basePrestigeGen = 25F;
+	public static float prestigeGenCap = 2500F;
+	public static float warpCost = 125F;
+	public static float warpTentUpkeep = 75F;
+	public static float medTentUpkeep = 5F;
+	public static float blastFurnacePrestige = 5F;
+	public static float grainmillPrestige = 3F;
+	public static float universityPrestige = 60F;
+	public static float federalReservePrestige = 30F;
+	public static float templePrestige = 90F;
+	public static float statuePrestige = 15F;
+	public static float cityCenterPrestige = 0F;
+	public static float claimFlagUpkeep = 1F;
+	public static float cityClaimUpkeep = 10F;
+	public static float warDeclarationBaseCost = 150F;
+	public static float warDeclarationTargetPrestigeFactor = 0.15F;
+	public static float activeWarUpkeep = 75F;
+	public static float enemyKillPrestigeReward = 25F;
+	public static float warUpkeepHourlyGrowth = 0.25F;
+	public static float warUpkeepHourlyGrowthSquared = 0.05F;
+	public static float surrenderPrestigeTransferPercent = 0.50F;
+	public static long surrenderTributeDurationMs = 84L * 60L * 60L * 1000L;
+	public static boolean enableNegativePrestigePenalties = true;
+	public static float financialCrisisThreshold = 0F;
+	public static float nationalCollapseThreshold = -500F;
+	public static float fallenNationThreshold = -1000F;
+	public static float financialCrisisUpkeepMult = 1.25F;
+	public static float nationalCollapseUpkeepMult = 1.50F;
+	public static float fallenNationUpkeepMult = 2.00F;
+
+	public static int maxCityRadius = 6;
+	public static int minCitySpacingChunks = 13;
+	public static int claimNameMinLength = 1;
+	public static int claimNameMaxLength = 32;
+	public static boolean claimNameRequireUnique = true;
+	public static boolean claimRenameOfficersAllowed = true;
+	public static boolean peaceCityTransfersEnabled = true;
+	public static boolean enableClaimsInAllDimensions = true;
+	public static int[] allowedClaimDimensions = new int[0];
+	public static int[] blockedClaimDimensions = new int[0];
+	public static boolean surrenderTransfersCities = true;
+	public static int[] cityRadii = new int[] { 2, 3, 4, 5, 6 };
+	public static float[] cityUpgradeCosts = new float[] { 75F, 150F, 300F, 600F, 1000F };
+	public static float[] cityUpkeep = new float[] { 10F, 25F, 50F, 90F, 140F };
+	public static float cityFoundingCostGrowth = 0.50F;
+	public static boolean cityRelocationEnabled = true;
+	public static int cityRelocationFreeDistanceBlocks = 10;
+	public static float cityRelocationBasePrestigeCost = 0F;
+	public static float cityRelocationPrestigePerExtraBlock = 30F;
+	public static int cityRelocationMaxDistanceBlocks = 256;
+	public static int cityRelocationMoveLimit = 3;
+	public static int cityRelocationWindowHours = 168;
+	public static int cityRelocationRepeatCooldownMinutes = 30;
+    public static int capitalChangeCooldownHours = 168;
+	public static int cityRelocationPendingMinutes = 30;
+
+	public static int warOnlinePlayerThreshold = 2;
+	public static long raidGraceAfterOnlineDropMs = 30L * 60L * 1000L;
+	public static long surrenderCooldownMs = 84L * 60L * 60L * 1000L;
+	public static long peaceCooldownMs = 84L * 60L * 60L * 1000L;
+	public static long ceasefireCooldownMs = 24L * 60L * 60L * 1000L;
+	public static long allianceBreakCooldownMs = 24L * 60L * 60L * 1000L;
+	public static boolean alliesCanJoinWars = true;
+	public static boolean alliesCanDeclareWarOnEachOther = false;
+
+	public static long pvpGraceDurationMs = 4L * 60L * 60L * 1000L;
+	public static long keepInventoryDurationMs = 24L * 60L * 60L * 1000L;
+	public static boolean graceBuildEnabled = true;
+	public static boolean graceBuildOneTimeUse = true;
+	public static long graceBuildDurationMs = 48L * 60L * 60L * 1000L;
+
+	public static String[] customFlagAllowedHosts = new String[] { "postimages.org", "i.postimg.cc" };
+	public static Set<String> customFlagAllowedHostSet = new HashSet<String>();
+	public static int customFlagMaxWidth = 1024;
+	public static int customFlagMaxHeight = 1024;
+	public static int customFlagMaxFileSizeBytes = 1024 * 1024;
+	public static int customFlagTimeoutMs = 5000;
+	public static int customFlagMaxRedirects = 3;
+	public static long customFlagRateLimitMs = 60000L;
+	public static boolean customFlagReloadMissingClearsMetadata = true;
+	public static String[] wallArtAllowedHosts = new String[] { "postimg.cc", "i.postimg.cc", "postimages.org" };
+	public static Set<String> wallArtAllowedHostSet = new HashSet<String>();
+	public static int wallArtMaxSourceBytes = 16 * 1024 * 1024;
+	public static int wallArtMaxSourceDimension = 8192;
+	public static long wallArtMaxSourcePixels = 64L * 1024L * 1024L;
+	public static int wallArtDownloadTimeoutMs = 10000;
+	public static int wallArtMaxRedirects = 3;
+	public static long wallArtSuccessCooldownMs = 5000L;
+	public static long wallArtFailureCooldownMs = 1000L;
+
+	public static String dynmapMarkerSetId = "xenofactions_cities";
+	public static String dynmapMarkerSetLabel = "Faction Cities";
+	public static int dynmapUpdateIntervalTicks = 20 * 30;
+	public static double dynmapClaimFillOpacity = 0.18D;
+	public static double dynmapBorderLineOpacity = 0.9D;
+	public static int dynmapBorderLineWeight = 3;
+	public static double dynmapClaimLineOpacity = 0.0D;
+	public static int dynmapClaimLineWeight = 0;
+	public static boolean dynmapShowCityCenterMarkers = true;
+	public static boolean dynmapShowClaimDetails = true;
+	public static boolean dynmapShowPrestigeDetails = true;
+	/** Dynmap is a public web map; exact match spawn coordinates require explicit opt-in. */
+	public static boolean dynmapShowTdmSpawns = false;
+	public static String[] dynmapDimensionWorldMap = new String[] { "0=auto", "-1=auto", "1=auto" };
+	public static final String TDM_CT_WIN_SOUNDS_PROPERTY = "ctWinSounds";
+	public static final String TDM_T_WIN_SOUNDS_PROPERTY = "terroristWinSounds";
+	public static final String TDM_CT_ROUND_START_SOUNDS_PROPERTY = "ctRoundStartSounds";
+	public static final String TDM_T_ROUND_START_SOUNDS_PROPERTY = "terroristRoundStartSounds";
+	public static final String TDM_BOMB_PLANTED_SOUNDS_PROPERTY = "bombPlantedSounds";
+	private static final int TDM_SOUND_CONFIG_VERSION = 1;
+	private static final String[] DEFAULT_TDM_CT_WIN_SOUNDS = new String[] { "hfr:tdm.ct_win1" };
+	private static final String[] DEFAULT_TDM_T_WIN_SOUNDS = new String[] { "hfr:tdm.t_win1" };
+	private static final String[] DEFAULT_TDM_CT_ROUND_START_SOUNDS = new String[] { "hfr:tdm.ct_round_start1" };
+	private static final String[] DEFAULT_TDM_T_ROUND_START_SOUNDS = new String[] { "hfr:tdm.t_round_start1" };
+	private static final String[] DEFAULT_TDM_BOMB_PLANTED_SOUNDS = new String[] { "hfr:tdm.bomb_plant1" };
+	public static String[] tdmCtWinSounds = DEFAULT_TDM_CT_WIN_SOUNDS;
+	public static String[] tdmTWinSounds = DEFAULT_TDM_T_WIN_SOUNDS;
+	public static String[] tdmCtRoundStartSounds = DEFAULT_TDM_CT_ROUND_START_SOUNDS;
+	public static String[] tdmTRoundStartSounds = DEFAULT_TDM_T_ROUND_START_SOUNDS;
+	public static String[] tdmBombPlantedSounds = DEFAULT_TDM_BOMB_PLANTED_SOUNDS;
+
+	public static void load(Configuration config) {
+		commentCategories(config);
+		migrateTdmSoundConfig(config);
+		enableEarthWorldType = bool(config, CAT_EARTH_WORLD, "enableEarthWorldType", true, "Registers the template-backed xf_earth overworld type.");
+		enableFactionBuilders = bool(config, CAT_BUILDERS, "enableFactionBuilders", true, "Enable persistent faction Builder workers.");
+		tdmBombUnknownRemovalAsDefuse = bool(config, CAT_TDM, "tdmBombUnknownRemovalAsDefuse", true, "When an active tracked HBM CSGO bomb disappears before Xenofactions can observe HBM's brief disarmed state, treat the removal as a successful CT defuse if no detonation evidence exists and the bomb's supporting block is still valid. Disable this for strict OBJECTIVE_ERROR debugging.");
+		tdmBombLifecycleDebug = bool(config, CAT_TDM, "tdmBombLifecycleDebug", false, "Log detailed HBM CSGO bomb lifecycle transitions. Warnings and objective errors are always logged.");
+		tdmCtWinSounds = stringList(config, CAT_TDM, TDM_CT_WIN_SOUNDS_PROPERTY, DEFAULT_TDM_CT_WIN_SOUNDS, "Sound IDs randomly selected for Counter-Terrorist round wins. Empty disables the event.");
+		tdmTWinSounds = stringList(config, CAT_TDM, TDM_T_WIN_SOUNDS_PROPERTY, DEFAULT_TDM_T_WIN_SOUNDS, "Sound IDs randomly selected for Terrorist round wins. Empty disables the event.");
+		tdmCtRoundStartSounds = stringList(config, CAT_TDM, TDM_CT_ROUND_START_SOUNDS_PROPERTY, DEFAULT_TDM_CT_ROUND_START_SOUNDS, "Sound IDs randomly selected for Counter-Terrorists at round start.");
+		tdmTRoundStartSounds = stringList(config, CAT_TDM, TDM_T_ROUND_START_SOUNDS_PROPERTY, DEFAULT_TDM_T_ROUND_START_SOUNDS, "Sound IDs randomly selected for Terrorists at round start.");
+		tdmBombPlantedSounds = stringList(config, CAT_TDM, TDM_BOMB_PLANTED_SOUNDS_PROPERTY, DEFAULT_TDM_BOMB_PLANTED_SOUNDS, "Sound IDs randomly selected globally when a bomb is planted.");
+		builderWorkIntervalTicks = integer(config, CAT_BUILDERS, "builderWorkIntervalTicks", 10, 1, 1200, "Ticks between Builder work cycles.");
+		builderBlockScanBudget = integer(config, CAT_BUILDERS, "builderBlockScanBudget", 64, 1, 4096, "Maximum schematic entries examined per work cycle.");
+		builderAllowWilderness = bool(config, CAT_BUILDERS, "builderAllowWilderness", false, "Allow Builder modifications outside claimed territory.");
+		builderMaxSchematicBlocks = integer(config,CAT_BUILDERS,"builderMaxSchematicBlocks",262144,1,2000000,"Maximum normalized blocks accepted in one Builder schematic.");
+		builderMaxSchematicWidth = integer(config,CAT_BUILDERS,"builderMaxSchematicWidth",256,1,1024,"Maximum Builder schematic X dimension.");
+		builderMaxSchematicHeight = integer(config,CAT_BUILDERS,"builderMaxSchematicHeight",128,1,256,"Maximum Builder schematic Y dimension.");
+		builderMaxSchematicLength = integer(config,CAT_BUILDERS,"builderMaxSchematicLength",256,1,1024,"Maximum Builder schematic Z dimension.");
+		builderMaxUploadBytes = integer(config,CAT_BUILDERS,"builderMaxUploadBytes",8*1024*1024,1024,64*1024*1024,"Maximum encoded schematic upload size.");
+		earthWorldTypeName = "earthmap";
+		earthDefaultPackId = string(config, CAT_EARTH_WORLD, "earthDefaultPackId", "xf-earth-16k-clean", "Map pack selected when generator options are empty or invalid.");
+		earthBundledCacheDirectory = string(config, CAT_EARTH_WORLD, "earthBundledCacheDirectory", "", "Blank uses .minecraft/xenofactions/earthmaps/cache.");
+		earthLocalMapDirectory = string(config, CAT_EARTH_WORLD, "earthLocalMapDirectory", "", "Blank uses .minecraft/xenofactions/earthmaps.");
+		earthSourceDirectory = string(config, CAT_EARTH_WORLD, "earthSourceDirectory", "", "External raster source root. Blank uses .minecraft/xenofactions/earthmaps/sources; source images are never loaded from the jar.");
+		earthRasterTileCache = integer(config, CAT_EARTH_WORLD, "earthRasterTileCache", 8, 1, 32, "Maximum 512x512 decoded raster tiles retained across all Earth source images.");
+		earthPregenVegetation = bool(config, CAT_EARTH_WORLD, "earthPregenVegetation", false, "Reserved decoration switch. The earth2000 clean generator currently requires this to remain false.");
+		earthRequireVerifiedHashes = bool(config, CAT_EARTH_WORLD, "earthRequireVerifiedHashes", true, "Require manifest and archive hashes.");
+		earthAllowUnverifiedLocalPacks = bool(config, CAT_EARTH_WORLD, "earthAllowUnverifiedLocalPacks", false, "Unsafe development escape hatch for local packs.");
+		earthRequireProfile = bool(config, CAT_EARTH_WORLD, "earthRequireProfile", true, "Refuse an adopted Earth world without xenoearth-profile.json.");
+		earthMissingChunkPolicy = enumValue(string(config, CAT_EARTH_WORLD, "earthMissingChunkPolicy", "FAIL", "FAIL or VOID."), "FAIL", "VOID", "earthMissingChunkPolicy");
+		earthBoundaryMode = enumValue(string(config, CAT_EARTH_WORLD, "earthBoundaryMode", "PROFILE", "OFF, PROFILE, or CONFIG."), "PROFILE", "OFF,CONFIG", "earthBoundaryMode");
+		earthAllowProfileMinecraftVersion = string(config, CAT_EARTH_WORLD, "earthAllowProfileMinecraftVersion", "1.7.10", "Required profile targetMinecraftVersion.");
+		earthLogFallbackChunks = bool(config, CAT_EARTH_WORLD, "earthLogFallbackChunks", true, "Log fallback chunks once per coordinate.");
+		earthBoundarySafetyMargin = integer(config, CAT_EARTH_WORLD, "earthBoundarySafetyMargin", 1, 0, 15, "Blocks kept inward from profile edges by the existing border handler.");
+
+		enableDynmapIntegration = bool(config, CAT_MODULES, "enableDynmapIntegration", enableDynmapIntegration, "Enables optional Dynmap markers. Safe no-op when Dynmap is absent.");
+		enableJourneyMapIntegration = bool(config, CAT_MODULES, "enableJourneyMapIntegration", enableJourneyMapIntegration, "Enables optional JourneyMap 6.0.x client overlays (with a 5.2.x compatibility hook). Safe no-op when JourneyMap is absent.");
+		enableTDM = bool(config, CAT_MODULES, "enableTDM", enableTDM, "Enables Xenofactions TDM commands and event hooks.");
+		enableCustomFactionFlags = bool(config, CAT_MODULES, "enableCustomFactionFlags", enableCustomFactionFlags, "Enables imported custom faction flags via /c flag seturl.");
+		enableNewPlayerProtection = bool(config, CAT_MODULES, "enableNewPlayerProtection", enableNewPlayerProtection, "Enables starter PvP/keep-inventory protection for first-time players.");
+		enableConquestFlagsCommand = bool(config, CAT_MODULES, "enableConquestFlagsCommand", enableConquestFlagsCommand, "Enables the /xflags command that grants conquest flags while wars are enabled.");
+		enableGuideBook = bool(config, CAT_MODULES, "enableGuideBook", enableGuideBook, "Registers the optional Guide-API Xenofactions Handbook when Guide-API is installed.");
+		enableNEIIntegration = bool(config, CAT_MODULES, "enableNEIIntegration", enableNEIIntegration, "Enables optional Not Enough Items recipe/usage display handlers when NEI is installed.");
+		enableSurvivalRecipes = bool(config, CAT_MODULES, "enableSurvivalRecipes", enableSurvivalRecipes, "Registers survival recipes for established Xenofactions faction infrastructure. Disable to retain command/shop distribution only.");
+		playerIdentityMode = string(config, CAT_PLAYER_IDENTITY, "playerIdentityMode", playerIdentityMode, "AUTO uses NAME in deobfuscated development or offline-mode servers and UUID otherwise. UUID is secure; NAME is development/offline compatibility only.");
+
+		startingPrestige = flt(config, CAT_PRESTIGE_GENERATION, "startingPrestige", startingPrestige, 0F, 1000000F, "Prestige granted to newly-created factions.");
+		basePrestigeGen = flt(config, CAT_PRESTIGE_GENERATION, "basePrestigeGeneration", basePrestigeGen, 0F, 100000F, "Base hourly prestige generation for factions.");
+		prestigeGenCap = flt(config, CAT_PRESTIGE_GENERATION, "prestigeGenerationCap", prestigeGenCap, 0F, 1000000F, "Maximum hourly prestige generation counted for a faction.");
+		blastFurnacePrestige = flt(config, CAT_PRESTIGE_GENERATION, "blastFurnacePrestigeGeneration", blastFurnacePrestige, 0F, 100000F, "Hourly prestige generated by blast furnaces.");
+		grainmillPrestige = flt(config, CAT_PRESTIGE_GENERATION, "grainmillPrestigeGeneration", grainmillPrestige, 0F, 100000F, "Hourly prestige generated by grainmills.");
+		universityPrestige = flt(config, CAT_PRESTIGE_GENERATION, "universityPrestigeGeneration", universityPrestige, 0F, 100000F, "Hourly prestige generated by universities.");
+		federalReservePrestige = flt(config, CAT_PRESTIGE_GENERATION, "federalReservePrestigeGeneration", federalReservePrestige, 0F, 100000F, "Hourly prestige generated by federal reserves.");
+		templePrestige = flt(config, CAT_PRESTIGE_GENERATION, "templePrestigeGeneration", templePrestige, 0F, 100000F, "Hourly prestige generated by temples.");
+		statuePrestige = flt(config, CAT_PRESTIGE_GENERATION, "statuePrestigeGeneration", statuePrestige, 0F, 100000F, "Hourly prestige generated by statues.");
+		cityCenterPrestige = flt(config, CAT_PRESTIGE_GENERATION, "cityCenterPrestigeGeneration", cityCenterPrestige, 0F, 100000F, "Hourly prestige generated by city centers.");
+
+		warpCost = flt(config, CAT_PRESTIGE_COSTS, "warpCreationCost", warpCost, 0F, 100000F, "Prestige cost to create a faction warp.");
+		warpTentUpkeep = flt(config, CAT_PRESTIGE_COSTS, "warpTentUpkeep", warpTentUpkeep, 0F, 100000F, "Hourly prestige upkeep consumed by warp tents.");
+		medTentUpkeep = flt(config, CAT_PRESTIGE_COSTS, "medicalTentUpkeep", medTentUpkeep, 0F, 100000F, "Hourly prestige upkeep consumed by medical tents.");
+		claimFlagUpkeep = flt(config, CAT_PRESTIGE_COSTS, "claimFlagUpkeep", claimFlagUpkeep, 0F, 100000F, "Multiplier applied to legacy conquest claim-flag upkeep cost units.");
+		cityClaimUpkeep = flt(config, CAT_PRESTIGE_COSTS, "settlementCityUpkeep", cityClaimUpkeep, 0F, 100000F, "Hourly upkeep added by active conquest flags.");
+		warDeclarationBaseCost = flt(config, CAT_PRESTIGE_COSTS, "warDeclarationBaseCost", warDeclarationBaseCost, 0F, 1000000F, "Base prestige cost to declare war.");
+		warDeclarationTargetPrestigeFactor = flt(config, CAT_PRESTIGE_COSTS, "warDeclarationTargetPrestigeFactor", warDeclarationTargetPrestigeFactor, 0F, 10F, "Extra war declaration cost as a fraction of target prestige.");
+		activeWarUpkeep = flt(config, CAT_PRESTIGE_COSTS, "activeWarUpkeep", activeWarUpkeep, 0F, 1000000F, "Starting hourly prestige upkeep per active war.");
+		enemyKillPrestigeReward = flt(config, CAT_PRESTIGE_COSTS, "enemyKillPrestigeReward", enemyKillPrestigeReward, 0F, 1000000F, "Prestige awarded to a faction when one of its players kills a member of a faction it explicitly marks as an enemy.");
+		warUpkeepHourlyGrowth = flt(config, CAT_PRESTIGE_COSTS, "warUpkeepHourlyGrowth", warUpkeepHourlyGrowth, 0F, 100F, "Linear hourly growth multiplier for active war upkeep.");
+		warUpkeepHourlyGrowthSquared = flt(config, CAT_PRESTIGE_COSTS, "warUpkeepHourlyGrowthSquared", warUpkeepHourlyGrowthSquared, 0F, 100F, "Quadratic hourly growth multiplier for active war upkeep.");
+		surrenderPrestigeTransferPercent = flt(config, CAT_PRESTIGE_COSTS, "surrenderPrestigeTransferPercent", surrenderPrestigeTransferPercent, 0F, 1F, "Fraction of surrendered faction generation paid as tribute.");
+		surrenderTributeDurationMs = hours(config, CAT_PRESTIGE_COSTS, "surrenderTributeDurationHours", 84D, 0D, 24D * 365D, "Duration of surrender tribute in hours.");
+
+		enableNegativePrestigePenalties = bool(config, CAT_BANKRUPTCY, "enableNegativePrestigePenalties", enableNegativePrestigePenalties, "Enables bankruptcy/collapse/fallen-nation penalties.");
+		financialCrisisThreshold = flt(config, CAT_BANKRUPTCY, "financialCrisisThreshold", financialCrisisThreshold, -1000000F, 1000000F, "Prestige threshold for Financial Crisis.");
+		nationalCollapseThreshold = flt(config, CAT_BANKRUPTCY, "nationalCollapseThreshold", nationalCollapseThreshold, -1000000F, 1000000F, "Prestige threshold for National Collapse.");
+		fallenNationThreshold = flt(config, CAT_BANKRUPTCY, "fallenNationThreshold", fallenNationThreshold, -1000000F, 1000000F, "Prestige threshold for Fallen Nation.");
+		financialCrisisUpkeepMult = flt(config, CAT_BANKRUPTCY, "financialCrisisUpkeepMultiplier", financialCrisisUpkeepMult, 0F, 100F, "Upkeep multiplier during Financial Crisis.");
+		nationalCollapseUpkeepMult = flt(config, CAT_BANKRUPTCY, "nationalCollapseUpkeepMultiplier", nationalCollapseUpkeepMult, 0F, 100F, "Upkeep multiplier during National Collapse.");
+		fallenNationUpkeepMult = flt(config, CAT_BANKRUPTCY, "fallenNationUpkeepMultiplier", fallenNationUpkeepMult, 0F, 100F, "Upkeep multiplier during Fallen Nation.");
+
+		enableClaimsInAllDimensions = bool(config, CAT_CLAIMS, "enableClaimsInAllDimensions", enableClaimsInAllDimensions, "Allows faction claims outside dimension 0.");
+		allowedClaimDimensions = intList(config, CAT_CLAIMS, "allowedClaimDimensions", allowedClaimDimensions, -100000, 100000, "Dimension whitelist for claims; empty means all dimensions.");
+		blockedClaimDimensions = intList(config, CAT_CLAIMS, "blockedClaimDimensions", blockedClaimDimensions, -100000, 100000, "Dimension blacklist for claims; empty means none.");
+		maxCityRadius = integer(config, CAT_CLAIMS, "maxCityRadius", maxCityRadius, 1, 32, "Maximum city radius in chunks. Existing claims are not deleted when lowered.");
+		minCitySpacingChunks = integer(config, CAT_CLAIMS, "minimumCitySpacingChunks", minCitySpacingChunks, 0, 128, "Minimum chunk distance between city centers to prevent overlap.");
+		claimNameMinLength = integer(config, CAT_CLAIMS, "claimNameMinLength", claimNameMinLength, 1, 64, "Minimum city/claim name length.");
+		claimNameMaxLength = integer(config, CAT_CLAIMS, "claimNameMaxLength", claimNameMaxLength, claimNameMinLength, 64, "Maximum city/claim name length.");
+		claimNameRequireUnique = bool(config, CAT_CLAIMS, "claimNameRequireUnique", claimNameRequireUnique, "Requires city names to be unique server-wide.");
+		claimRenameOfficersAllowed = bool(config, CAT_CLAIMS, "claimRenameOfficersAllowed", claimRenameOfficersAllowed, "Allows officers to rename city claims; false restricts to leaders/admins.");
+		peaceCityTransfersEnabled = bool(config, CAT_CLAIMS, "peaceCityTransfersEnabled", peaceCityTransfersEnabled, "Allows peace offers to include a city transfer.");
+		surrenderTransfersCities = bool(config, CAT_CLAIMS, "surrenderTransfersCities", surrenderTransfersCities, "Transfers all loser cities to victor when surrender is accepted.");
+		cityFoundingCostGrowth = flt(config, CAT_CLAIMS, "cityFoundingCostGrowth", cityFoundingCostGrowth, 0F, 100F, "Additional settlement founding cost per previously-founded city.");
+		cityRelocationEnabled = bool(config, CAT_CLAIMS, "cityRelocationEnabled", cityRelocationEnabled, "Allows faction leaders to relocate an existing City Center safely.");
+		cityRelocationFreeDistanceBlocks = integer(config, CAT_CLAIMS, "cityRelocationFreeDistanceBlocks", cityRelocationFreeDistanceBlocks, 0, 100000, "Horizontal distance in blocks that a City Center may move without a prestige charge.");
+		cityRelocationBasePrestigeCost = flt(config, CAT_CLAIMS, "cityRelocationBasePrestigeCost", cityRelocationBasePrestigeCost, 0F, 1000000F, "Base prestige charge for a relocation beyond the free distance.");
+		cityRelocationPrestigePerExtraBlock = flt(config, CAT_CLAIMS, "cityRelocationPrestigePerExtraBlock", cityRelocationPrestigePerExtraBlock, 0F, 100000F, "Additional prestige charged for each block, rounded up, beyond the free distance.");
+		cityRelocationMaxDistanceBlocks = integer(config, CAT_CLAIMS, "cityRelocationMaxDistanceBlocks", cityRelocationMaxDistanceBlocks, 0, 100000, "Maximum horizontal City Center relocation distance.");
+		cityRelocationMoveLimit = integer(config, CAT_CLAIMS, "cityRelocationMoveLimit", cityRelocationMoveLimit, 1, 100, "Successful moves allowed for each stable city ID inside the rolling window.");
+		cityRelocationWindowHours = integer(config, CAT_CLAIMS, "cityRelocationWindowHours", cityRelocationWindowHours, 1, 8760, "Rolling City Center move-limit window in hours.");
+		cityRelocationRepeatCooldownMinutes = integer(config, CAT_CLAIMS, "cityRelocationRepeatCooldownMinutes", cityRelocationRepeatCooldownMinutes, 0, 10080, "Minutes the third move must wait after the second successful move in the rolling window.");
+        capitalChangeCooldownHours = integer(config, CAT_CLAIMS, "capitalChangeCooldownHours", capitalChangeCooldownHours, 1, 8760, "Hours between leader-only designated capital changes. Independent of city upgrade level.");
+		cityRelocationPendingMinutes = integer(config, CAT_CLAIMS, "cityRelocationPendingMinutes", cityRelocationPendingMinutes, 1, 10080, "Minutes before an uncompleted relocation request expires harmlessly.");
+		cityRadii = intList(config, CAT_CLAIMS, "cityRadii", cityRadii, 1, maxCityRadius, "City radii by level: settlement,town,city,metropolis,capital.");
+		cityUpgradeCosts = floatList(config, CAT_CLAIMS, "cityUpgradeCosts", cityUpgradeCosts, 0F, 1000000F, "City upgrade/founding prestige costs by level.");
+		cityUpkeep = floatList(config, CAT_CLAIMS, "cityUpkeep", cityUpkeep, 0F, 1000000F, "Hourly city upkeep by level.");
+
+		warEnabledDefault = bool(config, CAT_WAR, "warEnabledDefault", warEnabledDefault, "Whether war declarations start enabled after server boot.");
+		warOnlinePlayerThreshold = integer(config, CAT_WAR, "onlinePlayerThreshold", warOnlinePlayerThreshold, 0, 100, "Online target faction members required for war/raid eligibility.");
+		raidGraceAfterOnlineDropMs = minutes(config, CAT_WAR, "raidGraceAfterOnlineDropMinutes", 30D, 0D, 24D * 60D, "How long a faction remains raidable after dropping below the online threshold.");
+		surrenderCooldownMs = hours(config, CAT_WAR, "surrenderCooldownHours", 84D, 0D, 24D * 365D, "No-war cooldown after accepted surrender.");
+		peaceCooldownMs = hours(config, CAT_WAR, "peaceCooldownHours", 84D, 0D, 24D * 365D, "No-war cooldown after accepted peace.");
+		ceasefireCooldownMs = hours(config, CAT_WAR, "ceasefireCooldownHours", 24D, 0D, 24D * 365D, "No-war cooldown after accepted ceasefire.");
+		allianceBreakCooldownMs = hours(config, CAT_WAR, "allianceBreakCooldownHours", 24D, 0D, 24D * 365D, "No-war cooldown after breaking an alliance.");
+		alliesCanJoinWars = bool(config, CAT_WAR, "alliesCanJoinWars", alliesCanJoinWars, "Allows /c defendally to join active wars for allies.");
+		alliesCanDeclareWarOnEachOther = bool(config, CAT_WAR, "alliesCanDeclareWarOnEachOther", alliesCanDeclareWarOnEachOther, "Allows allied factions to declare war on each other. Default false.");
+
+		pvpGraceDurationMs = hours(config, CAT_PROTECTION, "pvpGraceDurationHours", 4D, 0D, 24D * 365D, "PvP grace duration for first-time players.");
+		keepInventoryDurationMs = hours(config, CAT_PROTECTION, "keepInventoryDurationHours", 24D, 0D, 24D * 365D, "Keep-inventory duration recorded for first-time players.");
+		graceBuildEnabled = bool(config, CAT_PROTECTION, "graceBuildEnabled", graceBuildEnabled, "Enables /c gracebuild.");
+		graceBuildOneTimeUse = bool(config, CAT_PROTECTION, "graceBuildOneTimeUse", graceBuildOneTimeUse, "Restricts build grace to one activation per faction.");
+		graceBuildDurationMs = hours(config, CAT_PROTECTION, "graceBuildDurationHours", 48D, 0D, 24D * 365D, "Build grace duration in hours.");
+
+		customFlagAllowedHosts = stringList(config, CAT_CUSTOM_FLAGS, "allowedImageHosts", customFlagAllowedHosts, "HTTPS image host whitelist. Defaults preserve Postimages/i.postimg.cc behavior.");
+		rebuildHostSet();
+		customFlagMaxWidth = integer(config, CAT_CUSTOM_FLAGS, "maxImageWidth", customFlagMaxWidth, 1, 4096, "Maximum imported image width in pixels.");
+		customFlagMaxHeight = integer(config, CAT_CUSTOM_FLAGS, "maxImageHeight", customFlagMaxHeight, 1, 4096, "Maximum imported image height in pixels.");
+		customFlagMaxFileSizeBytes = integer(config, CAT_CUSTOM_FLAGS, "maxFileSizeBytes", customFlagMaxFileSizeBytes, 1024, 8 * 1024 * 1024, "Maximum downloaded image size in bytes.");
+		customFlagTimeoutMs = integer(config, CAT_CUSTOM_FLAGS, "downloadTimeoutMs", customFlagTimeoutMs, 500, 60000, "HTTP connect/read timeout for flag imports.");
+		customFlagMaxRedirects = integer(config, CAT_CUSTOM_FLAGS, "maxRedirects", customFlagMaxRedirects, 0, 10, "Maximum HTTPS redirects while importing a flag.");
+		customFlagRateLimitMs = seconds(config, CAT_CUSTOM_FLAGS, "importRateLimitSeconds", 60D, 0D, 3600D, "Per-player per-faction flag import rate limit.");
+		customFlagReloadMissingClearsMetadata = bool(config, CAT_CUSTOM_FLAGS, "reloadMissingFileClearsMetadata", customFlagReloadMissingClearsMetadata, "When /c flag reload finds no cached file, clear stale metadata.");
+
+		wallArtAllowedHosts = stringList(config, CAT_WALL_ART, "allowedImageHosts", wallArtAllowedHosts, "Exact HTTPS hosts allowed for Wall Art pages and images.");
+		rebuildWallArtHostSet();
+		wallArtMaxSourceBytes = integer(config, CAT_WALL_ART, "maxSourceBytes", wallArtMaxSourceBytes, 1024, 64 * 1024 * 1024, "Maximum downloaded Wall Art source size in bytes.");
+		wallArtMaxSourceDimension = integer(config, CAT_WALL_ART, "maxSourceDimension", wallArtMaxSourceDimension, 128, 32768, "Maximum source width or height before decoding.");
+		wallArtMaxSourcePixels = integer(config, CAT_WALL_ART, "maxSourcePixels", (int)wallArtMaxSourcePixels, 16384, 128 * 1024 * 1024, "Maximum source pixel count.");
+		wallArtDownloadTimeoutMs = integer(config, CAT_WALL_ART, "downloadTimeoutMs", wallArtDownloadTimeoutMs, 1000, 120000, "Wall Art connect and read timeout in milliseconds.");
+		wallArtMaxRedirects = integer(config, CAT_WALL_ART, "maxRedirects", wallArtMaxRedirects, 0, 10, "Maximum manually validated HTTPS redirects.");
+		wallArtSuccessCooldownMs = seconds(config, CAT_WALL_ART, "successCooldownSeconds", 5D, 0D, 3600D, "Delay after a successful import.");
+		wallArtFailureCooldownMs = seconds(config, CAT_WALL_ART, "failureCooldownSeconds", 1D, 0D, 60D, "Short retry delay after a failed import.");
+
+		dynmapMarkerSetId = string(config, CAT_DYNMAP, "markerSetId", dynmapMarkerSetId, "Dynmap marker set ID.");
+		dynmapMarkerSetLabel = string(config, CAT_DYNMAP, "markerSetLabel", dynmapMarkerSetLabel, "Dynmap marker set label.");
+		dynmapUpdateIntervalTicks = integer(config, CAT_DYNMAP, "updateIntervalTicks", dynmapUpdateIntervalTicks, 20, 20 * 60 * 60, "Dynmap marker update interval in ticks.");
+		dynmapClaimFillOpacity = dbl(config, CAT_DYNMAP, "claimFillOpacity", dynmapClaimFillOpacity, 0D, 1D, "Claim area fill opacity.");
+		dynmapClaimLineOpacity = dbl(config, CAT_DYNMAP, "claimLineOpacity", dynmapClaimLineOpacity, 0D, 1D, "Per-claim outline opacity; default hidden.");
+		dynmapClaimLineWeight = integer(config, CAT_DYNMAP, "claimLineWeight", dynmapClaimLineWeight, 0, 10, "Per-claim outline weight; default 0.");
+		dynmapBorderLineOpacity = dbl(config, CAT_DYNMAP, "borderLineOpacity", dynmapBorderLineOpacity, 0D, 1D, "City border line opacity.");
+		dynmapBorderLineWeight = integer(config, CAT_DYNMAP, "borderLineWeight", dynmapBorderLineWeight, 0, 10, "City border line weight.");
+		dynmapShowCityCenterMarkers = bool(config, CAT_DYNMAP, "showCityCenterMarkers", dynmapShowCityCenterMarkers, "Shows a marker at each City Center.");
+		dynmapShowClaimDetails = bool(config, CAT_DYNMAP, "showClaimDetailsInLabels", dynmapShowClaimDetails, "Includes city/claim chunk details in Dynmap labels.");
+		dynmapShowPrestigeDetails = bool(config, CAT_DYNMAP, "showPrestigeDetailsInLabels", dynmapShowPrestigeDetails, "Includes prestige/upkeep details in Dynmap labels.");
+		dynmapShowTdmSpawns = bool(config, CAT_DYNMAP, "showTdmSpawns", dynmapShowTdmSpawns, "Publish exact active-map spawn locations on the public Dynmap web map. Off by default.");
+		dynmapDimensionWorldMap = stringList(config, CAT_DYNMAP, "dynmapDimensionWorldMap", dynmapDimensionWorldMap, "Minecraft dimension to Dynmap world ID. Use 0=auto to resolve GTNH/Dynmap's Forge world name, or an explicit ID. Old stock world/world_nether/world_the_end entries also resolve automatically. Missing or empty entries are not published.");
+
+		journeyMapShowMinimapClaims = bool(config, CAT_JOURNEYMAP, "showMinimapClaims", journeyMapShowMinimapClaims, "Shows faction city claims on JourneyMap minimaps.");
+		journeyMapShowFullscreenClaims = bool(config, CAT_JOURNEYMAP, "showFullscreenClaims", journeyMapShowFullscreenClaims, "Shows faction city claims on the JourneyMap fullscreen map.");
+		journeyMapShowTerritoryLabels = bool(config, CAT_JOURNEYMAP, "journeyMapShowTerritoryLabels", journeyMapShowTerritoryLabels, "Shows one readable city-name label for each JourneyMap city territory when that map's claim overlay is enabled.");
+		journeyMapClaimFillOpacity = dbl(config, CAT_JOURNEYMAP, "claimFillOpacity", journeyMapClaimFillOpacity, 0D, 1D, "Faction-color claim fill opacity.");
+		journeyMapClaimBorderOpacity = dbl(config, CAT_JOURNEYMAP, "claimBorderOpacity", journeyMapClaimBorderOpacity, 0D, 1D, "Faction-color exposed-border opacity.");
+		journeyMapClaimBorderWidth = dbl(config, CAT_JOURNEYMAP, "claimBorderWidth", journeyMapClaimBorderWidth, 0.25D, 10D, "Exposed claim border width in pixels.");
+
+		enableDebugLogging = bool(config, CAT_LEGACY_DEBUG, "enableDebugLogging", enableDebugLogging, "Enables verbose development/debug logging such as registration confirmations, market packet traces, and background task chatter. Errors, warnings, and important startup checks still log when disabled.");
+
+		MainRegistry.warpCost = Math.round(warpCost);
+		CommandClowderAdmin.WARENABLED = warEnabledDefault;
+		com.hfr.clowder.ClowderEvents.newPlayerProtectionEnabled = enableNewPlayerProtection;
+	}
+
+	private static void commentCategories(Configuration config) {
+		config.addCustomCategoryComment(CAT_MODULES, "01 - Feature toggles. Use these first to turn optional Xenofactions systems on or off.");
+		config.addCustomCategoryComment(CAT_PRESTIGE_GENERATION, "02 - Prestige income. Building generation and faction starting/cap values live here.");
+		config.addCustomCategoryComment(CAT_PRESTIGE_COSTS, "03 - Prestige costs and upkeep. Warps, tents, conquest flags, active war costs, and surrender tribute.");
+		config.addCustomCategoryComment(CAT_BANKRUPTCY, "04 - Negative-prestige penalty thresholds and upkeep multipliers.");
+		config.addCustomCategoryComment(CAT_CLAIMS, "05 - City and claim rules: radii, spacing, naming, city transfer, upgrade costs, and city upkeep.");
+		config.addCustomCategoryComment(CAT_WAR, "06 - War, raid eligibility, alliance, and diplomacy cooldown rules. Prestige war costs are in category 03.");
+		config.addCustomCategoryComment(CAT_PROTECTION, "07 - Starter player protection and faction build-grace settings.");
+		config.addCustomCategoryComment(CAT_CUSTOM_FLAGS, "08 - Custom faction flag import safety limits and cache/reload behaviour.");
+		config.addCustomCategoryComment(CAT_WALL_ART, "08B - Wall Art source security, limits, and retry behaviour.");
+		config.addCustomCategoryComment(CAT_DYNMAP, "09 - Optional Dynmap marker styling, labels, and refresh timing.");
+		config.addCustomCategoryComment(CAT_JOURNEYMAP, "09B - Optional JourneyMap client claim overlay styling and city territory labels.");
+		config.addCustomCategoryComment(CAT_PLAYER_IDENTITY, "09C - Server player identity policy. NAME is only for development/offline compatibility; UUID is secure production behavior.");
+		config.addCustomCategoryComment(CAT_LEGACY_MACHINES, "10 - Legacy machine and power settings moved under the Xenofactions category flow.");
+		config.addCustomCategoryComment(CAT_LEGACY_DEFENSE, "11 - Legacy radar and forcefield settings.");
+		config.addCustomCategoryComment(CAT_LEGACY_WEAPONS, "12 - Legacy missile, nuke, railgun, and explosive weapon settings.");
+		config.addCustomCategoryComment(CAT_LEGACY_WORLD, "13 - Legacy world generation, entity control, mob, and world border settings.");
+		config.addCustomCategoryComment(CAT_LEGACY_MARKET, "14 - Legacy stock market settings and market broadcast text.");
+		config.addCustomCategoryComment(CAT_LEGACY_CHAT, "15 - Legacy chat filter settings.");
+		config.addCustomCategoryComment(CAT_LEGACY_GENERAL, "16 - Miscellaneous legacy settings that do not belong to a specific subsystem.");
+		config.addCustomCategoryComment(CAT_LEGACY_DEBUG, "17 - Legacy debug, logging, and precision-calculation settings.");
+		config.addCustomCategoryComment(CAT_EARTH_WORLD, "18 - Template-backed WorldPainter Earth overworld safeguards.");
+		config.addCustomCategoryComment(CAT_BUILDERS, "19 - Persistent faction Builder worker settings.");
+		config.addCustomCategoryComment(CAT_TDM, "20 - TDM compatibility and lifecycle diagnostics.");
+	}
+	private static String enumValue(String value, String def, String alternatives, String name) { String v=value.toUpperCase(); if(v.equals(def)) return v; for(String a:alternatives.split(",")) if(v.equals(a)) return v; warn(name+" is invalid; using "+def); return def; }
+
+	public static int cityRadius(CityLevel level) { return cityRadii[index(level)]; }
+	public static float cityUpgradeCost(CityLevel level) { return cityUpgradeCosts[index(level)]; }
+	public static float cityUpkeep(CityLevel level) { return cityUpkeep[index(level)]; }
+	private static int index(CityLevel level) { int i = level == null ? 0 : level.ordinal(); return Math.max(0, Math.min(4, i)); }
+
+	public static boolean canClaimInDimension(int dim) {
+		if(!enableClaimsInAllDimensions && dim != 0) return false;
+		for(int blocked : blockedClaimDimensions) if(blocked == dim) return false;
+		if(allowedClaimDimensions.length == 0) return true;
+		for(int allowed : allowedClaimDimensions) if(allowed == dim) return true;
+		return false;
+	}
+
+	public static String dynmapWorldNameForDimension(int dim) {
+		for(String entry : dynmapDimensionWorldMap) {
+			if(entry == null) continue;
+			String[] parts = entry.split("=", 2);
+			try { if(parts.length == 2 && Integer.parseInt(parts[0].trim()) == dim) return parts[1].trim(); } catch(Exception ignored) { }
+		}
+		return null;
+	}
+
+	private static void rebuildHostSet() {
+		customFlagAllowedHostSet.clear();
+		for(int i = 0; i < customFlagAllowedHosts.length; i++) {
+			String h = customFlagAllowedHosts[i];
+			if(h != null && h.trim().length() > 0)
+				customFlagAllowedHostSet.add(h.trim().toLowerCase());
+		}
+	}
+
+	private static void rebuildWallArtHostSet() {
+		wallArtAllowedHostSet.clear();
+		for(String host : wallArtAllowedHosts) {
+			if(host == null) continue;
+			String normalized = host.trim().toLowerCase();
+			while(normalized.endsWith(".")) normalized = normalized.substring(0, normalized.length() - 1);
+			if(normalized.length() > 0) wallArtAllowedHostSet.add(normalized);
+		}
+	}
+
+	private static void migrateTdmSoundConfig(Configuration config) {
+		Property version = config.get(CAT_TDM, "tdmSoundConfigVersion", 0);
+		version.comment = "Internal one-time migration version for TDM sound lists. Do not lower this value.";
+		if(version.getInt(0) >= TDM_SOUND_CONFIG_VERSION) return;
+		migrateEmptyTdmSoundList(config, TDM_CT_WIN_SOUNDS_PROPERTY, DEFAULT_TDM_CT_WIN_SOUNDS);
+		migrateEmptyTdmSoundList(config, TDM_T_WIN_SOUNDS_PROPERTY, DEFAULT_TDM_T_WIN_SOUNDS);
+		migrateEmptyTdmSoundList(config, TDM_CT_ROUND_START_SOUNDS_PROPERTY, DEFAULT_TDM_CT_ROUND_START_SOUNDS);
+		migrateEmptyTdmSoundList(config, TDM_T_ROUND_START_SOUNDS_PROPERTY, DEFAULT_TDM_T_ROUND_START_SOUNDS);
+		migrateEmptyTdmSoundList(config, TDM_BOMB_PLANTED_SOUNDS_PROPERTY, DEFAULT_TDM_BOMB_PLANTED_SOUNDS);
+		version.set(TDM_SOUND_CONFIG_VERSION);
+	}
+
+	private static void migrateEmptyTdmSoundList(Configuration config, String name, String[] defaults) {
+		Property property = config.get(CAT_TDM, name, defaults);
+		String[] values = property.getStringList();
+		for(String value : values)
+			if(value != null && value.trim().length() > 0) return;
+		property.set(defaults);
+	}
+
+	private static boolean bool(Configuration c, String cat, String name, boolean def, String comment) { Property p = c.get(cat, name, def); p.comment = comment; return p.getBoolean(def); }
+	private static String string(Configuration c, String cat, String name, String def, String comment) { Property p = c.get(cat, name, def); p.comment = comment; String v = p.getString(); return v == null || v.trim().isEmpty() ? def : v.trim(); }
+	private static String[] stringList(Configuration c, String cat, String name, String[] def, String comment) { Property p = c.get(cat, name, def); p.comment = comment; return p.getStringList(); }
+	private static int integer(Configuration c, String cat, String name, int def, int min, int max, String comment) { Property p = c.get(cat, name, def); p.comment = comment; return clamp(name, p.getInt(def), min, max); }
+	private static float flt(Configuration c, String cat, String name, float def, float min, float max, String comment) { Property p = c.get(cat, name, (double)def); p.comment = comment; return (float)clamp(name, p.getDouble(def), min, max); }
+	private static double dbl(Configuration c, String cat, String name, double def, double min, double max, String comment) { Property p = c.get(cat, name, def); p.comment = comment; return clamp(name, p.getDouble(def), min, max); }
+	private static long hours(Configuration c, String cat, String name, double def, double min, double max, String comment) { return (long)(dbl(c, cat, name, def, min, max, comment) * 60D * 60D * 1000D); }
+	private static long minutes(Configuration c, String cat, String name, double def, double min, double max, String comment) { return (long)(dbl(c, cat, name, def, min, max, comment) * 60D * 1000D); }
+	private static long seconds(Configuration c, String cat, String name, double def, double min, double max, String comment) { return (long)(dbl(c, cat, name, def, min, max, comment) * 1000D); }
+	private static int[] intList(Configuration c, String cat, String name, int[] def, int min, int max, String comment) {
+		String[] defaults = new String[def.length]; for(int i = 0; i < def.length; i++) defaults[i] = Integer.toString(def[i]);
+		String[] raw = stringList(c, cat, name, defaults, comment); int[] out = new int[def.length];
+		for(int i = 0; i < out.length; i++) out[i] = clamp(name + "[" + i + "]", parseInt(raw, i, def[i]), min, max);
+		return out;
+	}
+	private static float[] floatList(Configuration c, String cat, String name, float[] def, float min, float max, String comment) {
+		String[] defaults = new String[def.length]; for(int i = 0; i < def.length; i++) defaults[i] = Float.toString(def[i]);
+		String[] raw = stringList(c, cat, name, defaults, comment); float[] out = new float[def.length];
+		for(int i = 0; i < out.length; i++) out[i] = (float)clamp(name + "[" + i + "]", parseFloat(raw, i, def[i]), min, max);
+		return out;
+	}
+	private static int parseInt(String[] raw, int i, int def) { try { return raw != null && i < raw.length ? Integer.parseInt(raw[i].trim()) : def; } catch(Exception e) { warn("Invalid integer for config list entry; using default " + def); return def; } }
+	private static float parseFloat(String[] raw, int i, float def) { try { return raw != null && i < raw.length ? Float.parseFloat(raw[i].trim()) : def; } catch(Exception e) { warn("Invalid decimal for config list entry; using default " + def); return def; } }
+	private static int clamp(String name, int value, int min, int max) { if(value < min) { warn(name + " was below " + min + "; corrected to " + min); return min; } if(value > max) { warn(name + " was above " + max + "; corrected to " + max); return max; } return value; }
+	private static double clamp(String name, double value, double min, double max) { if(value < min) { warn(name + " was below " + min + "; corrected to " + min); return min; } if(value > max) { warn(name + " was above " + max + "; corrected to " + max); return max; } return value; }
+	private static void warn(String message) { if(MainRegistry.logger != null) MainRegistry.logger.warn("Xenofactions config: " + message); }
+}

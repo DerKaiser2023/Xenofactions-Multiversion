@@ -1,0 +1,105 @@
+package com.hfr.packet.effect;
+
+import com.hfr.main.EventHandlerClient;
+import com.hfr.tdm.TDMManager;
+import cpw.mods.fml.common.network.ByteBufUtils;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class TDMMenuDataPacket implements IMessage {
+    public String currentTeam;
+    public int cooldownSeconds;
+    public String[] friendlyLines;
+    public String[] enemyLines;
+    public boolean canOpenBuyMenu;
+    public boolean ffa;
+    public boolean showUtility,showKillstreaks;
+    public int killScore;
+    public TDMMenuDataPacket() {}
+    public TDMMenuDataPacket(EntityPlayerMP player, int cooldownSeconds) {
+        this.cooldownSeconds = cooldownSeconds;
+        TDMManager.Team self = TDMManager.getPlayerTeam(player.worldObj, player.getCommandSenderName());
+        this.currentTeam = self == null ? "teamless" : self.name;
+        this.canOpenBuyMenu=TDMManager.isBombMode(player.worldObj)&&com.hfr.tdm.TDMBombManager.getState()==com.hfr.tdm.TDMBombManager.BombRoundState.PRE_ROUND;
+        this.ffa=TDMManager.isFfaMode(player.worldObj);
+        TDMManager.TDMMap map=TDMManager.getSelectedMapData(player.worldObj);
+        this.showUtility=map!=null&&TDMManager.isBombMode(player.worldObj)&&canOpenBuyMenu&&map.buyScoreEnabled;
+        this.showKillstreaks=map!=null&&map.killstreaksEnabled&&!TDMManager.isBombMode(player.worldObj);
+        this.killScore=TDMManager.getPlayerKillScore(player);
+        if(ffa)this.currentTeam=TDMManager.isCompetitivePlayer(player)?"ffa":"observer";
+        List<String> friend = new ArrayList<String>();
+        List<String> enemy = new ArrayList<String>();
+        for (Object obj : MinecraftServer.getServer().getConfigurationManager().playerEntityList) {
+            EntityPlayerMP p = (EntityPlayerMP)obj;
+            TDMManager.Team team = TDMManager.getPlayerTeam(player.worldObj, p.getCommandSenderName());
+            if (!ffa && team == null) continue;
+            if (ffa && !TDMManager.isCompetitivePlayer(p)) continue;
+            int k = TDMManager.getKills(player.worldObj, p.getCommandSenderName());
+            int d = TDMManager.getDeaths(player.worldObj, p.getCommandSenderName());
+            float kdr = d <= 0 ? (float)k : ((float)k / (float)d);
+            String line = p.getCommandSenderName() + (ffa ? " | P:"+TDMManager.getPlayerPointScore(player.worldObj,p.getCommandSenderName()) : "") + " | " + k + "/" + d + " | " + String.format(java.util.Locale.US, "%.2f", kdr);
+            if (ffa || team == TDMManager.Team.BLUE) {
+                friend.add(line);
+            } else {
+                enemy.add(line);
+            }
+        }
+        this.friendlyLines = friend.toArray(new String[0]);
+        this.enemyLines = enemy.toArray(new String[0]);
+    }
+    public void fromBytes(ByteBuf buf){
+        currentTeam = ByteBufUtils.readUTF8String(buf);
+        cooldownSeconds = buf.readInt();
+        canOpenBuyMenu=buf.readBoolean();
+        ffa=buf.readBoolean();
+        showUtility=buf.readBoolean();showKillstreaks=buf.readBoolean();killScore=buf.readInt();
+        int friendlyCount = buf.readInt();
+        friendlyLines = new String[friendlyCount];
+        for(int i = 0; i < friendlyCount; i++) friendlyLines[i] = ByteBufUtils.readUTF8String(buf);
+        int enemyCount = buf.readInt();
+        enemyLines = new String[enemyCount];
+        for(int i = 0; i < enemyCount; i++) enemyLines[i] = ByteBufUtils.readUTF8String(buf);
+    }
+    public void toBytes(ByteBuf buf){
+        ByteBufUtils.writeUTF8String(buf, currentTeam);
+        buf.writeInt(cooldownSeconds);
+        buf.writeBoolean(canOpenBuyMenu);
+        buf.writeBoolean(ffa);
+        buf.writeBoolean(showUtility);buf.writeBoolean(showKillstreaks);buf.writeInt(killScore);
+        buf.writeInt(friendlyLines.length);
+        for(String s : friendlyLines) ByteBufUtils.writeUTF8String(buf, s);
+        buf.writeInt(enemyLines.length);
+        for(String s : enemyLines) ByteBufUtils.writeUTF8String(buf, s);
+    }
+
+    public static class Handler implements IMessageHandler<TDMMenuDataPacket, IMessage> {
+        @Override
+        @SideOnly(Side.CLIENT)
+        public IMessage onMessage(final TDMMenuDataPacket message, MessageContext ctx) {
+            // Forge 1.7.10 SimpleNetworkWrapper handlers can run off-thread, so GUI state must change on the client thread.
+            Minecraft.getMinecraft().func_152344_a(new Runnable() {
+                @Override
+                public void run() {
+                    EventHandlerClient.openTDMMenu(
+                            message.currentTeam,
+                            message.cooldownSeconds,
+                            message.friendlyLines,
+                            message.enemyLines,
+                            message.canOpenBuyMenu,message.ffa,message.showUtility,message.showKillstreaks,message.killScore
+                    );
+                }
+            });
+            return null;
+        }
+    }
+}

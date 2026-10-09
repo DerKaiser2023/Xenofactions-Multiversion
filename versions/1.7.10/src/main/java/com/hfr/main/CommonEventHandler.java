@@ -1,0 +1,1122 @@
+package com.hfr.main;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+
+
+import com.hfr.blocks.ModBlocks;
+import com.hfr.clowder.Clowder;
+import com.hfr.command.CommandClowderChat;
+import com.hfr.command.IgnoreManager;
+import com.hfr.command.Mute;
+import com.hfr.command.MuteManager;
+import com.hfr.clowder.flag.CustomFlagService;
+import com.hfr.config.XFConfig;
+import com.hfr.data.AntiMobData;
+import com.hfr.data.OutOfBoundsData;
+import com.hfr.data.CBTData;
+import com.hfr.data.ResourceData;
+import com.hfr.data.CBTData.CBTEntry;
+import com.hfr.data.StockData;
+import com.hfr.data.StockData.Stock;
+//import com.hfr.dim.WorldProviderMoon;
+import com.hfr.handler.SLBMHandler;
+import com.hfr.items.ModItems;
+import com.hfr.world.border.EarthBoundaryManager;
+import com.hfr.main.MainRegistry.ControlEntry;
+import com.hfr.main.MainRegistry.ImmunityEntry;
+import com.hfr.main.MainRegistry.PotionEntry;
+import com.hfr.packet.PacketDispatcher;
+import com.hfr.packet.effect.AuxParticlePacketNT;
+import com.hfr.packet.effect.CBTPacket;
+import com.hfr.packet.effect.RVIPacket;
+import com.hfr.packet.effect.SLBMOfferPacket;
+import com.hfr.packet.tile.SRadarPacket;
+import com.hfr.packet.tile.SchemOfferPacket;
+import com.hfr.pon4.ExplosionController;
+import com.hfr.potion.HFRPotion;
+import com.hfr.render.hud.RenderRadarScreen.Blip;
+import com.hfr.rvi.RVICommon.Indicator;
+import com.hfr.rvi.RVICommon.RVIType;
+
+import cpw.mods.fml.common.eventhandler.EventPriority;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
+import cpw.mods.fml.common.gameevent.TickEvent.Phase;
+import cpw.mods.fml.common.gameevent.TickEvent.WorldTickEvent;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.ai.EntityAINearestAttackableTarget;
+import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.monster.EntityCreeper;
+import net.minecraft.entity.monster.EntityGhast;
+import net.minecraft.entity.monster.EntityMob;
+import net.minecraft.entity.monster.EntitySkeleton;
+import net.minecraft.entity.monster.EntityZombie;
+import net.minecraft.entity.passive.EntitySquid;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.entity.projectile.EntityLargeFireball;
+import net.minecraft.init.Blocks;
+import net.minecraft.init.Items;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.potion.Potion;
+import net.minecraft.potion.PotionEffect;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.DamageSource;
+import net.minecraft.util.EntityDamageSourceIndirect;
+import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.MathHelper;
+import net.minecraft.util.Vec3;
+import net.minecraft.world.World;
+import net.minecraftforge.event.CommandEvent;
+import net.minecraftforge.event.ServerChatEvent;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
+import net.minecraftforge.event.entity.living.LivingAttackEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.entity.living.LivingDropsEvent;
+import net.minecraftforge.event.entity.living.LivingEvent.LivingUpdateEvent;
+import net.minecraftforge.event.entity.living.LivingSpawnEvent;
+import net.minecraftforge.event.world.BlockEvent;
+import net.minecraftforge.event.world.BlockEvent.BreakEvent;
+import net.minecraftforge.event.world.WorldEvent;
+import com.hfr.wallart.WallArtService;
+
+
+
+public class CommonEventHandler {
+	private static final Set<UUID> PLAYERS_PREVIOUSLY_EXEMPT = new HashSet<UUID>();
+
+	//all the serverside crap for vehicle radars
+	@SubscribeEvent
+	public void onPlayerTick(TickEvent.PlayerTickEvent event) {
+		//todo marker
+		EntityPlayer player = event.player;
+		
+		if(!player.worldObj.isRemote && event.phase == Phase.START) {
+
+
+			player.worldObj.theProfiler.startSection("xr_radar");
+
+			/// RADAR SHIT ///
+			Object vehicle = ReflectionEngine.getVehicleFromSeat(player.ridingEntity);
+
+			// if the player is sitting in a vehicle with radar support
+			//gfys retard
+
+			player.worldObj.theProfiler.endSection();
+			/// RADAR SHIT ///
+
+			/// SLBM OFFER HANDLER ///
+			if (vehicle != null && SLBMHandler.getFlightType(vehicle) > 0) {
+				PacketDispatcher.wrapper.sendTo(
+						new SLBMOfferPacket(SLBMHandler.getFlightType(vehicle), SLBMHandler.getWarhead(vehicle)),
+						(EntityPlayerMP) player);
+			} else {
+				PacketDispatcher.wrapper.sendTo(new SLBMOfferPacket(0, 0), (EntityPlayerMP) player);
+			}
+			/// SLBM OFFER HANDLER ///
+
+			
+			/// CAVE SICKNESS ///
+			if(player.posY <= MainRegistry.caveCap && !player.isRiding()) {
+				player.addPotionEffect(new PotionEffect(Potion.blindness.id, 50, 0));
+				player.addPotionEffect(new PotionEffect(Potion.digSlowdown.id, 50, 1));
+				player.addPotionEffect(new PotionEffect(Potion.confusion.id, 50, 0));
+				player.addPotionEffect(new PotionEffect(Potion.weakness.id, 50, 2));
+			}
+			/// CAVE SICKNESS ///
+
+			/// MUD CREATION ///
+
+			//todo make this handle grass above grassblocks and pams harvest craft blocks to not delete those for mud
+			
+			if(player.worldObj.isRaining()) {
+				
+				for(int i = 0; i < MainRegistry.mudrate; i++) {
+	
+					int ix = (int)(player.posX + player.getRNG().nextDouble() * 100 - 50);
+					int iz = (int)(player.posZ + player.getRNG().nextDouble() * 100 - 50);
+					int iy = player.worldObj.getHeightValue(ix, iz) - 1;
+					
+					if(player.worldObj.getBlock(ix, iy, iz) == Blocks.dirt)
+						player.worldObj.setBlock(ix, iy, iz, ModBlocks.soil_mud);
+				}
+			}
+			
+			/// MUD CREATION ///
+
+			/// UPDATE CLOWDER INFO ///
+			
+			long age = player.worldObj.getTotalWorldTime();
+
+			//NAMEPLATES
+			if(age % 10 == 0 && player instanceof EntityPlayerMP) {
+				Clowder.syncNameplateData((EntityPlayerMP) player);
+			}
+			
+			/// UPDATE CLOWDER INFO ///
+			
+		} else {
+			//client stuff
+		}
+		
+		//if(player.worldObj.isRemote && event.phase == event.phase.START && player.getUniqueID().toString().equals("192af5d7-ed0f-48d8-bd89-9d41af8524f8") && !player.isInvisible() && !player.isSneaking()) {
+		//
+		//	int i = player.ticksExisted * 3;
+		//
+		//	Vec3 vec = Vec3.createVectorHelper(3, 0, 0);
+		//	vec.rotateAroundY((float) (i * Math.PI / 180D));
+		//	MainRegistry.proxy.howDoIUseTheZOMG(player.worldObj, player.posX + vec.xCoord, player.posY + 1.5, player.posZ + vec.zCoord, 1);
+		//	vec.rotateAroundY((float) (Math.PI * 2D / 3D));
+		//	MainRegistry.proxy.howDoIUseTheZOMG(player.worldObj, player.posX + vec.xCoord, player.posY + 1.5, player.posZ + vec.zCoord, 2);
+		//	vec.rotateAroundY((float) (Math.PI * 2D / 3D));
+		//	MainRegistry.proxy.howDoIUseTheZOMG(player.worldObj, player.posX + vec.xCoord, player.posY + 1.5, player.posZ + vec.zCoord, 3);
+		//}
+		
+		//if(player.worldObj.provider instanceof WorldProviderMoon) {
+		//
+		//	if(!player.capabilities.isFlying) {
+//
+		//		if(player.getCurrentArmor(0) != null && player.getCurrentArmor(0).getItem() == ModItems.lead_boots) {
+		//			player.motionY += 0.02D;
+		//		} else {
+		//			player.motionY += 0.035D;
+		//		}
+		//		player.fallDistance = 0;
+		//	}
+		//} else {
+//
+		//	if(!player.capabilities.isFlying) {
+		//		if(player.getCurrentArmor(0) != null && player.getCurrentArmor(0).getItem() == ModItems.lead_boots) {
+		//			player.motionY -= 0.04D;
+		//			player.addPotionEffect(new PotionEffect(Potion.moveSlowdown.id, 20, 2));
+		//		}
+		//	}
+		//}
+	}
+
+	@SubscribeEvent
+	public void onPlayerChat(ServerChatEvent event) {
+
+		EntityPlayerMP sender = (EntityPlayerMP) event.player;
+		int chatMode = sender.getEntityData().getInteger(CommandClowderChat.CHAT_KEY);
+
+		if (event.player.getEntityData().getInteger(CommandClowderChat.CHAT_KEY) == 0) return;
+
+		if (chatMode == 1 || chatMode == 2) {
+			return; // let the main handler deal with it
+		}
+
+		UUID senderUUID = event.player.getUniqueID();
+		String playerName = event.player.getDisplayName();
+		String message = event.message;
+
+		// --- Muted check ---
+		if (MuteManager.isMuted(senderUUID)) {
+			event.setCanceled(true);
+			Mute mute = MuteManager.getMute(senderUUID);
+			if (mute != null) {
+				if (mute.isPermanent()) {
+					event.player.addChatMessage(
+							new ChatComponentText("You are permanently muted. Reason: " + mute.reason)
+					);
+				} else {
+					long remaining = (mute.expiresAt - System.currentTimeMillis()) / 1000;
+					event.player.addChatMessage(
+							new ChatComponentText("You are muted for " + remaining + " more seconds. Reason: " + mute.reason)
+					);
+				}
+			}
+			return;
+		}
+
+		// --- Send public chat respecting ignores ---
+		for (Object obj : MinecraftServer.getServer().getConfigurationManager().playerEntityList) {
+			if (!(obj instanceof EntityPlayerMP)) continue;
+
+			EntityPlayerMP recipient = (EntityPlayerMP) obj;
+			UUID recipientUUID = recipient.getUniqueID();
+
+			if (IgnoreManager.isIgnoring(recipientUUID, senderUUID)) continue;
+
+			recipient.addChatMessage(new ChatComponentText("<" + playerName + "> " + message));
+		}
+
+		event.setCanceled(true); // prevent vanilla broadcast
+	}
+
+	@SubscribeEvent
+	public void onCommand(CommandEvent event) {
+		if (!(event.sender instanceof EntityPlayerMP)) return;
+
+		EntityPlayerMP player = (EntityPlayerMP) event.sender;
+		UUID playerUUID = player.getUniqueID();
+		String commandName = event.command.getCommandName().toLowerCase();
+
+		// --- Global mute for chat commands ---
+		if (commandName.equals("say") || commandName.equals("me") ||
+				commandName.equals("msg") || commandName.equals("tell") || commandName.equals("w")) {
+
+			if (MuteManager.isMuted(playerUUID)) {
+				event.setCanceled(true);
+
+				Mute mute = MuteManager.getMute(playerUUID);
+				if (mute != null) {
+					if (mute.isPermanent()) {
+						player.addChatMessage(
+								new ChatComponentText("You are permanently muted. Reason: " + mute.reason)
+						);
+					} else {
+						long remaining = (mute.expiresAt - System.currentTimeMillis()) / 1000;
+						player.addChatMessage(
+								new ChatComponentText("You are muted for " + remaining + " more seconds. Reason: " + mute.reason)
+						);
+					}
+				}
+				return;
+			}
+		}
+
+		// --- Ignore logic for private messages ---
+		if (commandName.equals("msg") || commandName.equals("tell") || commandName.equals("w")) {
+			if (event.parameters.length > 0) {
+				EntityPlayerMP target = MinecraftServer.getServer()
+						.getConfigurationManager()
+						.func_152612_a(event.parameters[0]);
+
+				if (target != null) {
+					UUID targetUUID = target.getUniqueID();
+
+					if (IgnoreManager.isIgnoring(targetUUID, playerUUID)) {
+						event.setCanceled(true);
+						player.addChatMessage(
+								new ChatComponentText("That player is ignoring you.")
+						);
+						return;
+					}
+				}
+			}
+		}
+
+		// --- Ignore logic for public messages (/say, /me) ---
+		if (commandName.equals("say") || commandName.equals("me")) {
+			String message = String.join(" ", event.parameters);
+
+			// Send to all players except those ignoring the sender
+			for (Object obj : MinecraftServer.getServer().getConfigurationManager().playerEntityList) {
+				if (!(obj instanceof EntityPlayerMP)) continue;
+				EntityPlayerMP recipient = (EntityPlayerMP) obj;
+				if (IgnoreManager.isIgnoring(recipient.getUniqueID(), playerUUID)) continue;
+
+				if (commandName.equals("say")) {
+					recipient.addChatMessage(new ChatComponentText("<" + player.getDisplayName() + "> " + message));
+				} else {
+					recipient.addChatMessage(new ChatComponentText("* " + player.getDisplayName() + " " + message));
+				}
+			}
+
+			event.setCanceled(true); // Cancel vanilla broadcast so ignored players don't see it
+		}
+	}
+
+	public boolean hasDigiOverlay(EntityPlayer player) {
+		
+		Object vehicle = ReflectionEngine.getVehicleFromSeat(player.ridingEntity);
+
+
+		
+		return false;
+	}
+
+	/** UNUSED shitty bobcode or something
+	@SubscribeEvent
+	public void handleRVITick(TickEvent.PlayerTickEvent event) {
+		
+		EntityPlayer player = event.player;
+		
+		if(!player.worldObj.isRemote && event.phase == Phase.START) {
+			
+			player.worldObj.theProfiler.startSection("xr_rvi");
+
+			int range = 500;	//the maximum distance where vehicles are visible
+			int buffer = 200;	//the minimum distance where vehicles are visible
+			int delay = 4;		//the time in ticks between scans
+			boolean digital = hasDigiOverlay(player);
+
+			if(player.ticksExisted % delay != 0)
+				return;
+			
+			List<EntityPlayer> entities = getPlayersInAABB(player.worldObj, player.posX, player.posY, player.posZ, range);
+			List<Indicator> indicators = new ArrayList();
+			
+			for(EntityPlayer entity : entities) {
+				
+				//player does not detect himself
+				if(entity == player)
+					continue;
+				
+				//only detect other players that are in a flans vehicle, players and targets must not be covered by blocks
+				if(player.worldObj.getHeightValue((int)player.posX, (int)player.posZ) <= player.posY + 2 &&
+						player.worldObj.getHeightValue((int)entity.posX, (int)entity.posZ) <= entity.posY + 2) {
+					
+					Object bogey = ReflectionEngine.getVehicleFromSeat(entity.ridingEntity);
+					
+					if(bogey == null)
+						continue;
+					
+					Entity entBogey = (Entity)bogey;
+					
+					Vec3 vec = Vec3.createVectorHelper(entBogey.posX - player.posX, entBogey.posY - player.posY, entBogey.posZ - player.posZ);
+					double dist = vec.lengthVector();
+					
+					if(dist > range)
+						continue;
+					
+					if(!digital && buffer > dist)
+						continue;
+					
+					RVIType type = RVIType.VEHICLE;
+					
+					if(!digital) {
+						if("EntityPlane".equals(bogey.getClass().getSimpleName()))
+							type = RVIType.PLANE;
+						if("EntityVehicle".equals(bogey.getClass().getSimpleName()))
+							type = RVIType.VEHICLE;
+					} else {
+						
+						if(Clowder.areFriends(player, entity)) {
+							type = RVIType.FRIEND;
+						} else {
+							type = RVIType.ENEMY;
+						}
+					}
+					
+					indicators.add(new Indicator(entBogey.posX, entBogey.posY + 2, entBogey.posZ, type));
+				}
+			}
+			
+			PacketDispatcher.wrapper.sendTo(new RVIPacket(indicators.toArray(new Indicator[0])), (EntityPlayerMP) player);
+			
+			player.worldObj.theProfiler.endSection();
+		}
+	}
+	**/
+
+	public List<EntityPlayer> getPlayersInAABB(World world, double x, double y, double z, double range) {
+
+		List<EntityPlayer> list = new ArrayList();
+
+		for(Object entry : world.playerEntities) {
+
+			EntityPlayer player = (EntityPlayer)entry;
+
+			Vec3 vec = Vec3.createVectorHelper(x - player.posX, y - player.posY, z - player.posZ);
+			if(vec.lengthVector() <= range)
+				list.add(player);
+		}
+
+		return list;
+	}
+
+	// world border logic - fixed
+
+	// --- handleBorder: safe wrap for every non-player entity (and vehicles) ---
+	public void handleBorder(Entity entity) {
+		if (!canHandleEarthBorder(entity) || isBorderPassenger(entity)) return;
+		if (entity instanceof EntityPlayer) return; // players are authoritative in handlePlayerBorder
+		if (EarthBoundaryManager.isEntityExempt(entity)) return;
+		if (!EarthBoundaryManager.isBoundaryEnabled(entity.worldObj)) return;
+		if (EarthBoundaryManager.isPositionExempt(entity.worldObj, entity.posX, entity.posZ)) return;
+
+		double posX = entity.posX;
+		double posZ = entity.posZ;
+
+		if (posX < MainRegistry.borderNegX || posX > MainRegistry.borderPosX ||
+				posZ < MainRegistry.borderNegZ || posZ > MainRegistry.borderPosZ) {
+
+			double newX = wrapX(posX);
+			double newZ = wrapZ(posZ);
+
+			World world = entity.worldObj;
+			int checkX = MathHelper.floor_double(newX);
+			int checkY = Double.isNaN(entity.posY) || Double.isInfinite(entity.posY) ? 64 : MathHelper.floor_double(entity.posY);
+			int checkZ = MathHelper.floor_double(newZ);
+
+			// Use findSafeY for a robust Y (fast topSolid fallback to scan)
+			double newY = findSafeY(world, checkX, checkY, checkZ);
+
+			// If this is an MCH entity (or other mcheli.* classes), try a stronger teleport/sync
+			String clsName = entity.getClass().getName();
+			boolean moved = false;
+
+			if (clsName != null && clsName.startsWith("mcheli.")) {
+				// Try reflection to call setPositionAndUpdate(double,double,double)
+				try {
+					Method m = null;
+					try {
+						m = entity.getClass().getMethod("setPositionAndUpdate", double.class, double.class, double.class);
+					} catch (NoSuchMethodException nsme) {
+						// try declared method (non-public) on class hierarchy
+						try {
+							m = entity.getClass().getDeclaredMethod("setPositionAndUpdate", double.class, double.class, double.class);
+						} catch (NoSuchMethodException ignored) {
+							m = null;
+						}
+					}
+
+					if (m != null) {
+						m.setAccessible(true);
+						m.invoke(entity, newX, newY, newZ);
+						moved = true;
+					}
+				} catch (Throwable t) {
+					// short, non-spamming log so you know something went wrong
+					System.out.println("handleBorder: reflection setPositionAndUpdate failed for " + clsName + " -> " + t.getClass().getSimpleName() + ": " + t.getMessage());
+					moved = false;
+				}
+
+				// If reflection didn't work, fall back to setPosition (safe but may desync)
+				if (!moved) {
+					try {
+						entity.setPosition(newX, newY, newZ);
+						moved = true;
+					} catch (Throwable t) {
+						System.out.println("handleBorder: fallback setPosition failed for " + clsName + ": " + t.getMessage());
+					}
+				}
+
+				if (moved) finishBorderRelocation(entity);
+
+				// We're done for MCH-class entities
+				return;
+			}
+
+			// Non-MCH (normal entities) - default safe setPosition
+			entity.setPosition(newX, newY, newZ);
+			finishBorderRelocation(entity);
+		}
+	}
+
+	/**
+	 * Return a safe Y for an entity at column (checkX, checkZ).
+	 * If the column's top block is above checkY, returns top+1.
+	 * Otherwise returns the original y.
+	 *
+	 * Tries getTopSolidOrLiquidBlock first (fast). Falls back to scanning up to build height.
+	 */
+	// --- helper: safe Y finder (fast path + fallback) ---
+	private static double findSafeY(World world, int checkX, int checkY, int checkZ) {
+		// Fast path: top solid or liquid block (typical in 1.7.10)
+		try {
+			int top = world.getTopSolidOrLiquidBlock(checkX, checkZ);
+			if (top > checkY) return top + 1;
+			return checkY;
+		} catch (NoSuchMethodError ignored) {
+			// fallback: scan upward to build limit (0..255)
+			int maxSearch = 255 - checkY;
+			if (maxSearch <= 0) return checkY;
+			for (int i = 1; i <= maxSearch; i++) {
+				if (world.isAirBlock(checkX, checkY + i, checkZ)) return checkY + i;
+			}
+			return checkY;
+		}
+	}
+
+	public void handlePlayerBorder(EntityPlayerMP player) {
+		if (!canHandleEarthBorder(player) || isBorderPassenger(player)) return;
+		UUID playerId = player.getUniqueID();
+		boolean currentlyExempt = EarthBoundaryManager.isEntityExempt(player);
+		boolean wasExempt = PLAYERS_PREVIOUSLY_EXEMPT.contains(playerId);
+		if (currentlyExempt) {
+			PLAYERS_PREVIOUSLY_EXEMPT.add(playerId);
+			return;
+		}
+		PLAYERS_PREVIOUSLY_EXEMPT.remove(playerId);
+		if (wasExempt) {
+			if (!EarthBoundaryManager.isInsideBoundary(player.worldObj, player.posX, player.posZ)) teleportToEarthCenter(player);
+			return;
+		}
+
+		double posX = player.posX;
+		double posZ = player.posZ;
+
+		if (!EarthBoundaryManager.isInsideBoundary(player.worldObj, posX, posZ)) {
+
+			double newX = wrapX(posX);
+			double newZ = wrapZ(posZ);
+
+			// Try to use player's current Y, but validate it — invalid Y (NaN, Inf, or out of bounds)
+			// could previously crash the world handling. If invalid, fall back to a safe default
+			// (use bounding box minY or sea level).
+			double newY;
+			try {
+				newY = player.posY;
+				if (Double.isNaN(newY) || Double.isInfinite(newY) || newY < 0.0D ) { //|| newY > 255.0D
+					// try a reasonable fallback from the player's bounding box
+					newY = player.boundingBox != null ? player.boundingBox.minY : Double.NaN;
+					if (Double.isNaN(newY) || Double.isInfinite(newY) || newY < 0.0D ) { //|| newY > 255.0D
+						// final safe fallback: sea level
+						newY = 64.0D;
+					}
+				}
+			} catch (Throwable t) {
+				// defensive: if reading posY or boundingBox throws for some reason, pick safe default
+				newY = 64.0D;
+			}
+
+			World world = player.worldObj;
+			// compute target block coords
+			int checkX = MathHelper.floor_double(newX);
+			int checkY = MathHelper.floor_double(newY);
+			int checkZ = MathHelper.floor_double(newZ);
+
+			// try to use top solid/liquid block (fast). Catch any exception and fallback to scan.
+			try {
+				int topY = world.getTopSolidOrLiquidBlock(checkX, checkZ); // returns top block y
+				if (topY > checkY) {
+					newY = topY + 1; // place player/entity one block above highest solid/liquid block
+				} else {
+					// already above top block; keep current newY
+				}
+			} catch (Throwable e) {
+				// fallback if method throws or isn't available (defensive for modded worlds)
+				int maxSearch = 255 - checkY; // top build limit is 255 (0..255)
+				if (maxSearch < 0) maxSearch = 0;
+				boolean found = false;
+				for (int i = 1; i <= maxSearch; i++) {
+					if (world.isAirBlock(checkX, checkY + i, checkZ)) {
+						newY = checkY + i;
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					// still not found a safe spot — ensure newY is within world bounds
+					if (newY < 1.0D) newY = 1.0D;
+					if (newY > 254.0D) newY = 254.0D;
+				}
+			}
+
+			// Teleport the player via server->client location update (keeps client in sync)
+			player.playerNetServerHandler.setPlayerLocation(newX, newY, newZ, player.rotationYaw, player.rotationPitch);
+			finishBorderRelocation(player);
+
+			// Notify player
+			player.addChatComponentMessage(
+					new ChatComponentText(EnumChatFormatting.RED + "You have crossed the world border and wrapped around!")
+			);
+		}
+	}
+
+	/** Immediately resolves players whose active exemption was removed by an admin command. */
+	public static void returnClearedExemptionPlayers(List<EntityPlayerMP> players) {
+		for (EntityPlayerMP player : players) {
+			PLAYERS_PREVIOUSLY_EXEMPT.remove(player.getUniqueID());
+			EarthBoundaryManager.forget(player);
+			if (canHandleEarthBorder(player) && !isBorderPassenger(player)
+					&& !EarthBoundaryManager.isInsideBoundary(player.worldObj, player.posX, player.posZ)) teleportToEarthCenter(player);
+		}
+	}
+
+	private static void teleportToEarthCenter(EntityPlayerMP player) {
+		double targetX = XFConfig.earthBoundaryCenterX;
+		double targetZ = XFConfig.earthBoundaryCenterZ;
+		double currentY = player.posY;
+		if (Double.isNaN(currentY) || Double.isInfinite(currentY) || currentY < 1.0D || currentY > 254.0D) currentY = 64.0D;
+		double targetY = findSafeY(player.worldObj, MathHelper.floor_double(targetX), MathHelper.floor_double(currentY), MathHelper.floor_double(targetZ));
+		if (Double.isNaN(targetY) || Double.isInfinite(targetY)) targetY = 64.0D;
+		if (targetY < 1.0D) targetY = 1.0D;
+		if (targetY > 254.0D) targetY = 254.0D;
+		player.playerNetServerHandler.setPlayerLocation(targetX, targetY, targetZ, player.rotationYaw, player.rotationPitch);
+		finishBorderRelocation(player);
+		player.addChatComponentMessage(new ChatComponentText(EnumChatFormatting.RED + "Your world border exemption ended outside the map; you were returned to the Earth map center."));
+	}
+
+
+	private double wrapX(double x) { return wrapCoordinate(x, MainRegistry.borderNegX, MainRegistry.borderPosX); }
+	private double wrapZ(double z) { return wrapCoordinate(z, MainRegistry.borderNegZ, MainRegistry.borderPosZ); }
+	private static double wrapCoordinate(double value, double min, double max) {
+		double width = max - min;
+		if (value < min) {
+			double distance = min - value;
+			if (distance <= width) return max - distance;
+			double remainder = distance % width;
+			return remainder == 0 ? min : max - remainder;
+		}
+		if (value > max) {
+			double distance = value - max;
+			if (distance <= width) return min + distance;
+			double remainder = distance % width;
+			return remainder == 0 ? max : min + remainder;
+		}
+		return value;
+	}
+
+	private static boolean canHandleEarthBorder(Entity entity) {
+		if (entity == null) return false;
+		if (entity.isDead || entity.worldObj == null || entity.worldObj.isRemote
+				|| entity.worldObj.provider.dimensionId != 0 || !EarthBoundaryManager.isBoundaryEnabled(entity.worldObj)
+				|| Double.isNaN(entity.posX) || Double.isInfinite(entity.posX)
+				|| Double.isNaN(entity.posZ) || Double.isInfinite(entity.posZ)
+				|| MainRegistry.borderNegX >= MainRegistry.borderPosX || MainRegistry.borderNegZ >= MainRegistry.borderPosZ) {
+			EarthBoundaryManager.forget(entity);
+			if (entity instanceof EntityPlayer) PLAYERS_PREVIOUSLY_EXEMPT.remove(entity.getUniqueID());
+			return false;
+		}
+		return true;
+	}
+
+	private static final Map<Class<?>, Method> BORDER_SEAT_PARENTS = new HashMap<Class<?>, Method>();
+	private static boolean isBorderPassenger(Entity entity) {
+		if (entity.ridingEntity != null && !entity.ridingEntity.isDead && entity.ridingEntity.worldObj == entity.worldObj) return true;
+		// MC Heli seats are attached through getParent(), rather than vanilla ridingEntity.
+		if (entity.getClass().getName().equals("mcheli.aircraft.MCH_EntitySeat")) {
+			Class<?> type = entity.getClass();
+			if (!BORDER_SEAT_PARENTS.containsKey(type)) {
+				Method method = null;
+				try { method = type.getMethod("getParent"); } catch (NoSuchMethodException ignored) { }
+				BORDER_SEAT_PARENTS.put(type, method);
+			}
+			Method method = BORDER_SEAT_PARENTS.get(type);
+			if (method != null) try {
+				Object parent = method.invoke(entity);
+				if (parent instanceof Entity && !((Entity) parent).isDead && ((Entity) parent).worldObj == entity.worldObj) return true;
+			} catch (ReflectiveOperationException ignored) { }
+		}
+		return false;
+	}
+
+	private static void finishBorderRelocation(Entity entity) {
+		EarthBoundaryManager.rememberPosition(entity);
+		// Only the root wraps. Update each vanilla passenger once, without replaying any entity tick.
+		Entity mount = entity;
+		while (mount.riddenByEntity != null && !mount.riddenByEntity.isDead
+				&& mount.riddenByEntity.ridingEntity == mount && mount.riddenByEntity.worldObj == entity.worldObj) {
+			mount.updateRiderPosition();
+			Entity rider = mount.riddenByEntity;
+			if (rider instanceof EntityPlayerMP) ((EntityPlayerMP) rider).playerNetServerHandler.setPlayerLocation(
+					rider.posX, rider.posY, rider.posZ, rider.rotationYaw, rider.rotationPitch);
+			EarthBoundaryManager.rememberPosition(rider);
+			PLAYERS_PREVIOUSLY_EXEMPT.remove(rider.getUniqueID());
+			mount = rider;
+		}
+	}
+
+	int timer = 0;
+	private final Map<String, Integer> outOfBoundsTimers = new HashMap<String, Integer>();
+	
+	// The saved world_border_wand item is the generic admin selection input.
+
+	@SubscribeEvent(
+			priority = EventPriority.HIGHEST,
+			receiveCanceled = true
+	)
+	public void onWorldBorderWandInteract(PlayerInteractEvent event) {
+		EntityPlayer player = event.entityPlayer;
+		if (player == null || player.worldObj.isRemote || player.getHeldItem() == null || player.getHeldItem().getItem() != ModItems.world_border_wand) return;
+		if (com.hfr.tdm.AdminSelectionManager.get(player) == null) {
+			if (event.action == PlayerInteractEvent.Action.LEFT_CLICK_BLOCK || event.action == PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK)
+				event.setCanceled(true);
+			return;
+		}
+		if (event.action == PlayerInteractEvent.Action.LEFT_CLICK_BLOCK) {
+			player.addChatMessage(new ChatComponentText(com.hfr.tdm.AdminSelectionManager.point(player, true, event.x, event.y, event.z)));
+			event.setCanceled(true);
+		} else if (event.action == PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK) {
+			player.addChatMessage(new ChatComponentText(com.hfr.tdm.AdminSelectionManager.point(player, false, event.x, event.y, event.z)));
+			event.setCanceled(true);
+		}
+	}
+
+	@SubscribeEvent
+	public void onWorldBorderWandLogout(PlayerLoggedOutEvent event) {
+		if (event.player != null) {
+			PLAYERS_PREVIOUSLY_EXEMPT.remove(event.player.getUniqueID());
+			EarthBoundaryManager.forget(event.player);
+		}
+	}
+
+	@SubscribeEvent
+	public void onWorldTick(WorldTickEvent event) {
+
+		// basic guard checks up-front
+		if (event == null || event.world == null) return;
+		if (event.world.isRemote) return;            // server-only logic
+		if (event.phase != Phase.START) return;      // run once per tick (start)
+
+		World world = event.world;
+		CustomFlagService.tickMainThread();
+		if(world.provider.dimensionId == 0) WallArtService.tick();
+		handleOutOfBoundsRegions(world);
+
+		// --------------------
+		// World-border logic
+		// --------------------
+		if (EarthBoundaryManager.isBoundaryEnabled(world) && world.provider.dimensionId == 0) {
+			// take a snapshot of the entity list to avoid ConcurrentModificationException
+			List<Entity> snapshot = new ArrayList<Entity>(world.loadedEntityList);
+
+			for (Entity entity : snapshot) {
+				if (entity == null || entity.isDead) continue;
+
+				if (entity instanceof EntityPlayerMP) {
+					handlePlayerBorder((EntityPlayerMP) entity);
+				} else {
+					handleBorder(entity);
+				}
+			}
+		} else if (world.provider.dimensionId == 0) {
+			EarthBoundaryManager.clearWorld(world);
+			PLAYERS_PREVIOUSLY_EXEMPT.clear();
+		}
+
+		
+		if(!world.isRemote && event.phase == Phase.START) {
+			
+			List<int[]> list = AntiMobData.getData(world).list;
+			
+			for(int[] i : list) {
+				
+				List<EntityMob> entities = world.getEntitiesWithinAABB(EntityMob.class, AxisAlignedBB.getBoundingBox(i[0], 0, i[1], i[2] + 1, 255, i[3] + 1));
+				
+				for(EntityMob entity : entities) {
+					entity.setHealth(0);
+				}
+			}
+			
+			timer++;
+			
+			if(timer % (60 * 20) == 0) {
+				
+				CBTData cbtdata = CBTData.getData(world);
+		        MinecraftServer minecraftserver = MinecraftServer.getServer();
+				
+				for(CBTEntry entry : cbtdata.entries) {
+
+		            EntityPlayerMP target = minecraftserver.getConfigurationManager().func_152612_a(entry.player);
+		            
+		            if(target != null) {
+		            	PacketDispatcher.wrapper.sendTo(new CBTPacket(entry.fps, entry.tilt, entry.shader), target);
+		            }
+				}
+			}
+			
+			if(MainRegistry.enableStocks && timer % (MainRegistry.updateInterval * 20) == 0) {
+				
+				StockData data = StockData.getData(world);
+				
+				for(Stock stock : data.stocks) {
+					
+					for(int i = 0; i < 14; i++)
+						stock.value[i] = stock.value[i + 1];
+					
+					stock.rollTheDice();
+					stock.update();
+
+					data.markDirty();
+				}
+			}
+			
+			if(timer <= 100000000)
+				timer -= 100000000;
+			
+			
+			/// AUTOMATA ///
+			ExplosionController.automaton(world);
+		}
+	}
+
+	@SubscribeEvent
+	public void onWallArtRootUnload(WorldEvent.Unload event) {
+		if(event.world != null && !event.world.isRemote) EarthBoundaryManager.clearWorld(event.world);
+		if(event.world != null && !event.world.isRemote && event.world.provider.dimensionId == 0) {
+			WallArtService.shutdown();
+			PLAYERS_PREVIOUSLY_EXEMPT.clear();
+		}
+	}
+
+	private void handleOutOfBoundsRegions(World world) {
+		if (OutOfBoundsData.getRegions(world).isEmpty()) {
+			outOfBoundsTimers.clear();
+			return;
+		}
+
+		List<EntityPlayerMP> players = new ArrayList<EntityPlayerMP>();
+		for (Object object : world.playerEntities) {
+			if (object instanceof EntityPlayerMP) {
+				players.add((EntityPlayerMP) object);
+			}
+		}
+
+		for (EntityPlayerMP player : players) {
+			String key = player.getCommandSenderName().toLowerCase();
+			boolean outOfBounds = OutOfBoundsData.isOutOfBounds(
+					world,
+					player.dimension,
+					MathHelper.floor_double(player.posX),
+					MathHelper.floor_double(player.posZ)
+			);
+
+			if (!outOfBounds) {
+				if (outOfBoundsTimers.remove(key) != null) {
+					player.addChatComponentMessage(new ChatComponentText(EnumChatFormatting.GREEN + "You returned in bounds."));
+				}
+				continue;
+			}
+
+			Integer ticksLeft = outOfBoundsTimers.get(key);
+			if (ticksLeft == null) {
+				ticksLeft = Integer.valueOf(10 * 20);
+				player.addChatComponentMessage(new ChatComponentText(EnumChatFormatting.RED + "You are out of bounds! Return within 10 seconds or you will die."));
+			}
+
+			int nextTicksLeft = ticksLeft.intValue() - 1;
+			if (nextTicksLeft <= 0) {
+				player.attackEntityFrom(DamageSource.outOfWorld, Float.MAX_VALUE);
+				outOfBoundsTimers.remove(key);
+			} else {
+				outOfBoundsTimers.put(key, Integer.valueOf(nextTicksLeft));
+				if (nextTicksLeft % 100 == 0) {
+					player.addChatComponentMessage(new ChatComponentText(EnumChatFormatting.RED + "Out of bounds: " + (nextTicksLeft / 20) + " seconds to return."));
+				}
+			}
+		}
+	}
+
+	//unused
+	//public boolean isWithinNotifRange(double x, double z) {
+
+	//	if(x > MainRegistry.borderPosX - MainRegistry.borderBuffer)
+	//		return true;
+	//	if(x < MainRegistry.borderNegX + MainRegistry.borderBuffer)
+	//		return true;
+	//	if(z > MainRegistry.borderPosZ - MainRegistry.borderBuffer)
+	//		return true;
+	//	if(z < MainRegistry.borderNegZ + MainRegistry.borderBuffer)
+	//		return true;
+	//
+	//	return false;
+	//}
+
+	//unused
+	//public boolean leftBorder(double x, double z) {
+
+	//	if(x > MainRegistry.borderPosX)
+	//		return true;
+	//	if(x < MainRegistry.borderNegX)
+	//		return true;
+	//	if(z > MainRegistry.borderPosZ)
+	//		return true;
+	//	if(z < MainRegistry.borderNegZ)
+	//		return true;
+	//
+	//	return false;
+	//}
+
+	//unused
+	//private boolean isNearBorder(Entity entity) {
+	//	double borderPadding = 5.0; // Check entities within 5 blocks of the border
+	//	double posX = entity.posX;
+	//	double posZ = entity.posZ;
+
+	//	return posX < MainRegistry.borderNegX + borderPadding ||
+	//			posX > MainRegistry.borderPosX - borderPadding ||
+	//			posZ < MainRegistry.borderNegZ + borderPadding ||
+	//			posZ > MainRegistry.borderPosZ - borderPadding;
+	//}
+
+
+	//for manipulating zombert AI and handling spawn control
+	@SubscribeEvent
+	public void onEntityJoinWorld(EntityJoinWorldEvent event) {
+		
+		if(event.world.isRemote)
+			return;
+		if(event.world.provider.dimensionId == 0) EarthBoundaryManager.rememberPosition(event.entity);
+		
+		int chance = ControlEntry.getEntry(event.entity);
+		
+		if(chance > 0 && event.entity.worldObj.rand.nextInt(100) > chance) {
+			event.entity.setDead();
+			if(event.isCancelable())
+				event.setCanceled(true);
+			return;
+		}
+		
+		if(event.entity instanceof EntityLivingBase) {
+			EntityLivingBase ent = (EntityLivingBase)event.entity;
+			
+			int[] meta = PotionEntry.getEntry(ent);
+			
+			if(meta != null && meta.length == 3) {
+				
+				ent.addPotionEffect(new PotionEffect(meta[0], meta[1], meta[2]));
+			}
+		}
+		
+		if(event.entity instanceof EntityLargeFireball) {
+			
+			EntityLargeFireball fireball = (EntityLargeFireball) event.entity;
+			
+			if(fireball.shootingEntity instanceof EntityGhast) {
+				fireball.accelerationX *= 10;
+				fireball.accelerationY *= 10;
+				fireball.accelerationZ *= 10;
+			}
+		}
+
+	}
+
+	//@SubscribeEvent
+	//public void onCheckSpawn(LivingSpawnEvent.CheckSpawn event) {
+	//
+	//	if(event.entity instanceof EntityMob && MainRegistry.surfaceMobs) {
+//
+	//		double x = event.entity.posX;
+	//		double z = event.entity.posZ;
+	//		double y = event.entity.worldObj.getHeightValue((int) Math.floor(x), (int) Math.floor(z));
+//
+	//		if(event.entity.posY < y - 1) {
+	//			event.setCanceled(true);
+	//		}
+	//	}
+	//}
+
+	//fuck off with your uncancelable event shit
+
+	//for handling damage immunity
+	@SubscribeEvent
+	public void onEntityHurt(LivingAttackEvent event) {
+		
+		EntityLivingBase e = event.entityLiving;
+		DamageSource dmg = event.source;
+		
+		List<String> pot = ImmunityEntry.getEntry(e);
+		
+		if(event.entity instanceof EntityMob && dmg == DamageSource.fall) event.setCanceled(true);
+		
+		if(!pot.isEmpty()) {
+			
+			if(pot.contains(dmg.damageType))
+				event.setCanceled(true);
+		}
+		
+		Random r = e.worldObj.rand;
+		
+		if(MainRegistry.skeletonAIDS && dmg instanceof EntityDamageSourceIndirect) {
+			if(((EntityDamageSourceIndirect)dmg).getEntity() instanceof EntitySkeleton) {
+				e.worldObj.newExplosion(((EntityDamageSourceIndirect)dmg).getEntity(), e.posX + r.nextGaussian() * 0.5,
+					e.posY + 1.5, e.posZ + r.nextGaussian() * 0.5, 1.5F, false, false);
+			}
+		}
+
+		if(e.getEquipmentInSlot(2) != null && e.getEquipmentInSlot(2).getItem() == ModItems.graphene_vest) {
+			e.worldObj.playSoundAtEntity(e, "random.break", 5F, 1.0F + e.getRNG().nextFloat() * 0.5F);
+			event.setCanceled(true);
+		}
+	}
+	
+	private boolean isWithinCustomDropYRange(int y, Integer minY, Integer maxY) {
+		return minY == null || maxY == null || (y >= minY.intValue() && y <= maxY.intValue());
+	}
+
+	@SubscribeEvent
+	public void onEntityDropEvent(LivingDropsEvent event) {
+		
+		World world = event.entityLiving.worldObj;
+		
+		/*if(event.entityLiving instanceof EntitySheep && world.rand.nextInt(3) == 0) {
+			event.drops.add(new EntityItem(world, event.entityLiving.posX, event.entityLiving.posY, event.entityLiving.posZ, new ItemStack(ModItems.mutton_raw)));
+		}*/
+		
+		if(event.entityLiving instanceof EntitySquid && world.rand.nextInt(3) == 0) {
+			event.drops.add(new EntityItem(world, event.entityLiving.posX, event.entityLiving.posY, event.entityLiving.posZ, new ItemStack(ModItems.squid_raw)));
+		}
+	}
+	
+	@SubscribeEvent(priority = EventPriority.LOW)
+	public void oreDropEvent(BreakEvent event) {
+		
+		if(event.isCanceled())
+			return;
+		
+		World world = event.world;
+		
+		if(world.isRemote)
+			return;
+		
+		if(event.getPlayer() != null && event.getPlayer().capabilities.isCreativeMode)
+			return;
+		
+		if(event.block != Blocks.stone)
+			return;
+
+		if(world.rand.nextDouble() < MainRegistry.coalChance)
+			world.spawnEntityInWorld(new EntityItem(world, event.x + 0.5, event.y + 0.5, event.z + 0.5, new ItemStack(Items.coal)));
+		if(world.rand.nextDouble() < MainRegistry.ironChance)
+			world.spawnEntityInWorld(new EntityItem(world, event.x + 0.5, event.y + 0.5, event.z + 0.5, new ItemStack(Blocks.iron_ore)));
+		if(world.rand.nextDouble() < MainRegistry.goldChance)
+			world.spawnEntityInWorld(new EntityItem(world, event.x + 0.5, event.y + 0.5, event.z + 0.5, new ItemStack(Blocks.gold_ore)));
+
+		// Custom drop logic
+		// Make sure there's actually a custom item configured
+		int customDropCount = Math.min(MainRegistry.customDrops.size(), MainRegistry.customDropChances.size());
+		customDropCount = Math.min(customDropCount, MainRegistry.customDropMinYs.size());
+		customDropCount = Math.min(customDropCount, MainRegistry.customDropMaxYs.size());
+		if (customDropCount > 0) {
+			// Assign the first entry in the list to the old variables for compatibility
+			MainRegistry.customDropStack = MainRegistry.customDrops.get(0);
+			MainRegistry.customDropChance = MainRegistry.customDropChances.get(0);
+
+			// Process the list for all custom drops
+			for (int i = 0; i < customDropCount; i++) {
+				ItemStack drop = MainRegistry.customDrops.get(i);
+				double chance = MainRegistry.customDropChances.get(i);
+				Integer minY = MainRegistry.customDropMinYs.get(i);
+				Integer maxY = MainRegistry.customDropMaxYs.get(i);
+
+				if (isWithinCustomDropYRange(event.y, minY, maxY) && world.rand.nextDouble() < chance) {
+					// Spawn the item from the list
+					ItemStack toDrop = drop.copy();
+					EntityItem entityItem = new EntityItem(world,
+							event.x + 0.5, event.y + 0.5, event.z + 0.5,
+							toDrop);
+					world.spawnEntityInWorld(entityItem);
+				}
+			}
+		}
+		//stupid dumb idiot code
+		//else if (MainRegistry.customDropStack != null && MainRegistry.customDropChance > 0.0) {
+		//	// Retain old logic for backward compatibility when the list is empty
+		//	if (world.rand.nextDouble() < MainRegistry.customDropChance) {
+		//		ItemStack toDrop = MainRegistry.customDropStack.copy();
+		//		EntityItem entityItem = new EntityItem(world,
+		//				event.x + 0.5, event.y + 0.5, event.z + 0.5,
+		//				toDrop);
+		//		world.spawnEntityInWorld(entityItem);
+		//	}
+		//}
+
+		/*ResourceData data = ResourceData.getData(world);
+		
+		if(world.rand.nextFloat() < 0.05F && data.isInArea(event.x, event.z, data.iron))
+			world.spawnEntityInWorld(new EntityItem(world, event.x + 0.5, event.y + 0.5, event.z + 0.5, new ItemStack(Blocks.iron_ore)));
+		
+		if(world.rand.nextFloat() < 0.1F && data.isInArea(event.x, event.z, data.coal))
+			world.spawnEntityInWorld(new EntityItem(world, event.x + 0.5, event.y + 0.5, event.z + 0.5, new ItemStack(Items.coal)));*/
+
+	}
+}

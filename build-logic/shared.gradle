@@ -5,7 +5,6 @@ def versionClassName = versionClassPath.substring(versionClassPath.lastIndexOf('
 def versionPackage = versionClassPath.substring(0, versionClassPath.lastIndexOf('/')).replace('/', '.')
 def versionState = project.ext.modVersionState
 def minecraftVersion = project.minecraftTarget
-def languageSource = new File(repositoryRoot, 'common/assets/en_us.properties')
 sourceSets.main.java.srcDir new File(repositoryRoot, 'common/src/main/java')
 sourceSets.main.resources.srcDir new File(repositoryRoot, 'common/src/main/resources')
 sourceSets.test.java.srcDir new File(repositoryRoot, 'common/src/test/java')
@@ -57,44 +56,13 @@ public final class ${versionClassName} {
     }
 }
 compileJava.dependsOn generateVersion
-def minorVersion = project.minecraftTarget.tokenize('.')[1].toInteger()
-def blockTextures = minorVersion >= 13 ? 'block' : 'blocks'
-def itemTextures = minorVersion >= 13 ? 'item' : 'items'
 processResources {
-    from(new File(repositoryRoot, 'common/assets/textures')) {
-        include 'example_block.png'
-        into "assets/examplemod/textures/${blockTextures}"
-    }
-    from(new File(repositoryRoot, 'common/assets/textures')) {
-        include 'example_item.png'
-        into "assets/examplemod/textures/${itemTextures}"
-    }
-    if (minorVersion >= 8) {
-        from(new File(repositoryRoot, 'common/assets/models')) {
-            into 'assets/examplemod/models'
-            expand(blockTextures: blockTextures, itemTextures: itemTextures,
-                    generatedParent: project.minecraftTarget == '1.8.9' ? 'builtin/generated' : 'item/generated')
-        }
-    }
-    inputs.file languageSource
     inputs.property('fullVersion', { versionState.fullVersion })
     filesMatching(['mcmod.info', 'META-INF/mods.toml', 'META-INF/neoforge.mods.toml']) {
         expand(fullVersion: versionState.fullVersion, minecraftTarget: minecraftVersion)
     }
-    // One source of language text; output formats and key names belong to the adapter.
-    doLast {
-        def strings = new Properties()
-        languageSource.withReader('UTF-8') { strings.load(it) }
-        def modern = minorVersion >= 13
-        def names = modern ? ['block.examplemod.example_block', 'item.examplemod.example_item'] :
-                ['tile.example_block.name', 'item.example_item.name']
-        def language = new File(destinationDir, "assets/examplemod/lang/${modern ? 'en_us.json' : (minecraftVersion == '1.12.2' ? 'en_us.lang' : 'en_US.lang')}")
-        language.parentFile.mkdirs()
-        def translated = [(names[0]): strings.getProperty('block'), (names[1]): strings.getProperty('item')]
-        language.setText(modern ? groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(translated)) :
-                translated.collect { k, v -> "${k}=${v}" }.join('\n') + '\n', 'UTF-8')
-    }
 }
+
 jar {
     manifest { attributes 'Implementation-Title': verification.display_name, 'Implementation-Version': project.fullVersion }
     preserveFileTimestamps = false

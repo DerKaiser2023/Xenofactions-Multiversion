@@ -13,7 +13,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_FILE = ROOT / "version.properties"
-VERSIONS = ("1.6.4", "1.7.10", "1.8.9", "1.12.2", "1.16.5", "1.18.2", "1.20.1", "1.21.11")
+VERSIONS = ("1.7.10", "1.16.5")
 
 
 def read_version():

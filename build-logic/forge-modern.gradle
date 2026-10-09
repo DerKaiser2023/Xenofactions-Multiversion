@@ -4,8 +4,8 @@ minecraft {
     mappings channel: 'official', version: minecraftTarget
     copyIdeResources = true
     runs {
-        client { workingDirectory project.file('run'); mods { examplemod { source sourceSets.main } } }
-        server { workingDirectory project.file('run'); args '--nogui'; mods { examplemod { source sourceSets.main } } }
+        client { workingDirectory project.file('run'); mods { hfr { source sourceSets.main } } }
+        server { workingDirectory project.file('run'); args '--nogui'; mods { hfr { source sourceSets.main } } }
     }
 }
 dependencies { minecraft "net.minecraftforge:forge:${loaderVersion}" }

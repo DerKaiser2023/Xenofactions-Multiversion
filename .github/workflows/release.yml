@@ -1,11 +1,11 @@
-name: Eight-target production release
+name: Two-target production release
 on:
   push:
     tags: ['v*']
 permissions:
   contents: read
 concurrency:
-  group: examplemod-production-release
+  group: hfr-production-release
   cancel-in-progress: false
 jobs:
   plan:
@@ -45,7 +45,7 @@ jobs:
           ref: main
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          pattern: examplemod-mc*
+          pattern: hfr-mc*
           path: release-jars
           merge-multiple: true
       - name: Persist only a complete successful release
@@ -64,7 +64,7 @@ jobs:
           python3 scripts/build.py persist --number "$BUILD_NUMBER" --artifacts release-jars
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: examplemod-release
+          name: hfr-release
           path: |
             release-jars/*.jar
             version.properties

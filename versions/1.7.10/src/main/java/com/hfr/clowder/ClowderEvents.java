@@ -1,0 +1,1590 @@
+package com.hfr.clowder;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import com.hfr.blocks.BlockDummyable;
+import com.hfr.blocks.ModBlocks;
+import com.hfr.clowder.Clowder.ScheduledTeleport;
+import com.hfr.clowder.ClowderTerritory.Ownership;
+import com.hfr.clowder.ClowderTerritory.CoordPair;
+import com.hfr.clowder.ClowderTerritory.TerritoryMeta;
+import com.hfr.clowder.ClowderTerritory.Zone;
+import com.hfr.command.CommandClowder;
+import com.hfr.command.CommandClowderChat;
+import com.hfr.command.Mute;
+import com.hfr.command.MuteManager;
+import com.hfr.command.*;
+import com.hfr.config.XFConfig;
+import com.hfr.compat.HbmCsgoChargeIntegration;
+import com.hfr.compat.OptionalHbmRadiationCompat;
+import com.hfr.tdm.TDMManager;
+import com.hfr.data.ClowderData;
+import com.hfr.handler.BobbyBreaker;
+import com.hfr.handler.ExplosionSound;
+import com.hfr.items.ItemMace;
+import com.hfr.items.ModItems;
+import com.hfr.main.MainRegistry;
+import com.hfr.util.XFLog;
+import com.hfr.packet.PacketDispatcher;
+import com.hfr.packet.effect.ClowderBorderPacket;
+import com.hfr.packet.effect.ClowderFlagPacket;
+import com.hfr.packet.effect.CumPacket;
+import com.hfr.tileentity.prop.TileEntityProp;
+import com.hfr.tileentity.prop.TileEntityStatue;
+import cpw.mods.fml.common.eventhandler.EventPriority;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.eventhandler.Event;
+import cpw.mods.fml.common.eventhandler.Event.Result;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
+import cpw.mods.fml.common.gameevent.TickEvent.Phase;
+import cpw.mods.fml.common.gameevent.TickEvent.WorldTickEvent;
+
+import net.minecraft.block.Block;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.SharedMonsterAttributes;
+import net.minecraft.entity.ai.attributes.IAttributeInstance;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.entity.projectile.*;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.potion.Potion;
+import net.minecraft.potion.PotionEffect;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.*;
+import net.minecraft.world.Explosion;
+import net.minecraft.world.World;
+import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.event.ServerChatEvent;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
+import net.minecraftforge.event.entity.item.ItemTossEvent;
+import net.minecraftforge.event.entity.living.LivingAttackEvent;
+import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.entity.player.PlayerDropsEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent.Action;
+import net.minecraftforge.event.world.BlockEvent;
+import net.minecraftforge.event.world.ExplosionEvent;
+import net.minecraftforge.event.world.WorldEvent;
+import net.minecraftforge.event.world.BlockEvent.BreakEvent;
+import com.hfr.packet.PacketDispatcher;
+import com.hfr.packet.client.CityRelocationGuiPacket;
+import com.hfr.tileentity.clowder.TileEntityFlag;
+import net.minecraftforge.event.world.BlockEvent.PlaceEvent;
+import net.minecraftforge.event.world.ExplosionEvent.Detonate;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.projectile.EntityArrow;
+import net.minecraft.entity.projectile.EntityThrowable;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+
+public class ClowderEvents {
+
+	private static int buildGraceValidationTicks = 0;
+	public static boolean newPlayerProtectionEnabled = false;
+	private static final String XENO_PROT = "xeno_player_prot";
+
+	public static void resetWorldState() {
+		buildGraceValidationTicks = 0;
+		newPlayerProtectionEnabled = false;
+	}
+
+	// Load MCHeli classes dynamically via ReflectionUtils
+	public static final Class<?> MCH_CONFIG = ReflectionUtils.getClass("mcheli.MCH_Config");
+	public static final Class<?> MCH_ENTITY_BULLET = ReflectionUtils.getClass("mcheli.weapon.MCH_EntityBullet");
+	public static final Class<?> MCH_ENTITY_AIRCRAFT = ReflectionUtils.getClass("mcheli.aircraft.MCH_EntityAircraft");
+	public static final Class<?> MCH_ENTITY_BASE_BULLET = ReflectionUtils.getClass("mcheli.weapon.MCH_EntityBaseBullet");
+	public static final Class<?> MCH_ENTITY_ROCKET = ReflectionUtils.getClass("mcheli.weapon.MCH_EntityRocket");
+
+	// Static block to check if the MCHeli classes are loaded successfully
+	static {
+		if (MCH_CONFIG == null || MCH_ENTITY_BULLET == null || MCH_ENTITY_AIRCRAFT == null ||
+				MCH_ENTITY_BASE_BULLET == null || MCH_ENTITY_ROCKET == null) {
+			XFLog.warn("[Clowder] One or more MCHeli classes could not be found. Ensure MCHeli is installed if aircraft protection integration is expected.");
+		} else {
+			XFLog.debug("[Clowder] Successfully loaded MCHeli classes via reflection.");
+		}
+	}
+
+	// Event handlers for world load/unload
+	@SubscribeEvent
+	public void clowderLoadEvent(WorldEvent.Load event) {
+		if (event.world.isRemote) return;
+		if (event.world.provider.dimensionId == 0) {
+			// Ensure the MCHeli classes are available before proceeding with further logic
+			if (MCH_ENTITY_AIRCRAFT != null) {
+				// Example of using the MCH_EntityAircraft class via reflection (check or interact with the class as needed)
+				// For example, to instantiate or interact with the MCH_EntityAircraft class,
+				// you can use reflection to invoke methods or get fields
+				XFLog.debug("[Clowder] MCH_EntityAircraft class is available.");
+			}
+
+			ClowderData.resetWorldState();
+			ClowderData.getData(event.world);
+			PlayerProtectionData.load();
+			FactionCreationCooldownData.load();
+		}
+	}
+
+	@SubscribeEvent
+	public void clowderLoadEvent(WorldEvent.Unload event) {
+		if (event.world.isRemote) return;
+		if (event.world.provider.dimensionId == 0) {
+			// Ensure MCHeli classes are available for unloading event
+			if (MCH_ENTITY_AIRCRAFT != null) {
+				// Example of reflection interaction with the MCH_EntityAircraft class
+				XFLog.debug("[Clowder] MCH_EntityAircraft is still available during world unload.");
+			}
+
+			ClowderData active = ClowderData.getData(event.world);
+			if(active != null) active.markDirty();
+			PlayerProtectionData.save();
+			FactionCreationCooldownData.save();
+			event.world.perWorldStorage.saveAllData();
+			ClowderData.release(event.world);
+		}
+	}
+
+
+
+/**
+	 * Handles chat events related to clowders, mainly adding the clowder name to a chat message.
+	 * @param event
+	 */
+@SubscribeEvent(priority = EventPriority.HIGHEST)
+public void handleChatServer(ServerChatEvent event) {
+
+	if (event.isCanceled()) return;
+
+	// Server-only safety
+	if (event.player.worldObj.isRemote) return;
+
+	EntityPlayerMP sender = (EntityPlayerMP) event.player;
+	UUID senderUUID = sender.getUniqueID();
+	String playerName = sender.getCommandSenderName();
+	String message = event.message;
+
+	Clowder clowder = Clowder.getClowderFromPlayer(sender);
+
+	// =========================
+	// MUTE CHECK (HARD STOP)
+	// =========================
+	if (MuteManager.isMuted(senderUUID)) {
+		event.setCanceled(true);
+
+		Mute mute = MuteManager.getMute(senderUUID);
+		if (mute != null) {
+			if (mute.isPermanent()) {
+				sender.addChatMessage(
+						new ChatComponentText("You are permanently muted. Reason: " + mute.reason)
+				);
+			} else {
+				long remaining = (mute.expiresAt - System.currentTimeMillis()) / 1000;
+				sender.addChatMessage(
+						new ChatComponentText("You are muted for " + remaining + " more seconds. Reason: " + mute.reason)
+				);
+			}
+		}
+		return;
+	}
+
+	// =========================
+	// TEAM / ALLIANCE MODES
+	// =========================
+	int chatMode = sender.getEntityData().getInteger(CommandClowderChat.CHAT_KEY);
+
+	if (clowder != null) {
+
+		// TEAM CHAT
+		if (chatMode == 1) {
+			event.setCanceled(true);
+			sendToTeam(clowder, sender, message);
+			return;
+		}
+
+		// ALLIANCE CHAT
+		if (chatMode == 2) {
+			event.setCanceled(true);
+			sendToAlliance(clowder, sender, message);
+			return;
+		}
+	}
+
+	// =========================
+	// GLOBAL CHAT STARTS HERE
+	// =========================
+	event.setCanceled(true); // prevent vanilla broadcast
+
+	String factionLine = null;
+	String tdmLine = TDMManager.getChatPrefix(sender);
+
+	if (tdmLine != null) {
+		factionLine = tdmLine;
+	} else if (clowder != null) {
+
+		FactionRole role = clowder.getRole(sender);
+		String clowderName = clowder.getDecoratedName();
+
+		if (role == FactionRole.OWNER) {
+			factionLine = EnumChatFormatting.GOLD + "[ " + clowderName + " Leader ]";
+		} else if (role == FactionRole.OFFICER) {
+			factionLine = EnumChatFormatting.BLUE + "[ " + clowderName + " Officer ]";
+		} else if (role == FactionRole.MEMBER) {
+			factionLine = EnumChatFormatting.DARK_GREEN + "[ " + clowderName + " Citizen ]";
+		}
+	}
+
+	String messageLine = EnumChatFormatting.WHITE + playerName + ": " + message;
+
+	for (Object obj : MinecraftServer.getServer()
+			.getConfigurationManager()
+			.playerEntityList) {
+
+		if (!(obj instanceof EntityPlayerMP)) continue;
+
+		EntityPlayerMP recipient = (EntityPlayerMP) obj;
+
+		if (IgnoreManager.isIgnoring(recipient.getUniqueID(), senderUUID)) continue;
+
+		if (factionLine != null) {
+			recipient.addChatMessage(new ChatComponentText(factionLine));
+		}
+
+		recipient.addChatMessage(new ChatComponentText(messageLine));
+	}
+}
+
+	private void sendToTeam(Clowder clowder, EntityPlayer player, String message) {
+		
+		String name = "";
+
+		if(clowder.getPermLevel(player) > 2) {
+			name += "<Leader> ";
+		} else if(clowder.getPermLevel(player) > 1) {
+			name += "<Officer> ";
+		} else if(clowder.getPermLevel(player) > 0) {
+			name += "<Citizen> ";
+		}
+		
+		name += "[" + player.getDisplayName() + "]";
+		
+		clowder.notifyAll(player.worldObj, new ChatComponentText(CommandClowderChat.HELP + name + " " + message));
+		System.out.println(name + " " + message);
+		
+	}
+
+	private void sendToAlliance(Clowder clowder, EntityPlayer player, String message) { //for ally chat
+
+		String name = "";
+
+		if (clowder.getPermLevel(player) > 2) {
+			name += "<Leader> ";
+		} else if (clowder.getPermLevel(player) > 1) {
+			name += "<Officer> ";
+		} else if (clowder.getPermLevel(player) > 0) {
+			name += "<Citizen> ";
+		}
+
+		name += "[" + player.getDisplayName() + "]";
+
+		clowder.notifyAll(player.worldObj, new ChatComponentText(CommandClowderChat.LIST + name + " " + message));
+
+
+		System.out.println(name + " " + message);
+
+		for (Clowder a : clowder.allies.keySet())
+		{
+			a.notifyAll(player.worldObj, new ChatComponentText(CommandClowderChat.LIST + "<Ally> [" + player.getDisplayName() + "] " + message)); //send to all allies
+		}
+
+	}
+	
+	/**
+	 * Prevents breaking/placing blocks on foreign clowder territory.
+	 * @param event
+	 */
+	@SubscribeEvent
+	public void clowderBlockEvent(BlockEvent event) {
+
+
+
+		if(event instanceof BreakEvent || event instanceof PlaceEvent) {
+			int x = event.x;
+			int y = event.y;
+			int z = event.z;
+			
+			Block b = event.world.getBlock(x, y, z);
+			
+			Ownership owner = ClowderTerritory.getOwnerFromInts(event.world, x, z);
+			//handleCollisionInZone(owner);
+			
+			if(event instanceof BreakEvent) {
+				
+				EntityPlayer player = ((BreakEvent)event).getPlayer();
+				Clowder clowder = Clowder.getClowderFromPlayer(player);
+				if(b == ModBlocks.clowder_flag && !player.inventory.hasItem(ModItems.debug)) {
+					TileEntity te = event.world.getTileEntity(x, y, z);
+					if(!event.world.isRemote && te instanceof TileEntityFlag && CityCenterRelocationManager.isOrphaned((TileEntityFlag)te)) {
+						event.setCanceled(true);
+						// The false argument suppresses harvesting while func_147480_a still invokes Flag.breakBlock.
+						event.world.func_147480_a(x, y, z, false);
+						return;
+					}
+					event.setCanceled(true);
+					String relocationError = CityCenterRelocationManager.validateStart(player, event.world.provider.dimensionId, x, y, z);
+					if(relocationError != null) player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + relocationError));
+					else if(player instanceof net.minecraft.entity.player.EntityPlayerMP) {
+						String cityName = te instanceof TileEntityFlag ? ((TileEntityFlag)te).name : "City";
+						PacketDispatcher.wrapper.sendTo(new CityRelocationGuiPacket(event.world.provider.dimensionId, x, y, z, cityName), (net.minecraft.entity.player.EntityPlayerMP)player);
+					} else player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Unable to open relocation confirmation."));
+					return;
+				}
+				
+				if(canBreak(player, clowder, owner, b, x, y, z)) {
+					
+					onBreak(event.world, b, x, y, z, owner);
+					
+					BobbyBreaker.handleDigEvent((BreakEvent)event);
+					
+				} else {
+					event.setCanceled(true);
+					return;
+				}
+			}
+			
+			if(event instanceof PlaceEvent) {
+				
+				EntityPlayer player = ((PlaceEvent)event).player;
+				Clowder clowder = Clowder.getClowderFromPlayer(player);
+				
+				if(!canPlace(player, clowder, owner, b, x, y, z)) {
+					event.setCanceled(true);
+					return;
+				}
+				
+				if(!player.inventory.hasItem(ModItems.debug) && (owner == null || owner.zone == Zone.WILDERNESS) && (b == Blocks.chest || b == Blocks.trapped_chest)) {
+
+					player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Chests are disabled outside of claims."));
+					player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "For temporary storage, use cardboard boxes (crafable with chests)"));
+					event.setCanceled(true);
+					return;
+				}
+			}
+		}
+	}
+	
+	private void onBreak(World world, Block b, int x, int y, int z, Ownership owner) {
+		
+		if(owner != null && owner.zone == Zone.FACTION && owner.owner != null) {
+			
+			if(b == ModBlocks.med_tent || b == ModBlocks.med_tent) {
+				
+				int[] loc = ((BlockDummyable)b).findCoreRec(world, x, y, z);
+				
+				if(loc != null) {
+					TileEntityProp prop = (TileEntityProp)world.getTileEntity(loc[0], loc[1], loc[2]);
+					
+					if(prop != null && prop.operational())
+						owner.owner.multPrestige(0.975F, world);
+				}
+			}
+			
+			if(b == ModBlocks.statue) {
+				
+				int[] loc = ((BlockDummyable)b).findCoreRec(world, x, y, z);
+				
+				if(loc != null) {
+					TileEntityStatue prop = (TileEntityStatue)world.getTileEntity(loc[0], loc[1], loc[2]);
+					
+					if(prop != null && prop.operational())
+						owner.owner.multPrestige(0.975F, world);
+				}
+			}
+		}
+	}
+
+
+	
+	private boolean canBreak(EntityPlayer player, Clowder clowder, Ownership owner, Block b, int x, int y, int z) {
+		
+		if(player.inventory.hasItem(ModItems.debug))
+			return true;
+
+		if(owner == null)
+			return true;
+
+		if(owner.zone == Zone.SAFEZONE || owner.zone == Zone.WARZONE)
+			return false;
+
+
+		if(owner.zone == Zone.FACTION) {
+
+			if(b == ModBlocks.clowder_flag) {
+				if(clowder != owner.owner) {
+					player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Enemy City Centers cannot be broken directly."));
+					return false;
+				}
+
+				if(clowder.getPermLevel(player) < 3) {
+					player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Only the faction leader can break City Centers."));
+					return false;
+				}
+
+				if(!owner.owner.activeWars.isEmpty()) {
+					player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "City Centers cannot be broken while your faction is at war."));
+					return false;
+				}
+			}
+
+			if(clowder == owner.owner && owner.owner.isInfrastructureDisabled()) {
+				player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Your faction is a Fallen Nation; breaking blocks in claimed land is disabled."));
+				return false;
+			}
+
+			if(clowder != owner.owner && (clowder == null || !owner.owner.isAtWarWith(clowder)))
+				return owner.owner.canVisitorAccess(clowder, FactionPermission.DESTROY);
+
+			if(clowder != owner.owner) {
+				if(clowder != null && !clowder.isRaidable())
+					return false;
+				
+				if(!owner.owner.isRaidable())
+					return false;
+				
+				if(player.getHeldItem() == null)
+					return false;
+				
+				if(player.getHeldItem().getItem() == ModItems.mace && ItemMace.breakOverride.contains(b))
+					return true;
+				
+				return false;
+			} else {
+				
+				if(player.worldObj.getBlock(x, y, z) == ModBlocks.officer_chest && clowder.getPermLevel(player) < 2) {
+					player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "You lack the permissions to destroy this chest."));
+					return false;
+				}
+			}
+
+			if(player.worldObj.getBlock(x, y, z) != ModBlocks.clowder_flag) {
+
+				for(int i = x - 2; i <= x + 2; i++)
+					for(int j = z - 2; j <= z + 2; j++)
+						if(player.worldObj.getBlock(i, y + 1, j) == ModBlocks.clowder_flag) {
+
+							player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Please refrain from breaking the flag's foundation."));
+							return false;
+						}
+			}
+		}
+		
+		return true;
+	}
+	
+	private boolean canPlace(EntityPlayer player, Clowder clowder, Ownership owner, Block b, int x, int y, int z) {
+		
+		if(player.inventory.hasItem(ModItems.debug))
+			return true;
+
+		if(owner == null)
+			return true;
+
+		if(owner.zone == Zone.WARZONE && HbmCsgoChargeIntegration.isCsgoCharge(b))
+			return true;
+
+		if(owner.zone == Zone.SAFEZONE || owner.zone == Zone.WARZONE)
+			return false;
+		
+		if(owner.zone == Zone.FACTION) {
+
+			if(clowder == owner.owner && owner.owner.isInfrastructureDisabled()) {
+				player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Your faction is a Fallen Nation; placing blocks in claimed land is disabled."));
+				return false;
+			}
+
+			if(ItemMace.placeOverride.contains(b))
+				return true;
+
+			if(clowder != owner.owner && (clowder == null || !owner.owner.isAtWarWith(clowder)))
+				return owner.owner.canVisitorAccess(clowder, FactionPermission.BUILD);
+			
+			if(clowder != owner.owner && (clowder == null || !clowder.isRaidable()))
+				return false;
+
+			if (player.worldObj.getBlock(x, y, z) != ModBlocks.clowder_flag) {
+				for (int i = x - 2; i <= x + 2; i++) {
+					for (int j = z - 2; j <= z + 2; j++) {
+
+						if(!player.worldObj.blockExists(i, y, j))
+							continue;
+
+						int minY = Math.max(0, y - 12);
+
+						// Only block placements that are above a nearby flag.
+						for (int checkY = y; checkY >= minY; checkY--) {
+							if (player.worldObj.getBlock(i, checkY, j) == ModBlocks.clowder_flag) {
+								player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Please refrain from obstructing the flag."));
+								return false;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		return true;
+	}
+
+//	private void handleCollisionInZone(Ownership owner) {
+//		// Disable collision destruction in safezones and warzones
+//		if(owner.zone == Zone.SAFEZONE || owner.zone == Zone.WARZONE) {
+//			MCH_Config.Collision_DestroyBlock.prmBool = false;
+//		} else {
+//			// Enable collision destruction in other zones
+//			MCH_Config.Collision_DestroyBlock.prmBool = true;
+//		}
+//	}
+	
+	/**
+	 * Prevents explosive damage on clowder territory under certain conditions.
+	 * @param event
+	 */
+	@SubscribeEvent
+	public void clowderExplosionEvent(Detonate event) {
+		
+		boolean bb = true;
+		
+		/*for(int i = 0; i < event.getAffectedBlocks().size(); i++) {
+			
+			ChunkPosition pos = event.getAffectedBlocks().get(i);
+			int x = pos.chunkPosX;
+			int y = pos.chunkPosY;
+			int z = pos.chunkPosZ;
+			
+			Ownership owner = ClowderTerritory.getOwnerFromInts(event.world, x, z);
+			
+			if(!canExplode(owner, event.world, x, y, z)) {
+				event.getAffectedBlocks().remove(i);
+				i--;
+				bb = false;
+			}
+		}*/
+
+		int x = (int)event.explosion.explosionX;
+		int y = (int)event.explosion.explosionY;
+		int z = (int)event.explosion.explosionZ;
+		Ownership owner = ClowderTerritory.getOwnerFromInts(event.world, x, z);
+		
+		if(!canExplode(owner, event.world, x, y, z)) {
+			event.getAffectedBlocks().clear();
+			bb = false;
+		}
+		
+		//TEMP
+		//if(bb)
+		//	BobbyBreaker.handleExplosionEvent(event);
+		
+		ExplosionSound.handleExplosion(event.world, event.explosion);
+	}
+	
+	public static boolean canExplode(Ownership owner, World world, int x, int y, int z) {
+		
+		if(owner.zone == Zone.SAFEZONE || owner.zone == Zone.WARZONE ) {
+			return false;
+
+		}
+		
+		if(owner.zone == Zone.FACTION) {
+			
+			if(!owner.owner.isRaidable()) {
+				return false;
+			}
+
+			for(int i = x - 2; i <= x + 2; i++)
+				for(int j = z - 2; j <= z + 2; j++)
+					if(world.getBlock(i, y + 1, j) == ModBlocks.clowder_flag)
+						return false;
+		}
+		
+		return true;
+	}
+	
+	/**
+	 * Prevents the interaction with blocks in clowder territory unless a war has been declared.
+	 * @param event
+	 */
+	@SubscribeEvent
+	public void clowderContainerEvent(PlayerInteractEvent event) {
+
+		int x = event.x;
+		int y = event.y;
+		int z = event.z;
+		EntityPlayer player = event.entityPlayer;
+		Block b = event.world.getBlock(x, y, z);
+		
+		if(event.action == Action.RIGHT_CLICK_BLOCK) {
+			
+			if(player.getHeldItem() != null && player.getHeldItem().getItem() == ModItems.debug)
+				return;
+			
+			Ownership owner = ClowderTerritory.getOwnerFromInts(event.world, x, z);
+			
+			if(owner != null) {
+				Clowder clowder = Clowder.getClowderFromPlayer(event.entityPlayer);
+				
+				if(!canInteract(player, clowder, owner, b, event)) {
+					event.setCanceled(true);
+				}
+			}
+		}
+	}
+	
+	private boolean canInteract(EntityPlayer player, Clowder clowder, Ownership owner, Block b, PlayerInteractEvent event) {
+		
+		if(player.inventory.hasItem(ModItems.debug))
+			return true;
+
+		if(owner == null)
+			return true;
+
+		if(owner.zone == Zone.FACTION && clowder == owner.owner && owner.owner.isInfrastructureDisabled())
+			return false;
+
+		if(owner.zone == Zone.FACTION && clowder != owner.owner) {
+			if(clowder == null || !owner.owner.isAtWarWith(clowder))
+				return owner.owner.canVisitorAccess(clowder, interactionPermission(event.world, event.x, event.y, event.z, b));
+			
+			if(clowder == null || !clowder.isRaidable() || !owner.owner.isRaidable())
+				return false;
+			
+			if(player.getHeldItem() != null && player.getHeldItem().getItem() == ModItems.mace && ItemMace.interactOverride.contains(b) && owner.owner.isRaidable()) {
+				return true;
+			}
+			
+			if(player.getHeldItem() != null && player.getHeldItem().getItem() == Item.getItemFromBlock(ModBlocks.clowder_conquerer)) {
+				//event.useBlock = Result.DENY;
+				return true;
+			}
+			
+			if(player.getHeldItem() != null && player.getHeldItem().getItem() == Item.getItemFromBlock(ModBlocks.barricade)) {
+				
+				int x = event.x; x = x - 8;
+				int y = event.y; y = y - 8;
+				int z = event.z; z = z - 8;
+				
+				for(int u = x; u < x + 16; u++) {
+					for(int v = y; v < y + 16; v++) {
+						for(int w = z; w < z + 16; w++) {
+							
+							if(player.worldObj.getBlock(u, v, w) == ModBlocks.clowder_conquerer)
+								return true;
+						}
+					}
+				}
+			}
+
+			//todo if our fixed shit for reg flags doesn't work, take the code above and apply it to our conquest takeover for normal flag logic.
+			
+			return false;
+			
+			/*if(b instanceof BlockContainer || b instanceof BlockButton || b instanceof BlockDoor || b instanceof BlockAnvil ||
+					b instanceof BlockBed || b instanceof BlockCake || b instanceof BlockFenceGate || b instanceof BlockLever ||
+					b instanceof BlockRedstoneDiode || b instanceof BlockTNT)
+				return false;*/
+		}
+		
+		return true;
+	}
+
+	private FactionPermission interactionPermission(World world, int x, int y, int z, Block block) {
+		TileEntity tile = world.getTileEntity(x, y, z);
+		if(tile instanceof net.minecraft.inventory.IInventory)
+			return FactionPermission.CONTAINER;
+		if(block instanceof net.minecraft.block.BlockDoor || block instanceof net.minecraft.block.BlockTrapDoor
+				|| block instanceof net.minecraft.block.BlockFenceGate || block instanceof net.minecraft.block.BlockButton
+				|| block instanceof net.minecraft.block.BlockLever || block instanceof net.minecraft.block.BlockPressurePlate)
+			return FactionPermission.SWITCH;
+		return FactionPermission.INTERACT;
+	}
+	
+	public static final String NBTKEY = "lastClowder";
+	
+	/**
+	 * Sends a flag popup packet to a player if he enters a new territory and a clowder alert if a raider appears.
+	 * @param world
+	 * @param player
+	 */
+
+	//todo: hand made guns gun renders destroy this overlay because
+	// *insert random fucking opengl error or some fucking reason here*
+	// so to fix this, track back this annoying shithole logic and fix that how god intended instead
+	private void flagPopup(World world, EntityPlayer player) {
+
+		TerritoryMeta meta = ClowderTerritory.getMetaFromIntCoords(player.worldObj, (int)player.posX, (int)player.posZ - 1);
+		
+		Ownership owner;
+		
+		if(meta == null)
+			owner = ClowderTerritory.WILDERNESS;
+		else
+			owner = meta.owner;
+		
+		String name = owner.zone.toString();
+		
+		if(owner.zone == Zone.FACTION)
+			name = owner.owner.name;
+		
+		if(meta != null)
+			name += meta.name;
+		
+		String past = player.getEntityData().getString(NBTKEY);
+		
+		if(past.isEmpty()) {
+			player.getEntityData().setString(NBTKEY, name);
+			return;
+		}
+
+		if(!name.equals(past)) {
+
+			if(owner.zone == Zone.FACTION) {
+				
+				String title = meta == null ? "" : meta.name;
+				PacketDispatcher.wrapper.sendTo(new ClowderFlagPacket(owner.owner, title), (EntityPlayerMP) player);
+				
+				Clowder mine = Clowder.getClowderFromPlayer(player);
+				
+				if(player.inventory.hasItem(ModItems.mace) && mine != owner.owner)
+					owner.owner.notifyAll(player.worldObj, new ChatComponentText(CommandClowder.ERROR + "A raider has just entered your territory!"));
+				
+			} else {
+				PacketDispatcher.wrapper.sendTo(new ClowderFlagPacket(name), (EntityPlayerMP) player);
+			}
+		}
+		
+		player.getEntityData().setString(NBTKEY, name);
+	}
+
+
+	private static final String BUILD_GRACE_STUCK_X = "buildGraceStuckX";
+	private static final String BUILD_GRACE_STUCK_Z = "buildGraceStuckZ";
+
+	private void handleBuildGraceMovement(EntityPlayer player) {
+
+		Ownership owner = ClowderTerritory.getOwnerFromInts(player.worldObj, (int) player.posX, (int) player.posZ);
+
+		if (owner == null)
+			return;
+
+		Clowder movingClowder = Clowder.getClowderFromPlayer(player);
+		Clowder territoryClowder = owner.zone == Zone.FACTION ? owner.owner : null;
+
+		boolean blocked = Clowder.blocksTerritoryAccessForBuildGrace(
+				movingClowder,
+				territoryClowder,
+				owner.zone == Zone.WILDERNESS
+		);
+
+		if (!blocked)
+			return;
+
+		NBTTagCompound data = player.getEntityData();
+
+		long now = System.currentTimeMillis();
+
+		/*
+		 * STUCK PLAYER DETECTION
+		 */
+
+		long lastCorrection = data.getLong("buildGraceLastCorrection");
+		int corrections = data.getInteger("buildGraceCorrections");
+
+		double stuckX = data.getDouble(BUILD_GRACE_STUCK_X);
+		double stuckZ = data.getDouble(BUILD_GRACE_STUCK_Z);
+
+		// reset correction chain if enough time passed
+		if (now - lastCorrection > 10000L) {
+			corrections = 0;
+
+			data.setDouble(BUILD_GRACE_STUCK_X, player.posX);
+			data.setDouble(BUILD_GRACE_STUCK_Z, player.posZ);
+		}
+
+		// distance from original stuck point
+		double distSq =
+				(player.posX - stuckX) * (player.posX - stuckX) +
+						(player.posZ - stuckZ) * (player.posZ - stuckZ);
+
+		// if player escaped more than 5 blocks away, reset
+		if (distSq > 25.0D) {
+
+			corrections = 0;
+
+			data.setDouble(BUILD_GRACE_STUCK_X, player.posX);
+			data.setDouble(BUILD_GRACE_STUCK_Z, player.posZ);
+		}
+
+		// count this correction
+		corrections++;
+
+		data.setInteger("buildGraceCorrections", corrections);
+		data.setLong("buildGraceLastCorrection", now);
+
+		// only trigger if player is REALLY trapped
+		if (corrections >= 25) {
+
+			Clowder clowder = Clowder.getClowderFromPlayer(player);
+
+			if(clowder != null && clowder.buildGraceUntil > now) {
+
+				player.setPositionAndUpdate(
+						clowder.homeX + 0.5D,
+						clowder.homeY + 1,
+						clowder.homeZ + 0.5D
+				);
+
+				player.motionX = 0;
+				player.motionY = 0;
+				player.motionZ = 0;
+
+				player.addChatMessage(new ChatComponentText(
+						CommandClowder.ERROR + "You were returned to your faction home because you became stuck on a build grace border."
+				));
+
+			} else {
+
+				teleportToSpawn(player);
+
+				player.addChatMessage(new ChatComponentText(
+						CommandClowder.ERROR + "You were moved to spawn because you became stuck on a build grace border."
+				));
+			}
+
+			resetGraceBorderData(data);
+
+			return;
+		}
+	}
+
+	private void teleportToSpawn(EntityPlayer player) {
+
+		World world = player.worldObj;
+
+		ChunkCoordinates spawn = world.getSpawnPoint();
+
+		player.setPositionAndUpdate(
+				spawn.posX + 0.5D,
+				spawn.posY + 1,
+				spawn.posZ + 0.5D
+		);
+
+		player.motionX = 0;
+		player.motionY = 0;
+		player.motionZ = 0;
+	}
+
+	private void resetGraceBorderData(NBTTagCompound data) {
+
+		data.setInteger("buildGraceCorrections", 0);
+		data.setLong("buildGraceLastCorrection", 0L);
+
+		data.setDouble(BUILD_GRACE_STUCK_X, 0D);
+		data.setDouble(BUILD_GRACE_STUCK_Z, 0D);
+	}
+	
+	/** Sends the exposed edges of nearby stored territory cells in exact block coordinates. */
+	private static void particleBorder2(World world, EntityPlayer player) {
+		
+		if(world.rand.nextInt(3) != 0) //let's reduce that a little
+			return;
+
+		CoordPair around = ClowderTerritory.getCoordPair(world,
+				(int)Math.floor(player.posX), (int)Math.floor(player.posZ));
+		
+		int range = 4;
+
+		for(int x = -range; x < range; x++) {
+			for(int z = -range; z < range; z++) {
+				int tx = around.x + x, tz = around.z + z;
+				Ownership center = ClowderTerritory.getOwner(player.dimension, tx, tz);
+				Ownership north = ClowderTerritory.getOwner(player.dimension, tx, tz - 1);
+				Ownership west = ClowderTerritory.getOwner(player.dimension, tx - 1, tz);
+
+				Ownership none = ClowderTerritory.WILDERNESS;
+				boolean n = isTerritoryDifferent(north, center);
+				boolean w = isTerritoryDifferent(west, center);
+
+				int nc = ((center != none ? center.getColor() : (north != none ? north.getColor() : 0x000000)) + (north != none ? north.getColor() : (center != none ? center.getColor() : 0x000000))) / 2;
+				int wc = ((center != none ? center.getColor() : (west != none ? west.getColor() : 0x000000)) + (west != none ? west.getColor() : (center != none ? center.getColor() : 0x000000))) / 2;
+				
+				if(!n && !w) continue;
+				TerritoryCoordinateBounds.Bounds bx = TerritoryCoordinateBounds.forCoordinate(tx);
+				TerritoryCoordinateBounds.Bounds bz = TerritoryCoordinateBounds.forCoordinate(tz);
+				if(bx.minInclusive < Integer.MIN_VALUE || bx.maxExclusive > Integer.MAX_VALUE
+						|| bz.minInclusive < Integer.MIN_VALUE || bz.maxExclusive > Integer.MAX_VALUE) continue;
+				if(n) PacketDispatcher.wrapper.sendTo(new ClowderBorderPacket((int)bx.minInclusive, (int)bz.minInclusive,
+						(int)bx.maxExclusive, (int)bz.minInclusive, nc), (EntityPlayerMP)player);
+				if(w) PacketDispatcher.wrapper.sendTo(new ClowderBorderPacket((int)bx.minInclusive, (int)bz.minInclusive,
+						(int)bx.minInclusive, (int)bz.maxExclusive, wc), (EntityPlayerMP)player);
+			}
+		}
+	}
+
+
+//first check
+
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public void entityInit(EntityJoinWorldEvent event) {
+		Entity entity = event.entity;
+
+		boolean isRelevantEntity =
+				(MCH_ENTITY_BASE_BULLET != null && MCH_ENTITY_BASE_BULLET.isInstance(entity)) ||
+				(MCH_ENTITY_BULLET != null && MCH_ENTITY_BULLET.isInstance(entity)) ||
+				(MCH_ENTITY_ROCKET != null && MCH_ENTITY_ROCKET.isInstance(entity));
+
+		if (!isRelevantEntity) {
+			return;
+		}
+
+		Ownership owner = ClowderTerritory.getOwner(entity.worldObj, (int) entity.posX, (int) entity.posZ);
+		if (owner != null && owner.zone == Zone.SAFEZONE) {
+			entity.setDead();
+			event.setCanceled(true);
+		}
+	}
+
+
+	
+	/**
+	 * Compares two ownership instances.
+	 * @param one
+	 * @param two
+	 * @return
+	 */
+	private static boolean isTerritoryDifferent(Ownership one, Ownership two) {
+		
+		if(one == null && two != null)
+			return true;
+		
+		if(one != null && two == null)
+			return true;
+		
+		if(one != null && two != null) {
+			
+			if(one.zone != two.zone)
+				return true;
+			
+			if(one.owner != two.owner)
+				return true;
+		}
+		
+		return false;
+	}
+//second check
+@SubscribeEvent(priority = EventPriority.HIGHEST)
+public void onEntityJoinWorld(EntityJoinWorldEvent event) {
+	Entity entity = event.entity;
+
+	// Check if the entity is any of the relevant types (Minecraft base entities)
+	if (entity instanceof EntityArrow || entity instanceof EntityThrowable || entity instanceof EntityFireball) {
+		// Check if the entity is in a safezone
+		Ownership owner = ClowderTerritory.getOwnerFromInts(entity.worldObj, (int) entity.posX, (int) entity.posZ);
+		if (owner != null && owner.zone == Zone.SAFEZONE) {
+			event.setCanceled(true);  // Cancel the event
+			entity.setDead(); // Kill the entity
+			return;  // Exit immediately to prevent further processing
+		}
+	}
+	// Check if the entity is an MCHeli projectile (using reflection for MCHeli classes)
+	else {
+		// Dynamically load the relevant classes for MCHeli projectiles
+		Class<?> MCH_EntityBullet = ReflectionUtils.getClass("mcheli.weapon.MCH_EntityBullet");
+		Class<?> MCH_EntityBaseBullet = ReflectionUtils.getClass("mcheli.weapon.MCH_EntityBaseBullet");
+		Class<?> MCH_EntityRocket = ReflectionUtils.getClass("mcheli.weapon.MCH_EntityRocket");
+
+		// Check if the entity is one of the MCHeli projectiles
+		if ((MCH_EntityBullet != null && MCH_EntityBullet.isInstance(entity)) ||
+				(MCH_EntityBaseBullet != null && MCH_EntityBaseBullet.isInstance(entity)) ||
+				(MCH_EntityRocket != null && MCH_EntityRocket.isInstance(entity))) {
+
+			// Check if the entity is in a safezone
+			Ownership owner = ClowderTerritory.getOwnerFromInts(entity.worldObj, (int) entity.posX, (int) entity.posZ);
+			if (owner != null && owner.zone == Zone.SAFEZONE) {
+				event.setCanceled(true);  // Cancel the event
+				entity.setDead(); // Kill the entity
+				return;  // Exit immediately to prevent further processing
+			}
+		}
+	}
+}
+	@SubscribeEvent
+	public void onPlayerLogin(PlayerLoggedInEvent event) {
+
+		Clowder loginFaction = Clowder.getClowderFromPlayer(event.player);
+		if(loginFaction != null) loginFaction.updateLastKnownName(event.player);
+		if(event.player instanceof EntityPlayerMP) Clowder.syncNameplateDataAll();
+
+		if(event.player != null)
+			FactionCreationCooldownData.migrateFallback(event.player);
+
+		if(!XFConfig.enableNewPlayerProtection || !newPlayerProtectionEnabled || event.player == null)
+			return;
+
+		PlayerProtectionData.load();
+
+		UUID uuid = event.player.getUniqueID();
+
+		PlayerProtectionData.ProtectionEntry entry =
+				PlayerProtectionData.get(uuid);
+
+		// first login / no protection data yet
+		if(entry == null) {
+
+			long now = System.currentTimeMillis();
+
+			entry = new PlayerProtectionData.ProtectionEntry(
+					now + XFConfig.pvpGraceDurationMs,
+					now + XFConfig.keepInventoryDurationMs
+			);
+
+			PlayerProtectionData.set(uuid, entry);
+
+			event.player.addChatMessage(new ChatComponentText(
+					CommandClowder.INFO + "New-player protection enabled: " + (XFConfig.pvpGraceDurationMs / (60L * 60L * 1000L)) + "h PvP grace, " + (XFConfig.keepInventoryDurationMs / (60L * 60L * 1000L)) + "h keep-inventory."
+			));
+		}
+	}
+
+	@SubscribeEvent
+	public void onEntityHurt(LivingAttackEvent event) {
+
+		EntityLivingBase e = event.entityLiving;
+		DamageSource dmg = event.source;
+
+		Ownership owner = ClowderTerritory.getOwner(e.worldObj, (int)e.posX, (int)e.posZ);
+
+		if(e instanceof EntityPlayer && owner != null && owner.zone == Zone.SAFEZONE)
+			event.setCanceled(true);
+
+		EntityPlayer attacker = event.source.getEntity() instanceof EntityPlayer ? (EntityPlayer)event.source.getEntity() : null;
+		EntityPlayer victim = e instanceof EntityPlayer ? (EntityPlayer)e : null;
+
+		if(XFConfig.enableNewPlayerProtection && newPlayerProtectionEnabled && attacker != null && victim != null){
+
+			long now = System.currentTimeMillis();
+
+			PlayerProtectionData.ProtectionEntry attackerProt =
+					PlayerProtectionData.get(attacker.getUniqueID());
+
+			PlayerProtectionData.ProtectionEntry victimProt =
+					PlayerProtectionData.get(victim.getUniqueID());
+
+			long attackerGrace =
+					attackerProt != null ? attackerProt.pvpGraceUntil : 0L;
+
+			long victimGrace =
+					victimProt != null ? victimProt.pvpGraceUntil : 0L;
+
+			boolean attackerProtected = attackerGrace > now;
+			boolean victimProtected = victimGrace > now;
+
+			if(attackerProtected || victimProtected) {
+
+				if(attackerProtected) {
+
+					long seconds = (attackerGrace - now) / 1000L;
+
+					attacker.addChatMessage(new ChatComponentText(
+							CommandClowder.ERROR + "You are still under starter PvP protection for " + seconds + " more seconds."
+					));
+				}
+
+				if(victimProtected) {
+
+					long seconds = (victimGrace - now) / 1000L;
+
+					attacker.addChatMessage(new ChatComponentText(
+							CommandClowder.ERROR + victim.getDisplayName() + " is under starter PvP protection for " + seconds + " more seconds."
+					));
+				}
+
+				event.setCanceled(true);
+				return;
+			}
+
+			Clowder ac = Clowder.getClowderFromPlayer(attacker);
+			Clowder vc = Clowder.getClowderFromPlayer(victim);
+
+			if(ac != null && ac == vc && ac.buildGraceUntil > now){
+
+				long seconds = (ac.buildGraceUntil - now) / 1000L;
+
+				attacker.addChatMessage(new ChatComponentText(
+						CommandClowder.ERROR + "You attacked a member of your faction while build grace was active."
+				));
+
+				attacker.addChatMessage(new ChatComponentText(
+						CommandClowder.CRITICAL + "Build grace has ended early! Remaining time: " + seconds + " seconds."
+				));
+
+				ac.buildGraceUntil = 0L;
+				ac.save(attacker.worldObj);
+
+				ac.notifyAll(attacker.worldObj,
+						new ChatComponentText(CommandClowder.CRITICAL + "Build grace ended because a member attacked a player."));
+			}
+		}
+	}
+	//todo: test that this works and does not fuck up
+	//third check
+
+	//todo refactor and optimize this dogshit
+	private void checkAndDeleteProjectile(Entity entity) {
+		// Check if the entity is one of the projectiles we care about (Minecraft base or MCHeli)
+		if (entity instanceof EntityArrow || entity instanceof EntityThrowable || entity instanceof EntityFireball) {
+			// Get the owner based on the entity's position
+			Ownership owner = ClowderTerritory.getOwnerFromInts(entity.worldObj, (int) entity.posX, (int) entity.posZ);
+
+			// If the owner exists and it's a safezone, proceed to delete the projectile
+			if (owner != null && owner.zone == Zone.SAFEZONE) {
+				entity.setDead(); // Kill the entity immediately
+			}
+		}
+		// Check if the entity is an MCHeli projectile (dynamically loaded MCHeli classes)
+		else {
+			// Dynamically load the relevant classes for MCHeli projectiles
+			Class<?> MCH_EntityBullet = ReflectionUtils.getClass("mcheli.weapon.MCH_EntityBullet");
+			Class<?> MCH_EntityBaseBullet = ReflectionUtils.getClass("mcheli.weapon.MCH_EntityBaseBullet");
+			Class<?> MCH_EntityRocket = ReflectionUtils.getClass("mcheli.weapon.MCH_EntityRocket");
+
+			// Check if the entity is one of the MCHeli projectiles
+			if ((MCH_EntityBullet != null && MCH_EntityBullet.isInstance(entity)) ||
+					(MCH_EntityBaseBullet != null && MCH_EntityBaseBullet.isInstance(entity)) ||
+					(MCH_EntityRocket != null && MCH_EntityRocket.isInstance(entity))) {
+
+				// Get the owner based on the entity's position
+				Ownership owner = ClowderTerritory.getOwnerFromInts(entity.worldObj, (int) entity.posX, (int) entity.posZ);
+
+				// If the owner exists and it's a safezone, proceed to disable the projectile
+				if (owner != null && owner.zone == Zone.SAFEZONE) {
+					try {
+						// Modify the properties of MCHeli projectiles to neutralize them
+						if (MCH_EntityBullet.isInstance(entity) || MCH_EntityBaseBullet.isInstance(entity)) {
+							// Set explosion power and piercing to 0 using ReflectionUtils
+							ReflectionUtils.setFieldValue(entity, "explosionPower", 0);
+							ReflectionUtils.setFieldValue(entity, "explosionPowerInWater", 0);
+							ReflectionUtils.setFieldValue(entity, "piercing", 0);
+
+							// If a setter for power exists, set it to 0 as well
+							ReflectionUtils.invokeMethod(entity, "setPower", new Class<?>[]{int.class}, 0);
+						}
+					} catch (Exception e) {
+						e.printStackTrace(); // Handle any reflection issues gracefully
+					}
+					entity.setDead(); // Kill the entity immediately
+				}
+			}
+		}
+	}
+
+
+
+
+
+
+
+
+	@SubscribeEvent
+	public void onEntityDamage(LivingHurtEvent event) {
+
+		EntityLivingBase e = event.entityLiving;
+		DamageSource dmg = event.source;
+
+		// Check if the entity is a player and inside the safezone
+		if (e instanceof EntityPlayer) {
+			int x = (int) e.posX;
+			int y = (int) e.posY;
+			int z = (int) e.posZ;
+			Ownership owner = ClowderTerritory.getOwnerFromInts(e.worldObj, x, z);
+			if (owner != null && owner.zone == Zone.SAFEZONE) {
+				// Cancel the event to prevent any damage
+				event.setCanceled(true);
+			}
+		}
+	}
+
+	@SubscribeEvent
+	public void onEntityUpdate(LivingEvent.LivingUpdateEvent event) {
+		EntityLivingBase e = event.entityLiving;
+
+		// Check if the entity is a player and inside the safezone
+		if (e instanceof EntityPlayer) {
+			int x = (int) e.posX;
+			int y = (int) e.posY;
+			int z = (int) e.posZ;
+			Ownership owner = ClowderTerritory.getOwnerFromInts(e.worldObj, x, z);
+			if (owner != null && owner.zone == Zone.SAFEZONE) {
+				// Apply a regeneration effect
+				e.addPotionEffect(new PotionEffect(Potion.regeneration.id, 40));
+				e.addPotionEffect(new PotionEffect(Potion.resistance.id, 40));
+				e.heal(5.0F);
+				OptionalHbmRadiationCompat.clearRadiation((EntityPlayer) e);
+
+				IAttributeInstance knockbackResistance = e.getEntityAttribute(SharedMonsterAttributes.knockbackResistance);
+				if (knockbackResistance != null) {
+					knockbackResistance.setBaseValue(1.0D); // 1.0D for full resistance
+				}
+			} else {
+				// Reset knockback resistance when not in safezone
+				IAttributeInstance knockbackResistance = e.getEntityAttribute(SharedMonsterAttributes.knockbackResistance);
+				if (knockbackResistance != null) {
+					knockbackResistance.setBaseValue(0.0D); // Reset to default
+				}
+			}
+		}
+	}
+
+	@SubscribeEvent
+	public void onExplosionDetonate(ExplosionEvent.Detonate event) {
+		World world = event.world;
+		Explosion explosion = event.explosion;
+		Vec3 explosionPos = Vec3.createVectorHelper(explosion.explosionX, explosion.explosionY, explosion.explosionZ);
+
+		// Convert the explosion position to integer coordinates for safezone checking
+		int x = MathHelper.floor_double(explosionPos.xCoord);
+		int z = MathHelper.floor_double(explosionPos.zCoord);
+
+		// Check if the explosion is within a safezone
+		Ownership owner = ClowderTerritory.getOwner(world, x, z);
+		if (owner != null && owner.zone == Zone.SAFEZONE) {
+			// Clear the affected block list to prevent block damage
+			event.getAffectedBlocks().clear();
+			event.setCanceled(true);
+
+			// Clear the affected entities list to prevent entity damage
+			//event.getAffectedEntities().clear();
+		}
+	}
+
+	@SubscribeEvent
+	public void onBlockBreak(BlockEvent.BreakEvent event) {
+		World world = event.world;
+		int x = event.x;
+		int y = event.y;
+		int z = event.z;
+
+		// Check if the block is in a safezone
+		Ownership owner = ClowderTerritory.getOwner(world, x, z);
+		if (owner != null && owner.zone == Zone.SAFEZONE) {
+			Entity entity = event.getPlayer();
+
+			// Dynamically load the MCH_EntityAircraft class from MCHeli mod
+			Class<?> MCH_EntityAircraft = ReflectionUtils.getClass("mcheli.MCH_EntityAircraft");
+
+			// If the entity is an instance of MCH_EntityAircraft, cancel the event
+			if (MCH_EntityAircraft != null && MCH_EntityAircraft.isInstance(entity)) {
+				event.setCanceled(true); // Prevent block break if it's an MCH entity
+			}
+
+			// Always cancel block break if in a safezone
+			event.setCanceled(true);
+		}
+	}
+
+
+
+
+
+
+
+
+	
+	/**
+	 * Handles player ticks for clowders, mainly the flag popup and online times (with retreat kick)
+	 * @param event
+	 */
+	@SubscribeEvent
+	public void onPlayerTick(TickEvent.PlayerTickEvent event) {
+		
+		EntityPlayer player = event.player;
+		String name = player.getDisplayName();
+		
+		if(!player.worldObj.isRemote) {
+
+			Ownership owner = ClowderTerritory.getOwnerFromInts(player.worldObj, (int)player.posX, (int)player.posZ - 1);
+			flagPopup(player.worldObj, player);
+			handleBuildGraceMovement(player);
+			
+			Clowder clowder = Clowder.getClowderFromPlayer(player);
+			
+			if(clowder != null && clowder.findMember(player) != null) {
+				
+				EntityPlayerMP mp = (EntityPlayerMP)player;
+				
+				if(!mp.playerNetServerHandler.netManager.isChannelOpen()) {
+					System.out.println("Player " + player.getDisplayName() + " has been ticked, even though they are disconnected!");
+					return;
+				}
+				
+				if(!Clowder.retreating.contains(player.getUniqueID())) {
+
+
+					//System.out.println("POV: I mog you");
+					//10 minutes
+					//w/updates the time on the online timer until the player is retreating
+					//clowder.members.put(player.getDisplayName(), System.currentTimeMillis() + time);
+					
+				} else {
+					
+					//Long l = clowder.members.get(name);
+					
+					//retreats if the time is up
+					//if(l < System.currentTimeMillis()) {
+					//	mp.playerNetServerHandler.kickPlayerFromServer("You have just retreated!");
+					//}
+				}
+				
+			//is not in any clowder
+			} else {
+				
+				//if(Clowder.retreating.contains(player.getUniqueID())) {
+				//	Clowder.retreating.remove(name);
+				//}
+				
+				if(owner != null && owner.zone == Zone.FACTION) {
+					player.addPotionEffect(new PotionEffect(Potion.digSlowdown.id, 20, 2));
+					player.addPotionEffect(new PotionEffect(Potion.weakness.id, 20, 2));
+					player.addPotionEffect(new PotionEffect(Potion.moveSlowdown.id, 20, 1));
+				}
+			}
+			
+			particleBorder2(player.worldObj, player);
+			
+			if(player.inventory.armorInventory[0] != null && player.inventory.armorInventory[0].getItem() == ModItems.clowder_banner) {
+				ItemStack banner = player.inventory.armorInventory[0];
+			    
+				if(clowder != null) {
+					
+					if(!banner.hasTagCompound())
+						banner.stackTagCompound = new NBTTagCompound();
+
+					banner.stackTagCompound.setInteger("flag", clowder.flag.ordinal());
+					banner.stackTagCompound.setInteger("color", clowder.color);
+				}
+			}
+		}
+	}
+	
+	@SubscribeEvent
+	public void myBonesHurtEvent(PlayerLoggedOutEvent event) {
+		
+		EntityPlayer player = event.player;
+		String name = player.getDisplayName();
+		Clowder clowder = Clowder.getClowderFromPlayer(player);
+		
+	//	if(clowder != null && clowder.retreating.contains(name)) {
+	//
+	//		Long l = clowder.members.get(name);
+	//
+	//		if(l != null && l < System.currentTimeMillis()) {
+	//			clowder.notifyAll(player.worldObj, new ChatComponentText(CommandClowder.INFO + "Player " + name + " has just retreated!"));
+	//			clowder.members.put(name, System.currentTimeMillis());
+	//		}
+	//
+	//		clowder.retreating.remove(name);
+	//	}
+	}
+
+	@SubscribeEvent
+	public void onLivingDeath(LivingDeathEvent event) {
+		if(event == null || event.entityLiving == null || event.entityLiving.worldObj == null || event.entityLiving.worldObj.isRemote) return;
+		if(!(event.entityLiving instanceof EntityPlayer)) return;
+		EntityPlayer victim = (EntityPlayer)event.entityLiving;
+		DamageSource source = event.source;
+		if(source == null) return;
+		Entity attacker = source.getEntity();
+		EntityPlayer killer = null;
+		if(attacker instanceof EntityPlayer) {
+			killer = (EntityPlayer)attacker;
+		} else if(attacker instanceof EntityThrowable) {
+			Entity shooter = ((EntityThrowable)attacker).getThrower();
+			if(shooter instanceof EntityPlayer) killer = (EntityPlayer)shooter;
+		} else if(attacker instanceof EntityArrow) {
+			Entity shooter = ((EntityArrow)attacker).shootingEntity;
+			if(shooter instanceof EntityPlayer) killer = (EntityPlayer)shooter;
+		}
+		if(killer == null || killer == victim) return;
+		Clowder killerFaction = Clowder.getClowderFromPlayer(killer);
+		Clowder victimFaction = Clowder.getClowderFromPlayer(victim);
+		if(killerFaction == null || victimFaction == null || killerFaction.uuid != null && killerFaction.uuid.equals(victimFaction.uuid)) return;
+		killerFaction.processExpiredEnemyRelations(killer.worldObj, System.currentTimeMillis());
+		if(!killerFaction.isEnemyFaction(victimFaction, killer.worldObj)) return;
+		float reward = XFConfig.enemyKillPrestigeReward;
+		if(reward <= 0F) return;
+		killerFaction.addPrestige(reward, killer.worldObj);
+		killer.addChatMessage(new ChatComponentText(CommandClowder.INFO + "Killed enemy " + victim.getDisplayName() + " of " + victimFaction.name + ": +" + Clowder.round(reward) + " Prestige."));
+		killerFaction.notifyAll(killer.worldObj, new ChatComponentText(CommandClowder.INFO + killer.getDisplayName() + " killed enemy " + victim.getDisplayName() + " of " + victimFaction.name + " for +" + Clowder.round(reward) + " Prestige."));
+	}
+
+	int delay = 0;
+	int hour = 0;
+	/**
+	 * Handles world ticks for clowders, mainly the claim decay automaton.
+	 * @param event
+	 */
+	@SubscribeEvent
+	public void onWorldTick(WorldTickEvent event) {
+
+
+		//new check here for safezone
+		if (event.phase == Phase.END) { // After all entities have moved
+			if(!event.world.isRemote && ClowderTerritory.getDimensionId(event.world) == 0) CityCenterRelocationManager.runScheduledTasks();
+			if(!event.world.isRemote && ClowderTerritory.getDimensionId(event.world) == 0)
+				for(Clowder faction : Clowder.clowders) CityCenterRelocationManager.hasPending(faction);
+			if(!event.world.isRemote && ClowderTerritory.getDimensionId(event.world) == 0 && ++buildGraceValidationTicks >= 1200) {
+				buildGraceValidationTicks = 0;
+				for(Clowder clowder : Clowder.clowders)
+					clowder.endBuildGraceIfHomeInvalid(event.world, true);
+			}
+			List<Entity> entities = event.world.loadedEntityList;
+
+			for (Entity entity : entities) {
+				checkAndDeleteProjectile(entity);
+			}
+		}
+		
+		World world = event.world;
+		
+		if(world.isRemote || event.phase == Phase.END)
+			return;
+
+		if(world.provider.dimensionId == 0) {
+			if (hour > 0) {
+				hour--;
+			} else {
+				hour = MainRegistry.prestigeDelay;
+				Clowder.updatePrestige(world);
+				XFLog.debug("[Clowder] Prestige update complete.");
+			}
+		}
+		
+		if(world.provider.dimensionId == 0 && world.getTotalWorldTime() % 1200L == 0L) {
+			Clowder.processExpiredEnemyRelations(world);
+		}
+
+		if(delay > 0) {
+			delay--;
+			return;
+		} else {
+			delay = MainRegistry.territoryDelay;
+		}
+
+		List<Long> rem = new ArrayList();
+		for(Long time : Clowder.teleports.keySet()) {
+
+			ScheduledTeleport tp = Clowder.teleports.get(time);
+			World tpWorld = DimensionManager.getWorld(tp.dimensionId);
+			if(tpWorld == null)
+				continue;
+			EntityPlayer player = MinecraftServer.getServer().getConfigurationManager().func_152612_a(tp.player);
+
+			if(player == null)
+				continue;
+
+			if(time < System.currentTimeMillis()) {
+
+				Ownership owner = ClowderTerritory.getOwnerFromInts(tp.dimensionId, tp.posX, tp.posZ);
+				Clowder me = Clowder.getClowderFromPlayer(player);
+
+                if (tp.home && (me == null || !me.homeSet || !me.isInCapital(tp.dimensionId, tp.posX, tp.posZ))) {
+                    player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Home warp aborted because the capital or home changed."));
+                } else if(!tp.rendezvous && (owner == null || owner.zone != Zone.FACTION || owner.owner != me)) {
+
+					player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Warp destination appears to be outside of your territory."));
+					player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Warp aborted."));
+
+				} else if(player instanceof EntityPlayerMP) {
+
+					EntityPlayerMP playermp = (EntityPlayerMP)player;
+					playermp.mountEntity(null);
+					if(playermp.dimension != tp.dimensionId)
+						playermp.travelToDimension(tp.dimensionId);
+					playermp.playerNetServerHandler.setPlayerLocation(tp.posX + 0.5D, tp.posY, tp.posZ + 0.5D, player.rotationYaw, player.rotationPitch);
+
+					if(tp.rendezvous)
+					{
+						me.notifyAll(world, new ChatComponentText(CommandClowder.INFO + "Player " + player.getDisplayName() + " is warping to an ally warp point!"));
+						Clowder ally = Clowder.getClowderFromName(tp.allyName);
+						if (ally != null)
+							ally.notifyAll(world, new ChatComponentText(CommandClowder.INFO + "Player " + player.getDisplayName() + " from allied faction " + me.name + " is warping to our ally warp point!"));
+					}
+					else if(!tp.home) {
+						me.notifyAll(world, new ChatComponentText(CommandClowder.INFO + "Player " + player.getDisplayName() + " is warping to " + tp.warp + "!"));
+					} else {
+						me.notifyAll(world, new ChatComponentText(CommandClowder.INFO + "Player " + player.getDisplayName() + " is warping home!"));
+						if (!CommandClowderAdmin.WARENABLED) {
+							playermp.addPotionEffect(new PotionEffect(Potion.resistance.id, 600, 9));
+							playermp.addPotionEffect(new PotionEffect(Potion.regeneration.id, 600, 4));
+						} else  {
+							playermp.addPotionEffect(new PotionEffect(Potion.resistance.id, 60, 9));
+						}
+					}
+
+				}
+				rem.add(time);
+
+			} else {
+
+				if(player.posX != player.lastTickPosX || player.posZ != player.lastTickPosZ) {
+					rem.add(time);
+					player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Warp aborted!"));
+				}
+			}
+		}
+
+		for(Long time : rem) {
+			Clowder.teleports.remove(time);
+		}
+
+		for (Clowder clowder : Clowder.clowders) {
+			if (clowder.valid()) {
+
+				//set home delay crap
+				if(clowder.sethomeDelay > 0)
+					clowder.addSethomeDelay(-1, world);
+				else
+					clowder.sethomeDelay = 0;
+
+				//hopefully stops the chunk refresh smurfing
+				clowder.save(world);
+			}
+		}
+		
+		/// CLOWDER TERRITORYY ADMINISTRATIVE STUFF START ///
+		//ClowderTerritory.persistenceAutomaton(world);
+		/// CLOWDER TERRITORYY ADMINISTRATIVE STUFF END ///
+	}
+	
+	@SubscribeEvent
+	public void yeetEvent(ItemTossEvent event) {
+		
+		try {
+			
+			if(event.entityItem.getEntityItem().getItem() == ModItems.capsule) {
+				event.player.inventory.addItemStackToInventory(new ItemStack(ModItems.capsule));
+				event.player.inventory.addItemStackToInventory(new ItemStack(ModItems.capsule));
+				event.setCanceled(true);
+			}
+			
+		} catch(NullPointerException ex) { }
+	}
+}
