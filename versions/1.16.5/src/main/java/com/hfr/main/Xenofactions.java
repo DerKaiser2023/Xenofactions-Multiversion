@@ -36,6 +36,7 @@ public final class Xenofactions {
         bus.addListener(this::setup);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, FoundationConfig.SPEC, "xenofactions-foundation.toml");
         MinecraftForge.EVENT_BUS.register(new FoundationLifecycle());
+        MinecraftForge.EVENT_BUS.register(new com.hfr.server.PlayerLifecycle());
     }
     private void setup(net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent event) { event.enqueueWork(FoundationNetwork::register); }
 }

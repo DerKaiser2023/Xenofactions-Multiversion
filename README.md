@@ -7,9 +7,9 @@ Xenofactions is a Forge factions-and-warfare mod for cities, territory, diplomac
 | Minecraft | Loader | Available behavior | Build JVM / compiler | Game runtime |
 | --- | --- | --- | --- | --- |
 | 1.7.10 | Forge 10.13.4.1614 or newer for 1.7.10 | Current Xenofactions implementation: factions/cities/capitals, claims/permissions, war/economy, XShop/terminals, maps/kits/TDM/FFA/Search and Destroy, editor, builders, Earth maps, wall art and legacy content | JDK 25 / JDK 17 with Jabel; pinned Gradle 9.7.1 | Java 8 |
-| 1.16.5 | Forge 36.2.34 or newer for 1.16.5 | Migration foundation: faction/city inspection, native save bindings, map metadata creation, server-owned map-bounds editor and selection wand | JDK 21 / JDK 8; pinned Gradle 8.13 | Java 8 |
+| 1.16.5 | Forge 36.2.34 or newer for 1.16.5 | Native faction creation/membership/applications/ranks/disband, creation cooldowns and starter PvP grace; city inspection, map metadata and server-owned bounds editor/wand | JDK 21 / JDK 8; pinned Gradle 8.13 | Java 8 |
 
-**1.16.5 does not yet implement faction mutations, claim protection, city gameplay, prestige, diplomacy, matches, kits, shops, builders, Earth terrain, wall art or map integrations.** It is a foundation for migration and testing, not a replacement for a production 1.7.10 factions server. Imported saved match flags never start a match in this target.
+**1.16.5 does not yet implement claim protection, city gameplay, passive prestige/economy, diplomacy, matches, kits, shops, builders, Earth terrain, wall art or map integrations.** Native membership gameplay is available for testing, but this target is not a replacement for a production 1.7.10 factions server. Imported saved match flags never start a match.
 
 Install the matching production JAR on both client and server. Core builds require no installed optional mods. The 1.7.10 JourneyMap, Dynmap, Guide-API, NEI, HBM and MCHeli integrations remain optional; equivalent 1.16.5 integrations are pending.
 
@@ -19,9 +19,13 @@ Place only the JAR matching your Minecraft version in `mods/`. Use a separate te
 
 For full 1.7.10 configuration, commands and gameplay instructions, see [getting started](docs/1.7.10/getting-started.md), [configuration](docs/1.7.10/configuration.md), [commands](docs/1.7.10/commands.md), [admin editor](docs/1.7.10/ADMIN_EDITOR.md), and [permissions/automation](docs/1.7.10/gameplay-permissions-and-automation.md). Its existing `config/hfr.cfg`, registry IDs, packet discriminators, NBT and JSON formats remain intact.
 
-The native 1.16.5 foundation offers:
+The native 1.16.5 target offers:
 
-- `/c list`, `/c info`, `/c info <faction>`: read-only faction inspection. It does not create factions or grant permissions from imported names.
+- `/c`, `/c help`, `/c list`, `/c info [faction]`, `/c comrades`: faction inspection/help and your member roster. `/clowder` is an alias.
+- `/c create <name>`, `/c apply <faction>`, `/c leave`: create or apply to a faction, or leave a faction you do not lead. There is no invitation/direct-join command in the reference workflow. Faction names normalize spaces to underscores.
+- Officers and leaders: `/c applicants`, `/c accept <player>`, `/c deny <player>`, `/c kick <player>`, `/c rename <name>`, `/c motd <text>`. Applicants must be online for acceptance. The leader cannot be kicked.
+- Leaders: `/c promote <player>`, `/c demote <player>`, `/c owner <member>`, `/c disband <your faction name>`. Ownership transfer makes the old leader an Officer. Disband blocks new faction creation for seven days for the leader and three days for other members; applying/joining remains possible.
+- Level-3 operators: `/xc clearcreationcooldown <player-or-uuid>`, `/xc newplayerprotection`, `/xc resetnewplayerprotection`, `/xc endnewplayerprotection`. Enable `protection.enableNewPlayerProtection` in the native TOML before using the runtime toggle. The toggle starts off each server session. PvP grace prevents protected players from attacking or being attacked by other players. Existing expired records never receive fresh timers just because they reconnect.
 - `/xc foundation`, `/xc cities`: level-3 administration/inspection.
 - `/tdm map list`, `/tdm map create <name>`: level-4 map metadata management. New maps start with voting disabled.
 - `/tdm editor gui [map]`: level-4 map-bounds editor. F10 opens/closes the editor through this command.
@@ -29,9 +33,9 @@ The native 1.16.5 foundation offers:
 
 The last selected map persists in the existing `PlayerPersisted/xfAdminEditorContext` structure. Selection drafts and GUI tokens expire after five idle minutes and clear on death, logout, dimension change, permission loss, map change and server unload. Closing the screen to use the wand retains the authorized draft.
 
-1.16.5 generates `config/xenofactions-foundation.toml`. `foundation.playerIdentityMode` defaults to `AUTO`, following the legacy development/offline NAME vs authenticated-production UUID choice for **inspection only**. `foundation.legacyDimensions` maps legacy integer IDs to native dimension keys; defaults are `0=minecraft:overworld`, `-1=minecraft:the_nether`, `1=minecraft:the_end`. Add explicit mappings before editing in custom dimensions; ambiguous mappings are rejected. Existing `hfr.cfg` is not consumed by 1.16.5, and unported settings are not advertised as functional.
+1.16.5 uses `config/xenofactions-foundation.toml`. `foundation.playerIdentityMode` defaults to `AUTO`: names authorize faction membership in development/offline servers and UUIDs authorize it in authenticated production. Use `UUID` explicitly when stable UUID authority is required. Imported name-only membership remains unresolved and never grants authority; canonical `identityMembers` records are required. `foundation.legacyDimensions` maps legacy integer IDs to native keys; defaults are `0=minecraft:overworld`, `-1=minecraft:the_nether`, `1=minecraft:the_end`. Add explicit mappings before editing or creating factions in custom dimensions; ambiguous mappings are rejected. Existing `hfr.cfg` is not consumed by 1.16.5. `factions.startingPrestige` (250) and `basePrestigeGeneration` (25) initialize stored values only; passive economy is pending. Starter protection defaults disabled, with four-hour PvP grace. The legacy 24-hour `keepInvUntil` timestamp is preserved, but does not retain inventory: the reference has no enforcement path for it.
 
-The native stores can read copied `data/hfr_clowder.dat` and `data/xenofactions_tdm.dat` logical records. Faction data is read-only. Map edits retain unhandled fields and create `xenofactions_tdm.dat.migration-1.16.5.bak` before the first edit of an existing file. Invalid existing data blocks loading/editing instead of being replaced with an empty catalog. See [the migration architecture and persistence inventory](docs/MIGRATION.md) before transferring data.
+The native stores can read copied `data/hfr_clowder.dat` and `data/xenofactions_tdm.dat` logical records, plus world-root `clowder_player_protection.json` and `clowder_faction_creation_cooldowns.json`. Faction/map edits retain unhandled fields and create a `.migration-1.16.5.bak` beside an existing file before its first edit. Timer writes also retain unknown entry fields and back up existing files; malformed data is preserved and refuses loading/mutation. See [the migration architecture and persistence inventory](docs/MIGRATION.md) before transferring data.
 
 ## Building
 

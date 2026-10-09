@@ -15,15 +15,12 @@ import net.minecraft.util.text.StringTextComponent;
 /** Only implemented commands are offered; unsupported gameplay is not registered as a stub. */
 public final class FoundationCommands {
     public static void register(CommandDispatcher<CommandSource> dispatcher) {
-        dispatcher.register(Commands.literal("c")
-                .then(Commands.literal("list").executes(context -> reply(context, String.join(", ", FactionSavedData.get(context.getSource().getServer()).names()))))
-                .then(Commands.literal("info").executes(context -> reply(context, FactionSavedData.get(context.getSource().getServer()).membership(context.getSource().getPlayerOrException())))
-                        .then(Commands.argument("faction", StringArgumentType.greedyString()).executes(context -> reply(context,
-                                FactionSavedData.get(context.getSource().getServer()).describe(StringArgumentType.getString(context, "faction")))))));
+        FactionCommands.register(dispatcher);
         dispatcher.register(Commands.literal("xc").requires(source -> source.hasPermission(3))
                 .then(Commands.literal("foundation").executes(context -> reply(context, "Xenofactions " + BuildVersion.VERSION
-                        + ": faction/city inspection and map-bounds editing. Faction mutations, claim protection, matches, kits, shops and map integrations are pending.")))
+                        + ": native faction membership, ranks, applications, disband cooldowns, starter PvP grace, city inspection and map-bounds editing. City gameplay, claim protection, diplomacy, economy, matches, kits, shops and map integrations are pending.")))
                 .then(Commands.literal("cities").executes(context -> { for (String city : FactionSavedData.get(context.getSource().getServer()).cities()) reply(context, city); return 1; })));
+        dispatcher.register(Commands.literal("xclowder").requires(source -> source.hasPermission(3)).redirect(dispatcher.getRoot().getChild("xc")));
         dispatcher.register(Commands.literal("tdm").requires(source -> source.hasPermission(4))
                 .then(Commands.literal("editor").then(Commands.literal("gui").executes(context -> open(context, ""))
                         .then(Commands.argument("map", StringArgumentType.word()).executes(context -> open(context, StringArgumentType.getString(context, "map"))))))

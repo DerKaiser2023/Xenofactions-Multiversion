@@ -1,32 +1,51 @@
 package com.hfr.data;
 
-import com.hfr.clowder.FactionRole;
-import com.hfr.clowder.FactionMemberRecord;
-import com.hfr.config.FoundationConfig;
-import com.hfr.main.Xenofactions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
-import net.minecraft.entity.player.ServerPlayerEntity;
+import java.nio.file.Path;
+import java.nio.file.Files;
+import java.io.IOException;
+import com.hfr.server.FactionService;
 import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.ListNBT;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.storage.WorldSavedData;
-import net.minecraftforge.fml.loading.FMLEnvironment;
 
-/** Native binding for the current Clowder schema. Inspection never rewrites legacy data. */
+/** Native save binding. Only implemented faction fields are edited; other data remains opaque. */
 public final class FactionSavedData extends WorldSavedData {
     public static final String ID = "hfr_clowder";
     private CompoundNBT payload = new CompoundNBT();
+    private Path backingFile;
+    private boolean backupChecked;
     public FactionSavedData() { super(ID); }
     public static FactionSavedData get(MinecraftServer server) {
-        return SavedDataFiles.get(server, ID, FactionSavedData::new);
+        FactionSavedData data = SavedDataFiles.get(server, ID, FactionSavedData::new);
+        data.backingFile = SavedDataFiles.path(server, ID);
+        return data;
     }
     @Override public void load(CompoundNBT nbt) {
         if (!nbt.contains("clowderCount", 3) || nbt.getInt("clowderCount") < 0 || nbt.getInt("territory_count") < 0)
             throw new IllegalArgumentException("Invalid Clowder data counts");
+        FactionService.validate(nbt);
         payload = nbt.copy();
+    }
+    public CompoundNBT snapshot() { return payload.copy(); }
+    public void edit(CompoundNBT expected, CompoundNBT next) {
+        if (!payload.equals(expected)) throw new IllegalStateException("Faction data changed; retry the command.");
+        FactionService.validate(next);
+        prepareEdit();
+        payload = next.copy(); setDirty();
+    }
+    public void prepareEdit() {
+        if (!backupChecked) {
+            try {
+                if (Files.exists(backingFile)) {
+                    Path backup = backingFile.resolveSibling(backingFile.getFileName() + ".migration-1.16.5.bak");
+                    if (!Files.exists(backup)) Files.copy(backingFile, backup);
+                }
+                backupChecked = true;
+            } catch (IOException failure) { throw new IllegalStateException("Cannot back up faction data; no changes made.", failure); }
+        }
     }
     @Override public CompoundNBT save(CompoundNBT nbt) { nbt.merge(payload.copy()); return nbt; }
     public List<String> names() {
@@ -36,48 +55,19 @@ public final class FactionSavedData extends WorldSavedData {
     }
     public String describe(String name) {
         for (int i = 0; i < payload.getInt("clowderCount"); i++) {
-            if (!payload.getString(i + "_name").equalsIgnoreCase(name)) continue;
+            if (!FactionService.canonical(payload.getString(i + "_name")).equalsIgnoreCase(FactionService.canonical(name))) continue;
             String prefix = i + "_";
             return payload.getString(prefix + "name") + " | members: " + payload.getInt(prefix + "members")
                     + " | leader: " + payload.getString(prefix + "leader") + " | capital: "
                     + (payload.getBoolean(prefix + "capitalDesignated") ? payload.getString(prefix + "capitalCityId") : "not designated");
         }
-        return "Unknown faction: " + name;
-    }
-    public String membership(ServerPlayerEntity player) {
-        String mode = FoundationConfig.IDENTITY_MODE.get();
-        boolean names = "NAME".equalsIgnoreCase(mode) || ("AUTO".equalsIgnoreCase(mode)
-                && (!FMLEnvironment.production || !player.getServer().usesAuthentication()));
-        String profileName = player.getGameProfile().getName();
-        UUID uuid = player.getUUID();
-        for (int i = 0; i < payload.getInt("clowderCount"); i++) {
-            String prefix = i + "_";
-            ListNBT members = payload.getList(prefix + "identityMembers", 10);
-            for (int j = 0; j < members.size(); j++) {
-                CompoundNBT record = members.getCompound(j);
-                boolean matches = names ? record.getString("lastKnownName").equalsIgnoreCase(profileName)
-                        : record.getString("uuid").equals(uuid.toString());
-                if (matches) {
-                    try {
-                        FactionMemberRecord member = new FactionMemberRecord(UUID.fromString(record.getString("uuid")),
-                                record.getString("lastKnownName"), record.getLong("joinedAt"), FactionRole.valueOf(record.getString("role")));
-                        return payload.getString(prefix + "name") + " / " + member.role;
-                    }
-                    catch (IllegalArgumentException invalid) { Xenofactions.LOGGER.warn("Invalid member role in faction {}", payload.getString(prefix + "name")); }
-                }
-            }
-            if (names) {
-                for (int j = 0; j < payload.getInt(prefix + "members"); j++) {
-                    if (profileName.equalsIgnoreCase(payload.getString(prefix + j))) return payload.getString(prefix + "name") + " / legacy name membership";
-                }
-            }
-        }
-        return "No resolved faction membership";
+        throw new IllegalArgumentException("Unknown faction: " + name);
     }
     public List<String> cities() {
         List<String> result = new ArrayList<>();
         for (int i = 0; i < payload.getInt("territory_count"); i++) {
             String code = "meta_" + i;
+            if (payload.getInt("ownership_" + code + "_zone") != 3) continue;
             String id = payload.getString("cityId_" + code);
             if (id.isEmpty()) continue;
             String city = payload.getString("cityName_" + code);
