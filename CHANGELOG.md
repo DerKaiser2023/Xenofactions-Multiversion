@@ -106,3 +106,8 @@
 - Kept the Production Line power-free with level-one cogs, original University research and active faction/map/shop/TDM/world systems. Removed the custom steel ingot and its acquisition paths; retained components use iron. Removed rubber sandbag recipes.
 - Removed withdrawal in both targets; existing hidden Prestige tokens retain deposit compatibility. Removed registry IDs are deliberately unsupported, old excluded stores remain untouched, and native unknown-NBT preservation continues. Clients and servers must match builds.
 - Updated maintained feature, recipe, configuration and migration documentation; the standalone historical repository is unchanged.
+
+2026-10-10 04:27 — Preserve styled client chat through the 1.7.10 filter
+
+- Replace formatted-string reconstruction with recursive filtering of text components and translation arguments, copying each component's original style and siblings. Preserve URL/command click events, hover events, formatting and translation keys without modifying the received component.
+- Return the filtered component through Forge's normal client chat event instead of manually printing plain text and canceling delivery. Keep the filter toggle, substitutions and intentional chat-mute behavior.

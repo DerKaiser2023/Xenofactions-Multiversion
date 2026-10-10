@@ -48,6 +48,7 @@ import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
@@ -616,8 +617,6 @@ public class EventHandlerClient {
 		
 		IChatComponent component = event.message;
 		String raw = component.getUnformattedText();
-		String msg = component.getFormattedText();
-		EntityPlayer player = Minecraft.getMinecraft().thePlayer;
 		
 		Integer i = PlayerDataPacket.vals.get(CommandClowderChat.MUTE_KEY);
 		
@@ -645,8 +644,38 @@ public class EventHandlerClient {
 		if(!MainRegistry.chatfilter)
 			return;
 
-		//chat filter logic
-		
+		// Let Forge deliver the styled component to vanilla chat normally.
+		event.message = filterChatComponent(component);
+	}
+
+	private static IChatComponent filterChatComponent(IChatComponent component) {
+		IChatComponent filtered;
+		if(component instanceof ChatComponentText) {
+			filtered = new ChatComponentText(filterChatText(((ChatComponentText) component).getChatComponentText_TextValue()));
+		} else if(component instanceof ChatComponentTranslation) {
+			ChatComponentTranslation translation = (ChatComponentTranslation) component;
+			Object[] args = translation.getFormatArgs().clone();
+			for(int index = 0; index < args.length; index++) {
+				if(args[index] instanceof IChatComponent) {
+					args[index] = filterChatComponent((IChatComponent) args[index]);
+				} else if(args[index] instanceof String) {
+					args[index] = filterChatText((String) args[index]);
+				}
+			}
+			filtered = new ChatComponentTranslation(translation.getKey(), args);
+		} else {
+			// Keep optional mods' component types rather than reducing them to text.
+			filtered = component.createCopy();
+			filtered.getSiblings().clear();
+		}
+		filtered.setChatStyle(component.getChatStyle().createShallowCopy());
+		for(Object sibling : component.getSiblings()) {
+			filtered.appendSibling(filterChatComponent((IChatComponent) sibling));
+		}
+		return filtered;
+	}
+
+	private static String filterChatText(String msg) {
 		for(Entry<String, String> pair : MainRegistry.sub.entrySet()) {
 			
 			String prev = msg;
@@ -658,9 +687,6 @@ public class EventHandlerClient {
 			}
 		}
 
-		IChatComponent text = new ChatComponentText(msg);
-		player.addChatComponentMessage(text);
-		
-		event.setCanceled(true);
+		return msg;
 	}
 }

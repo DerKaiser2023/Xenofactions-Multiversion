@@ -231,6 +231,8 @@ Category: `XENOFACTIONS_09B_JOURNEYMAP_CLIENT`
 
 World/entity restrictions, entity effects/immunity, cave sickness, rectangular border, vanilla stone drops, chat filter and diagnostic logging remain configurable. Radar/forcefield, RF/oil/nuclear, weapons, stock/tax, obsolete-building rates and Builder Depot settings are no longer read or generated. Old keys may remain in an existing Forge config and are ignored; no destructive rewrite is performed.
 
+The client `enableChatFilter` setting defaults to `true`. It filters displayed text and translation arguments while preserving component formatting, click actions and hover events. URL clicks use Minecraft's normal Web Links and Prompt on Links settings; the filter leaves action targets and hover contents unchanged.
+
 ## Custom stone drops JSON
 
 `/stonedrop` saves entries to:
