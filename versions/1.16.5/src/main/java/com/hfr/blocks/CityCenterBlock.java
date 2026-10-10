@@ -23,7 +23,7 @@ import net.minecraft.world.server.ServerWorld;
 
 /** Minimum native City Center block; world presence is required for city gameplay. */
 public final class CityCenterBlock extends Block {
-    public CityCenterBlock() { super(Properties.of(Material.METAL).strength(5, Float.POSITIVE_INFINITY)); }
+    public CityCenterBlock() { super(Properties.of(Material.METAL).noOcclusion().strength(5, Float.POSITIVE_INFINITY)); }
     @Override public boolean hasTileEntity(BlockState state) { return true; }
     @Override public TileEntity createTileEntity(BlockState state, IBlockReader world) { return new CityCenterTile(); }
     @Override public void setPlacedBy(World world, BlockPos pos, BlockState state, LivingEntity placer, ItemStack item) {

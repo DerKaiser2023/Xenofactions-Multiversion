@@ -1,6 +1,8 @@
 {
+  "itemGroup.tabHFR": "Xenofactions",
   "item.hfr.item.world_border_wand": "Admin Selection Wand",
   "key.hfr.admineditor": "Toggle Admin Editor",
+  "key.hfr.bordervisuals": "Toggle Border Particles",
   "key.categories.hfr.xenofactions": "Xenofactions",
   "block.hfr.tile.clowder_flag": "City Center",
   "block.hfr.tile.clowder_conquerer": "Conquest Flag",

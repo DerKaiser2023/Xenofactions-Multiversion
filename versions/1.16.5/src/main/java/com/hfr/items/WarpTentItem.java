@@ -11,7 +11,7 @@ import net.minecraft.util.ActionResultType;
 import net.minecraft.util.math.BlockPos;
 
 public final class WarpTentItem extends BlockItem {
-    public WarpTentItem(Block block) { super(block, new Properties()); }
+    public WarpTentItem(Block block) { super(block, new Properties().tab(com.hfr.main.Xenofactions.TAB)); }
     @Override public ActionResultType place(BlockItemUseContext context) {
         if (!context.getLevel().isClientSide) {
             if (!(context.getPlayer() instanceof ServerPlayerEntity)) return ActionResultType.FAIL;

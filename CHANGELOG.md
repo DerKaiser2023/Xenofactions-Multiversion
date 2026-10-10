@@ -85,3 +85,9 @@
 - Add native hourly prestige generation/upkeep/escalating war costs/deposits and crisis/collapse/fallen penalties. Keep withdrawal disabled. Register minimal faction building dependencies, operational Warp Tent accounting/travel, conquest capture, Foundation/Asphalt, recipes, built-in flags and claim-map/free-tool utilities without importing unrelated production machines.
 - Port faction/alliance chat and public faction prestige/rank prefixes, native mute/ignore persistence/enforcement, remaining core force/merge/admin commands and stone-drop definitions/rewards. Require receiving-leader merge acceptance, preserve unresolved identity staging, and clean affected city/relationship/travel references on lifecycle changes.
 - Keep 1.7.10, platform-neutral common sources and pinned build islands intact. Shops/terminals, matches/kits, builders, custom image flags/wall art, machines/weapons, Earth systems and optional integrations remain separate migration work. Document native command/configuration/save boundaries and the corrected ten-minute home/rally setting cooldown.
+
+2026-10-09 22:36 — Restore native faction content discovery and border feedback
+
+- Assign all registered player-facing 1.16.5 items and block items to the Xenofactions Creative tab, retaining registry IDs and the legacy hidden server-issued selection wand.
+- Restore server-owned faction/city/zone transition tracking, five-second flag popups, the original border-crossing sound and nearby exposed-edge firework particles. Suppress repeated notifications, seed login/respawn silently, clean session state and retain Right Alt particle toggling. Require matching native client/server protocol versions.
+- Restore non-opaque City Center and Conquest Flag blocks and sample raised cloth lighting at its world position. Preserve normal lighting, selected faction tint and untinted pattern overlays without full-bright rendering.

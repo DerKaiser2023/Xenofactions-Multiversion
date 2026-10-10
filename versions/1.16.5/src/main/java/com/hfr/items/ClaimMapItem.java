@@ -17,7 +17,7 @@ import net.minecraft.world.World;
 
 /** The reference claim map prints a 15 by 15 territory grid; it is not a map-mod integration. */
 public final class ClaimMapItem extends Item {
-    public ClaimMapItem() { super(new Properties().stacksTo(1)); }
+    public ClaimMapItem() { super(new Properties().tab(com.hfr.main.Xenofactions.TAB).stacksTo(1)); }
     @Override public ActionResult<ItemStack> use(World world, PlayerEntity player, Hand hand) {
         if (player instanceof ServerPlayerEntity) {
             try {

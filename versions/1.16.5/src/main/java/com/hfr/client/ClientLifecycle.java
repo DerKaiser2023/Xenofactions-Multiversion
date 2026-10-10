@@ -15,8 +15,10 @@ import org.lwjgl.glfw.GLFW;
 @Mod.EventBusSubscriber(modid = Xenofactions.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class ClientLifecycle {
     private static final KeyBinding EDITOR = new KeyBinding("key.hfr.admineditor", GLFW.GLFW_KEY_F10, "key.categories.hfr.xenofactions");
+    private static final KeyBinding BORDERS = new KeyBinding("key.hfr.bordervisuals", GLFW.GLFW_KEY_RIGHT_ALT, "key.categories.hfr.xenofactions");
     @SubscribeEvent public static void setup(FMLClientSetupEvent event) {
         ClientRegistry.registerKeyBinding(EDITOR);
+        ClientRegistry.registerKeyBinding(BORDERS);
         ClientRegistry.bindTileEntityRenderer(Xenofactions.OFFICER_CHEST_TILE.get(), net.minecraft.client.renderer.tileentity.ChestTileEntityRenderer::new);
         ClientRegistry.bindTileEntityRenderer(Xenofactions.CITY_TILE.get(), dispatcher -> new NativeFlagRenderer<>(dispatcher));
         ClientRegistry.bindTileEntityRenderer(Xenofactions.CONQUEST_TILE.get(), dispatcher -> new NativeFlagRenderer<>(dispatcher));
@@ -30,6 +32,7 @@ public final class ClientLifecycle {
         @SubscribeEvent public static void tick(TickEvent.ClientTickEvent event) {
             if (event.phase != TickEvent.Phase.END) return;
             Minecraft client = Minecraft.getInstance();
+            while (BORDERS.consumeClick()) ClientBorderFeedback.toggleParticles();
             while (EDITOR.consumeClick()) {
                 if (client.player == null) continue;
                 if (client.screen instanceof FoundationScreen) client.player.closeContainer();

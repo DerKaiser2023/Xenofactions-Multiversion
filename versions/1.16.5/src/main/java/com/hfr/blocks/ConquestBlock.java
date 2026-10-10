@@ -20,7 +20,7 @@ import net.minecraft.world.World;
 import net.minecraft.world.server.ServerWorld;
 
 public final class ConquestBlock extends Block {
-    public ConquestBlock() { super(Properties.of(Material.WOOL).strength(.8F, 4)); }
+    public ConquestBlock() { super(Properties.of(Material.WOOL).noOcclusion().strength(.8F, 4)); }
     @Override public boolean hasTileEntity(BlockState state) { return true; }
     @Override public TileEntity createTileEntity(BlockState state, net.minecraft.world.IBlockReader world) { return new ConquestTile(); }
     @Override public void setPlacedBy(World world, BlockPos pos, BlockState state, LivingEntity placer, ItemStack item) {

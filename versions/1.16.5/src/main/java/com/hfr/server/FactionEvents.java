@@ -46,8 +46,9 @@ import net.minecraftforge.fml.event.server.FMLServerStoppedEvent;
 public final class FactionEvents {
     private static final UUID SAFE_KNOCKBACK = UUID.fromString("d2ff445d-0b34-4dc8-ab18-dcba85a03854");
     private final Set<Entity> projectiles = new HashSet<>();
-    @SubscribeEvent public void start(FMLServerStartedEvent event) { FactionRuntime.start(event.getServer()); StoneDrops.load(); ChatModeration.start(event.getServer()); }
-    @SubscribeEvent public void stop(FMLServerStoppedEvent event) { FactionRuntime.stop(); projectiles.clear(); StoneDrops.clear(); ChatModeration.clear(); }
+    private final BorderFeedback borders = new BorderFeedback();
+    @SubscribeEvent public void start(FMLServerStartedEvent event) { borders.clear(); FactionRuntime.start(event.getServer()); StoneDrops.load(); ChatModeration.start(event.getServer()); }
+    @SubscribeEvent public void stop(FMLServerStoppedEvent event) { borders.clear(); FactionRuntime.stop(); projectiles.clear(); StoneDrops.clear(); ChatModeration.clear(); }
     @SubscribeEvent(priority = EventPriority.LOWEST) public void stone(BlockEvent.BreakEvent e) {
         if (e.isCanceled() || e.getPlayer() == null || e.getPlayer().isCreative() || e.getState().getBlock() != Blocks.STONE || !(e.getWorld() instanceof ServerWorld) || FactionRuntime.guarded(((ServerWorld)e.getWorld()).getServer())) return;
         ServerWorld world = (ServerWorld)e.getWorld();
@@ -62,6 +63,7 @@ public final class FactionEvents {
         if (!FactionRuntime.ready(server)) return;
         FactionRuntime.tick(server);
         FactionGameplay g = FactionRuntime.view(server);
+        for (ServerPlayerEntity player : server.getPlayerList().getPlayers()) if (player.isAlive()) borders.tick(g, player);
         projectiles.removeIf(e -> { if (!e.isAlive() || !(e.level instanceof ServerWorld)) return true; if (g.zone(g.at(e.level, e.blockPosition())) == 0) { e.remove(); return true; } return false; });
     }
     @SubscribeEvent(priority = EventPriority.HIGHEST) public void projectile(EntityJoinWorldEvent event) {
@@ -71,11 +73,11 @@ public final class FactionEvents {
         FactionGameplay g = FactionRuntime.view(((ServerWorld)e.level).getServer());
         if (g.zone(g.at(e.level, e.blockPosition())) == 0) { e.remove(); event.setCanceled(true); } else projectiles.add(e);
     }
-    @SubscribeEvent public void logout(PlayerEvent.PlayerLoggedOutEvent e) { if (e.getPlayer() instanceof ServerPlayerEntity) FactionRuntime.cancel((ServerPlayerEntity)e.getPlayer()); }
+    @SubscribeEvent public void logout(PlayerEvent.PlayerLoggedOutEvent e) { if (e.getPlayer() instanceof ServerPlayerEntity) { FactionRuntime.cancel((ServerPlayerEntity)e.getPlayer()); borders.forget((ServerPlayerEntity)e.getPlayer()); } }
     @SubscribeEvent public void dimension(PlayerEvent.PlayerChangedDimensionEvent e) { if (e.getPlayer() instanceof ServerPlayerEntity) FactionRuntime.cancel((ServerPlayerEntity)e.getPlayer()); }
     @SubscribeEvent public void death(LivingDeathEvent e) {
         if (!(e.getEntityLiving() instanceof ServerPlayerEntity)) return;
-        ServerPlayerEntity victim = (ServerPlayerEntity)e.getEntityLiving(); FactionRuntime.cancel(victim);
+        ServerPlayerEntity victim = (ServerPlayerEntity)e.getEntityLiving(); FactionRuntime.cancel(victim); borders.forget(victim);
         if (!(e.getSource().getEntity() instanceof ServerPlayerEntity)) return;
         ServerPlayerEntity killer = (ServerPlayerEntity)e.getSource().getEntity(); if (killer == victim) return;
         FactionGameplay g = FactionGameplay.get(killer.getServer()); CompoundNBT a = g.faction(killer), b = g.faction(victim);

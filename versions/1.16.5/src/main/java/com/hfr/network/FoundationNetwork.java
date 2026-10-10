@@ -18,17 +18,49 @@ import net.minecraftforge.fml.network.PacketDistributor;
 import net.minecraftforge.fml.network.simple.SimpleChannel;
 
 public final class FoundationNetwork {
-    private static final String PROTOCOL = "foundation-1";
+    private static final String PROTOCOL = "foundation-2";
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(new ResourceLocation(Xenofactions.MODID, "foundation"),
             () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private FoundationNetwork() { }
     public static void register() {
         CHANNEL.registerMessage(0, Action.class, Action::encode, Action::decode, Action::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(1, Snapshot.class, Snapshot::encode, Snapshot::decode, Snapshot::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(2, Border.class, Border::encode, Border::decode, Border::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
     public static void action(int container, String token, int action) { CHANNEL.sendToServer(new Action(container, token, action)); }
     public static void snapshot(ServerPlayerEntity player, int container, CompoundNBT data) {
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new Snapshot(container, data));
+    }
+    public static void border(ServerPlayerEntity player, ResourceLocation dimension, boolean popup, int pattern, int color, String name, String title, int[] segments) {
+        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new Border(dimension, popup, pattern, color, name, title, segments));
+    }
+    public static final class Border {
+        public final ResourceLocation dimension;
+        public final boolean popup;
+        public final int pattern, color;
+        public final String name, title;
+        public final int[] segments;
+        Border(ResourceLocation dimension, boolean popup, int pattern, int color, String name, String title, int[] segments) {
+            this.dimension = dimension; this.popup = popup; this.pattern = pattern; this.color = color; this.name = name; this.title = title; this.segments = segments;
+        }
+        static void encode(Border packet, PacketBuffer buffer) {
+            buffer.writeResourceLocation(packet.dimension); buffer.writeBoolean(packet.popup);
+            if (packet.popup) { buffer.writeInt(packet.pattern); buffer.writeInt(packet.color); buffer.writeUtf(packet.name); buffer.writeUtf(packet.title); }
+            buffer.writeVarIntArray(packet.segments);
+        }
+        static Border decode(PacketBuffer buffer) {
+            ResourceLocation dimension = buffer.readResourceLocation(); boolean popup = buffer.readBoolean();
+            int pattern = -1, color = 0xFFFFFF; String name = "", title = "";
+            if (popup) { pattern = buffer.readInt(); color = buffer.readInt(); name = buffer.readUtf(32767); title = buffer.readUtf(32767); }
+            int[] segments = buffer.readVarIntArray(128 * 5);
+            if (segments.length % 5 != 0) throw new IllegalArgumentException("Invalid faction border segments.");
+            return new Border(dimension, popup, pattern, color, name, title, segments);
+        }
+        static void handle(Border packet, Supplier<NetworkEvent.Context> supplier) {
+            NetworkEvent.Context context = supplier.get();
+            context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> com.hfr.client.ClientBorderFeedback.receive(packet)));
+            context.setPacketHandled(true);
+        }
     }
     public static final class Action {
         final int container, action; final String token;

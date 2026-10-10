@@ -10,7 +10,7 @@ import net.minecraft.util.ActionResultType;
 import net.minecraft.world.server.ServerWorld;
 
 public final class CityCenterItem extends BlockItem {
-    public CityCenterItem(Block block) { super(block, new Properties().stacksTo(1)); }
+    public CityCenterItem(Block block) { super(block, new Properties().tab(com.hfr.main.Xenofactions.TAB).stacksTo(1)); }
     @Override public ActionResultType useOn(ItemUseContext context) {
         if (context.getItemInHand().getOrCreateTag().getBoolean("xenoCityRelocation")) {
             if (context.getLevel().isClientSide) return ActionResultType.SUCCESS;

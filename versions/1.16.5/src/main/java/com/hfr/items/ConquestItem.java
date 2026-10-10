@@ -8,7 +8,7 @@ import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.util.ActionResultType;
 
 public final class ConquestItem extends BlockItem {
-    public ConquestItem(Block block) { super(block, new Properties()); }
+    public ConquestItem(Block block) { super(block, new Properties().tab(com.hfr.main.Xenofactions.TAB)); }
     @Override public ActionResultType place(BlockItemUseContext context) {
         if (!context.getLevel().isClientSide) {
             if (!(context.getPlayer() instanceof ServerPlayerEntity)) return ActionResultType.FAIL;
