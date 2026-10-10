@@ -35,7 +35,7 @@ public final class FactionCommands {
         dispatcher.register(Commands.literal("c")
                 .executes(context -> run(context, (factions, player) -> factions.membership(player)))
                 .then(Commands.literal("help").executes(context -> reply(context,
-                        "/c list, info [faction], create <name>, apply <faction>, comrades, leave; officers: applicants, accept/deny/kick <player>, rename <name>, motd <text>; leader: promote/demote/owner <player>, disband <faction name>. Cities, claims, diplomacy, economy and matches are not ported yet.")))
+                        "/c list, info [faction], create <name>, apply <faction>, comrades, leave; officers: applicants, accept/deny/kick <player>, rename <name>, motd <text>; leader: promote/demote/owner <player>, disband <faction name>. /c help lists faction gameplay.")))
                 .then(Commands.literal("list").executes(context -> reply(context, String.join(", ", FactionSavedData.get(context.getSource().getServer()).names()))))
                 .then(Commands.literal("info").executes(context -> run(context, (factions, player) -> factions.membership(player)))
                         .then(faction().executes(context -> {

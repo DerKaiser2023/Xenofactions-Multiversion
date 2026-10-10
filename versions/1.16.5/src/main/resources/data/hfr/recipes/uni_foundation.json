@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    {
+      "type": "hfr:survival_recipes"
+    }
+  ],
+  "pattern": [
+    "SIS",
+    "III",
+    "SIS"
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:stone_bricks"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "hfr:tile.uni_foundation",
+    "count": 4
+  }
+}

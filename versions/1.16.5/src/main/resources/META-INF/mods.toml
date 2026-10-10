@@ -6,7 +6,7 @@ modId="hfr"
 version="${fullVersion}"
 displayName="Xenofactions"
 authors="Ragex, Zealot / Black Trollface, Fedward"
-description='''Native Xenofactions migration foundation: faction/city inspection and server-owned map-bounds editing. Full gameplay parity with 1.7.10 is not yet implemented.'''
+description='''Native Xenofactions factions, cities, capitals, homes, custom territory, protection, diplomacy, war, prestige and chat, with the server-owned map-bounds editor. Matches, shops, machines, Earth systems and optional integrations remain separate migration work.'''
 [[dependencies.hfr]]
 modId="forge"
 mandatory=true

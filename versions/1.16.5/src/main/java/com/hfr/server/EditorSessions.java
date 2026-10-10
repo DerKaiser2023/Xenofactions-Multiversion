@@ -17,7 +17,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraftforge.fml.network.NetworkHooks;
 
-/** Server-owned MAP selection and editor authorization. Item possession grants no authority. */
+/** Server-owned map/zone selection and editor authorization. Item possession grants no authority. */
 public final class EditorSessions {
     private static final Map<UUID, Session> ACTIVE = new HashMap<>();
     private static final long LEASE_TICKS = 20 * 300;
@@ -25,6 +25,7 @@ public final class EditorSessions {
     private static final class Session {
         final String token = UUID.randomUUID().toString();
         final String map, dimension;
+        String zone = "";
         CompoundNBT expected;
         BlockPos a, b;
         boolean selecting;
@@ -41,9 +42,9 @@ public final class EditorSessions {
     private static Session valid(ServerPlayerEntity player) {
         Session session = ACTIVE.get(player.getUUID());
         if (session == null) return null;
-        if (!player.isAlive() || !player.hasPermissions(4) || player.getServer().getTickCount() > session.expires
+        if (!player.isAlive() || !player.hasPermissions(session.zone.isEmpty() ? 4 : 3) || player.getServer().getTickCount() > session.expires
                 || !session.dimension.equals(player.level.dimension().location().toString())
-                || !session.expected.equals(MapSavedData.get(player.getServer()).map(session.map))) {
+                || session.zone.isEmpty() && !session.expected.equals(MapSavedData.get(player.getServer()).map(session.map))) {
             clear(player); return null;
         }
         return session;
@@ -65,7 +66,7 @@ public final class EditorSessions {
         }
         Session previous = valid(player);
         Session session = new Session(player, name, maps.map(name));
-        if (previous != null && previous.map.equals(name)) { session.a = previous.a; session.b = previous.b; session.selecting = previous.selecting; }
+        if (previous != null && previous.zone.isEmpty() && previous.map.equals(name)) { session.a = previous.a; session.b = previous.b; session.selecting = previous.selecting; }
         ACTIVE.put(player.getUUID(), session);
         CompoundNBT context = persisted.getCompound(CONTEXT); context.putString("map", name); persisted.put(CONTEXT, context);
         player.getPersistentData().put(PlayerEntityTag.PERSISTED, persisted);
@@ -75,7 +76,7 @@ public final class EditorSessions {
     }
     public static void action(ServerPlayerEntity player, int containerId, String token, int action) {
         Session session = valid(player);
-        if (session == null || !(player.containerMenu instanceof FoundationContainer) || player.containerMenu.containerId != containerId
+        if (session == null || !session.zone.isEmpty() || !(player.containerMenu instanceof FoundationContainer) || player.containerMenu.containerId != containerId
                 || !session.token.equals(token) || !((FoundationContainer)player.containerMenu).snapshot().getString("token").equals(token)) return;
         long now = player.getServer().getTickCount();
         if (session.lastAction == now) return;
@@ -116,6 +117,28 @@ public final class EditorSessions {
         session.expires = player.getServer().getTickCount() + LEASE_TICKS;
         say(player, "Point " + (first ? "A" : "B") + ": " + position.getX() + ", " + position.getY() + ", " + position.getZ());
         return true;
+    }
+    public static String zoneCommand(ServerPlayerEntity player, String action, String value) {
+        if (!player.hasPermissions(3)) throw new IllegalArgumentException("Zone editing requires operator level 3.");
+        Session session = valid(player);
+        if (action.equals("cancel")) { clear(player); return "Admin area selection cancelled."; }
+        if (action.equals("select")) {
+            if (!value.equals("safezone") && !value.equals("warzone") && !value.equals("wilderness")) throw new IllegalArgumentException("Select safezone, warzone or wilderness.");
+            FactionGameplay.dimension(player.level); session = new Session(player, "", new CompoundNBT()); session.zone = value; session.selecting = true; ACTIVE.put(player.getUUID(), session);
+            if (player.containerMenu instanceof FoundationContainer) player.closeContainer();
+            boolean carried = player.inventory.getCarried().getItem() == Xenofactions.WAND.get(); for (ItemStack item : player.inventory.items) if (item.getItem() == Xenofactions.WAND.get()) carried = true;
+            if (!carried && !player.inventory.add(new ItemStack(Xenofactions.WAND.get()))) throw new IllegalArgumentException("Make room for the selection wand."); player.inventoryMenu.broadcastChanges();
+            return "Selecting " + value + ". Left block click: A; right block click: B; /xc editor commit or cancel.";
+        }
+        if (session == null || session.zone.isEmpty()) throw new IllegalArgumentException("No active faction zone selection.");
+        if (action.equals("status")) return session.zone + " in " + session.dimension + ": A " + session.a + ", B " + session.b;
+        if (action.equals("point")) { String[] parts = value.split("\\s+", 2); if (!parts[0].equals("a") && !parts[0].equals("b") || parts.length > 1 && !parts[1].equals(session.zone)) throw new IllegalArgumentException("Use point a or b with the current selection type."); point(player, player.blockPosition(), parts[0].equals("a")); return "Selection point recorded."; }
+        if (action.equals("commit")) {
+            if (!value.isEmpty() && !value.equals(session.zone)) throw new IllegalArgumentException("Selection type mismatch; nothing changed.");
+            if (session.a == null || session.b == null) throw new IllegalArgumentException("Set both points before committing.");
+            String result = FactionGameplay.get(player.getServer()).setZoneArea(player, session.zone, session.a, session.b); clear(player); return result;
+        }
+        throw new IllegalArgumentException("Use status, select, point, commit or cancel.");
     }
     private static CompoundNBT snapshot(Session session) {
         CompoundNBT result = new CompoundNBT();

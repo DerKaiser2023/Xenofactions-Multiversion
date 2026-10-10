@@ -26,8 +26,8 @@ public final class FoundationConfig {
                 .defineList("legacyDimensions", Arrays.asList("0=minecraft:overworld", "-1=minecraft:the_nether", "1=minecraft:the_end"), FoundationConfig::validDimension);
         builder.pop();
         builder.push("factions");
-        STARTING_PRESTIGE = builder.comment("Initial stored prestige. Economy ticking is not ported yet.").defineInRange("startingPrestige", 250D, 0D, 1000000D);
-        BASE_PRESTIGE = builder.comment("Initial stored hourly generation; passive generation is not ported yet.").defineInRange("basePrestigeGeneration", 25D, 0D, 100000D);
+        STARTING_PRESTIGE = builder.comment("Initial prestige balance.").defineInRange("startingPrestige", 250D, 0D, 1000000D);
+        BASE_PRESTIGE = builder.comment("Initial hourly generation before city/building upkeep and war costs.").defineInRange("basePrestigeGeneration", 25D, 0D, 100000D);
         builder.pop();
         builder.push("protection");
         PLAYER_PROTECTION = builder.comment("Enable new-player PvP grace. The runtime /xc newplayerprotection toggle starts disabled each server session, as in the legacy lifecycle.").define("enableNewPlayerProtection", false);

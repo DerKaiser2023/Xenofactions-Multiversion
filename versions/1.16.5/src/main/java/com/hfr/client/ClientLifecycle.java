@@ -17,7 +17,13 @@ public final class ClientLifecycle {
     private static final KeyBinding EDITOR = new KeyBinding("key.hfr.admineditor", GLFW.GLFW_KEY_F10, "key.categories.hfr.xenofactions");
     @SubscribeEvent public static void setup(FMLClientSetupEvent event) {
         ClientRegistry.registerKeyBinding(EDITOR);
-        event.enqueueWork(() -> ScreenManager.register(Xenofactions.EDITOR.get(), FoundationScreen::new));
+        ClientRegistry.bindTileEntityRenderer(Xenofactions.OFFICER_CHEST_TILE.get(), net.minecraft.client.renderer.tileentity.ChestTileEntityRenderer::new);
+        ClientRegistry.bindTileEntityRenderer(Xenofactions.CITY_TILE.get(), dispatcher -> new NativeFlagRenderer<>(dispatcher));
+        ClientRegistry.bindTileEntityRenderer(Xenofactions.CONQUEST_TILE.get(), dispatcher -> new NativeFlagRenderer<>(dispatcher));
+        event.enqueueWork(() -> {
+            ScreenManager.register(Xenofactions.EDITOR.get(), FoundationScreen::new);
+            ScreenManager.register(Xenofactions.CITY_MENU.get(), CityCenterScreen::new);
+        });
     }
     @Mod.EventBusSubscriber(modid = Xenofactions.MODID, value = Dist.CLIENT)
     public static final class Keys {

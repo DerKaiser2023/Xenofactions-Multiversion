@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    {
+      "type": "hfr:survival_recipes"
+    }
+  ],
+  "pattern": [
+    " W ",
+    " R ",
+    " R "
+  ],
+  "key": {
+    "W": {
+      "tag": "minecraft:wool"
+    },
+    "R": {
+      "item": "minecraft:oak_fence"
+    }
+  },
+  "result": {
+    "item": "hfr:tile.clowder_conquerer",
+    "count": 1
+  }
+}

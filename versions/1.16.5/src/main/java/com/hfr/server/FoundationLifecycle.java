@@ -24,7 +24,7 @@ public final class FoundationLifecycle {
         EditorSessions.clearAll();
         FactionSavedData factions = FactionSavedData.get(event.getServer());
         MapSavedData maps = MapSavedData.get(event.getServer());
-        Xenofactions.LOGGER.info("Xenofactions loaded {} factions and {} maps; native faction lifecycle is available. Competitive gameplay, city/claim protection and shops are not ported.", factions.names().size(), maps.names().size());
+        Xenofactions.LOGGER.info("Xenofactions loaded {} factions and {} maps; native faction gameplay is available. Competitive matches and shops are not ported.", factions.names().size(), maps.names().size());
     }
     @SubscribeEvent public void stop(FMLServerStoppedEvent event) { EditorSessions.clearAll(); }
     @SubscribeEvent public void unload(WorldEvent.Unload event) { if (!event.getWorld().isClientSide() && event.getWorld() instanceof net.minecraft.world.server.ServerWorld

@@ -64,6 +64,9 @@ public final class FactionService {
         Set<String> names = new HashSet<>(), factions = new HashSet<>(); Set<UUID> players = new HashSet<>();
         for (int i = 0; i < root.getInt("clowderCount"); i++) {
             CompoundNBT record = record(root, i); String name = key(record.getString("name"));
+            if (record.getInt("nativeGameplayVersion") > 1) throw new IllegalArgumentException("Unsupported native faction gameplay schema");
+            for (String field : new String[]{"nativeRelations", "nativeAllianceOffers"}) if (record.contains(field) && !record.contains(field, 10)) throw new IllegalArgumentException("Invalid native faction field: " + field);
+            for (String field : new String[]{"prestige", "prestigeGen", "prestigeReq"}) if (record.contains(field) && !Float.isFinite(record.getFloat(field))) throw new IllegalArgumentException("Invalid prestige value");
             if (record.getInt("members") < 0 || record.getInt("officers") < 0) throw new IllegalArgumentException("Invalid membership counts");
             if (name.isEmpty() || !names.add(name)) throw new IllegalArgumentException("Missing/duplicate faction name");
             String uuid = record.getString("uuid");
@@ -117,10 +120,11 @@ public final class FactionService {
         if (match < 0) throw new IllegalArgumentException("No matching member/application: " + name); return match;
     }
     void commit(CompoundNBT next) { data.edit(state, next); state = next; }
+    void prepareEdit() { data.prepareEdit(); }
     private void update(int index, CompoundNBT record) {
         mirror(record); CompoundNBT next = state.copy(); put(next, index, record); next.putInt("factionIdentityDataVersion", 2); commit(next);
     }
-    private static void mirror(CompoundNBT record) {
+    static void mirror(CompoundNBT record) {
         ListNBT members = list(record, "identityMembers"); List<String> names = new ArrayList<>(), officers = new ArrayList<>(); Set<String> canonical = new HashSet<>();
         for (int i = 0; i < members.size(); i++) {
             FactionMemberRecord member = member(members.getCompound(i)); names.add(member.lastKnownName); canonical.add(member.lastKnownName.toLowerCase(Locale.ROOT));
@@ -273,6 +277,7 @@ public final class FactionService {
         for (int i = index; i < count - 1; i++) put(next, i, record(state, i + 1)); put(next, count - 1, new CompoundNBT()); next.putInt("clowderCount", count - 1);
         for (int i = 0; i < next.getInt("territory_count"); i++) if (next.getString("ownership_meta_" + i + "_owner").equals(name)) {
             next.putInt("ownership_meta_" + i + "_zone", 2); next.remove("ownership_meta_" + i + "_owner");
+            next.remove("ownership_meta_" + i + "_ownerUuid"); next.remove("cityId_meta_" + i);
         }
         ListNBT terminals = next.getList("FactionMarketTerminals", 10);
         for (int i = terminals.size() - 1; i >= 0; i--) if (terminals.getCompound(i).getString("factionId").equals(uuid)) terminals.remove(i);
@@ -282,6 +287,7 @@ public final class FactionService {
         // Persist penalties first: a failed JSON write must not permit an unpenalized disband.
         PlayerLifecycle.timers(server).disband(disbandMembers(player, confirmation));
         commit(next);
+        FactionRuntime.forgetFaction(server, uuid);
         server.overworld().getDataStorage().save();
         return "Faction " + name + " disbanded. Creation cooldowns: leader 7 days, members 3 days.";
     }
@@ -292,16 +298,54 @@ public final class FactionService {
         for (int i = 0; i < next.getInt("clowderCount"); i++) { CompoundNBT other = record(next, i); references(other, old, record.getString("uuid"), name); put(next, i, other); }
         commit(next); return "Renamed faction to " + name + ".";
     }
-    private static void references(CompoundNBT record, String name, String uuid, String replacement) {
+    static void references(CompoundNBT record, String name, String uuid, String replacement) {
         String[][] groups = {{"allies", "ally"}, {"activeWars", "war"}, {"defendingAllies", "def"}, {"surrenderReq", "sreq"}, {"ceaseReq", "creq"}, {"peaceReq", "preq"},
                 {"warDeclaredAt", "wdecl_n", "wdecl_t"}, {"noWarUntil", "nwu_n", "nwu_t"}, {"formerAllyNoWar", "fanwu_n", "fanwu_t"}};
         for (String[] group : groups) rewrite(record, group, name, replacement);
         if (replacement.isEmpty()) {
+            CompoundNBT relations = record.getCompound("nativeRelations"); relations.remove(uuid);
+            CompoundNBT offers = record.getCompound("nativeAllianceOffers");
+            for (String envoy : new ArrayList<>(offers.getAllKeys())) if (offers.getCompound(envoy).getString("factionId").equals(uuid)) offers.remove(envoy);
+            if (record.getString("nativeTributeFactionId").equals(uuid)) { record.putString("nativeTributeFactionId", ""); record.putLong("surrenderTributeUntil", 0); }
             rewrite(record, new String[]{"enemyFactionUuids", "enemyFactionUuid"}, uuid, "");
             rewrite(record, new String[]{"pendingEnemyRemovalTimes", "pendingEnemyUuid", "pendingEnemyTime"}, uuid, "");
             if (record.getString("surrenderTributeTo").equals(uuid)) { record.putString("surrenderTributeTo", ""); record.putLong("surrenderTributeUntil", 0); }
         }
+        if (record.getString("surrenderTributeTo").equals(name) || record.getString("surrenderTributeTo").equals(uuid)) {
+            record.putString("surrenderTributeTo", replacement);
+            if (replacement.isEmpty()) record.putLong("surrenderTributeUntil", 0);
+        }
         for (String field : new String[]{"enemy", "suzerain"}) if (record.getString(field).equals(name)) record.putString(field, replacement.isEmpty() ? "nobody2584369" : replacement);
+    }
+    public String admin(ServerPlayerEntity player, String action, String target) {
+        if (action.equals("forcerename")) return renameAt(require(player, 1), target);
+        if (action.equals("rename")) return rename(player, target);
+        if (action.equals("forcejoin")) {
+            if (factionIndex(player) >= 0) throw new IllegalArgumentException("You are already in a faction.");
+            int i = index(target); CompoundNBT f = record(state, i); ListNBT ms = list(f, "identityMembers");
+            if (ms.isEmpty()) throw new IllegalArgumentException("Resolve the faction's leader identity before joining it.");
+            ms.add(newMember(player, FactionRole.MEMBER)); f.put("identityMembers", ms); update(i, f); clearApplications(player); return "Joined " + f.getString("name") + ".";
+        }
+        if (action.equals("forcekick")) {
+            ServerPlayerEntity victim = server.getPlayerList().getPlayerByName(target);
+            if (victim == null) throw new IllegalArgumentException("The player must be online.");
+            int i = require(victim, 1); CompoundNBT f = record(state, i); ListNBT ms = list(f, "identityMembers"); int m = memberIndex(f, victim);
+            if (member(ms.getCompound(m)).role == FactionRole.OWNER) throw new IllegalArgumentException("A leader cannot be kicked.");
+            ms.remove(m); f.put("identityMembers", ms); removeName(f, victim.getGameProfile().getName()); update(i, f); FactionRuntime.cancel(victim); return "Player removed from faction.";
+        }
+        if (action.equals("hijack")) {
+            int i = require(player, 1); CompoundNBT f = record(state, i); ListNBT ms = list(f, "identityMembers");
+            if (member(ms.getCompound(memberIndex(f, player))).role == FactionRole.OWNER) throw new IllegalArgumentException("You are already the leader.");
+            for (int m = 0; m < ms.size(); m++) if (member(ms.getCompound(m)).role == FactionRole.OWNER) ms.getCompound(m).putString("role", "OFFICER");
+            ms.getCompound(memberIndex(f, player)).putString("role", "OWNER"); f.put("identityMembers", ms); update(i, f); return "Faction leadership assumed.";
+        }
+        throw new IllegalArgumentException("Unknown membership administrator action.");
+    }
+    private String renameAt(int index, String requested) {
+        String name = checkedName(requested); CompoundNBT f = record(state, index); String old = f.getString("name"); CompoundNBT next = state.copy(); f.putString("name", name); put(next, index, f);
+        for (int i = 0; i < next.getInt("territory_count"); i++) if (next.getString("ownership_meta_" + i + "_owner").equals(old)) next.putString("ownership_meta_" + i + "_owner", name);
+        for (int i = 0; i < next.getInt("clowderCount"); i++) { CompoundNBT other = record(next, i); references(other, old, f.getString("uuid"), name); put(next, i, other); }
+        commit(next); return "Renamed faction to " + name + ".";
     }
     private static void rewrite(CompoundNBT record, String[] group, String target, String replacement) {
         int count = record.getInt(group[0]), written = 0;

@@ -18,6 +18,7 @@ public final class PlayerLifecycle {
     private static MinecraftServer owner;
     private static PlayerTimers timers;
     private static boolean enabled;
+    public static boolean enabled() { return enabled; }
     public static PlayerTimers timers(MinecraftServer server) {
         if (server != owner || timers == null) throw new IllegalStateException("Player timer data is unavailable; no faction mutation was authorized.");
         return timers;

@@ -17,6 +17,8 @@ public final class FactionSavedData extends WorldSavedData {
     private CompoundNBT payload = new CompoundNBT();
     private Path backingFile;
     private boolean backupChecked;
+    private long revision;
+    public long revision() { return revision; }
     public FactionSavedData() { super(ID); }
     public static FactionSavedData get(MinecraftServer server) {
         FactionSavedData data = SavedDataFiles.get(server, ID, FactionSavedData::new);
@@ -34,7 +36,7 @@ public final class FactionSavedData extends WorldSavedData {
         if (!payload.equals(expected)) throw new IllegalStateException("Faction data changed; retry the command.");
         FactionService.validate(next);
         prepareEdit();
-        payload = next.copy(); setDirty();
+        payload = next.copy(); revision++; setDirty();
     }
     public void prepareEdit() {
         if (!backupChecked) {
@@ -67,7 +69,7 @@ public final class FactionSavedData extends WorldSavedData {
         List<String> result = new ArrayList<>();
         for (int i = 0; i < payload.getInt("territory_count"); i++) {
             String code = "meta_" + i;
-            if (payload.getInt("ownership_" + code + "_zone") != 3) continue;
+            if (payload.getInt("ownership_" + code + "_zone") != 3 || payload.getBoolean("nativeConquest_" + code)) continue;
             String id = payload.getString("cityId_" + code);
             if (id.isEmpty()) continue;
             String city = payload.getString("cityName_" + code);

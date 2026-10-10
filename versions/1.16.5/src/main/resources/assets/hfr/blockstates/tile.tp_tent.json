@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "hfr:block/warp_tent"
+      }
+    }
+  ]
+}

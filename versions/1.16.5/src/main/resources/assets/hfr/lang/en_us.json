@@ -1,5 +1,16 @@
 {
   "item.hfr.item.world_border_wand": "Admin Selection Wand",
   "key.hfr.admineditor": "Toggle Admin Editor",
-  "key.categories.hfr.xenofactions": "Xenofactions"
+  "key.categories.hfr.xenofactions": "Xenofactions",
+  "block.hfr.tile.clowder_flag": "City Center",
+  "block.hfr.tile.clowder_conquerer": "Conquest Flag",
+  "block.hfr.tile.tp_tent": "Warp Tent",
+  "block.hfr.tile.uni_foundation": "Foundation",
+  "block.hfr.tile.asphalt": "Asphalt",
+  "block.hfr.tile.officer_chest": "Officer Chest",
+  "item.hfr.item.province_point": "Prestige",
+  "item.hfr.item.mace": "Raiding Mace",
+  "item.hfr.item.mult_alloy": "Multitool",
+  "item.hfr.item.clowder_map": "Claim Map",
+  "item.hfr.item.debug": "Debug Protection Bypass"
 }

@@ -16,9 +16,10 @@ import net.minecraft.util.text.StringTextComponent;
 public final class FoundationCommands {
     public static void register(CommandDispatcher<CommandSource> dispatcher) {
         FactionCommands.register(dispatcher);
+        GameplayCommands.register(dispatcher);
         dispatcher.register(Commands.literal("xc").requires(source -> source.hasPermission(3))
                 .then(Commands.literal("foundation").executes(context -> reply(context, "Xenofactions " + BuildVersion.VERSION
-                        + ": native faction membership, ranks, applications, disband cooldowns, starter PvP grace, city inspection and map-bounds editing. City gameplay, claim protection, diplomacy, economy, matches, kits, shops and map integrations are pending.")))
+                        + ": native factions, cities, capitals, homes, territory protection, diplomacy/war, prestige and chat; map-bounds editing. Matches, kits, shops and map integrations are pending.")))
                 .then(Commands.literal("cities").executes(context -> { for (String city : FactionSavedData.get(context.getSource().getServer()).cities()) reply(context, city); return 1; })));
         dispatcher.register(Commands.literal("xclowder").requires(source -> source.hasPermission(3)).redirect(dispatcher.getRoot().getChild("xc")));
         dispatcher.register(Commands.literal("tdm").requires(source -> source.hasPermission(4))

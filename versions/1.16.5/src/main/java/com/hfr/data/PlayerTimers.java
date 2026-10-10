@@ -64,7 +64,7 @@ public final class PlayerTimers {
     }
     // The pinned Minecraft Gson lacks public deepCopy/keySet; retain unknown JSON without a serialize/parse round trip.
     private static JsonObject copy(JsonObject source) { return (JsonObject)copyElement(source); }
-    private static JsonElement copyElement(JsonElement source) {
+    public static JsonElement copyElement(JsonElement source) {
         if (source.isJsonObject()) {
             JsonObject result = new JsonObject();
             for (java.util.Map.Entry<String, JsonElement> entry : source.getAsJsonObject().entrySet()) result.add(entry.getKey(), copyElement(entry.getValue()));
