@@ -90,15 +90,4 @@ public class ReflectionEngine {
 		return def;
 	}
 
-	public static Object getVehicleFromSeat(Object e) {
-		if (e == null || !MainRegistry.enableRadar) return null;
-
-		Object driveable = hasValue(e, Object.class, "driveable", null);
-
-		if (driveable == null) {
-			return null;
 		}
-
-		return driveable;
-	}
-}

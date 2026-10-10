@@ -13,7 +13,7 @@ public class CreativeTabHFR extends CreativeTabs {
 
 	@Override
 	public Item getTabIconItem() {
-		return Item.getItemFromBlock(ModBlocks.machine_radar);
+		return Item.getItemFromBlock(ModBlocks.clowder_flag);
 	}
 
 }

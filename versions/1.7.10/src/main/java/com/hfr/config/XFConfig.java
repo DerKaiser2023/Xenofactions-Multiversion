@@ -34,27 +34,13 @@ public final class XFConfig {
 	public static final String CAT_PLAYER_IDENTITY = "XENOFACTIONS_09C_PLAYER_IDENTITY";
 
 	public static final String CAT_LEGACY_MACHINES = "XENOFACTIONS_10_MACHINES_POWER";
-	public static final String CAT_LEGACY_DEFENSE = "XENOFACTIONS_11_RADAR_FORCEFIELD";
-	public static final String CAT_LEGACY_WEAPONS = "XENOFACTIONS_12_WEAPONS_EXPLOSIVES";
 	public static final String CAT_LEGACY_WORLD = "XENOFACTIONS_13_WORLD_MOBS_BORDER";
-	public static final String CAT_LEGACY_MARKET = "XENOFACTIONS_14_STOCK_MARKET";
 	public static final String CAT_LEGACY_CHAT = "XENOFACTIONS_15_CHAT_FILTER";
-	public static final String CAT_LEGACY_GENERAL = "XENOFACTIONS_16_GENERAL_LEGACY";
 	public static final String CAT_LEGACY_DEBUG = "XENOFACTIONS_17_DEBUG_LOGGING";
 	public static final String CAT_EARTH_WORLD = "XENOFACTIONS_18_EARTH_WORLD";
-	public static final String CAT_BUILDERS = "XENOFACTIONS_19_BUILDERS";
 	public static final String CAT_TDM = "XENOFACTIONS_20_TDM";
 	public static boolean tdmBombUnknownRemovalAsDefuse = true;
 	public static boolean tdmBombLifecycleDebug = false;
-	public static boolean enableFactionBuilders = true;
-	public static int builderWorkIntervalTicks = 10;
-	public static int builderBlockScanBudget = 64;
-	public static boolean builderAllowWilderness = false;
-	public static int builderMaxSchematicBlocks = 2000000;
-	public static int builderMaxSchematicWidth = 256;
-	public static int builderMaxSchematicHeight = 128;
-	public static int builderMaxSchematicLength = 256;
-	public static int builderMaxUploadBytes = 8 * 1024 * 1024;
 	public static boolean enableEarthWorldType = true;
 	public static String earthWorldTypeName = "earthmap";
 	public static String earthDefaultPackId = "xf-earth-16k-clean";
@@ -101,11 +87,8 @@ public final class XFConfig {
 	public static float prestigeGenCap = 2500F;
 	public static float warpCost = 125F;
 	public static float warpTentUpkeep = 75F;
-	public static float medTentUpkeep = 5F;
-	public static float blastFurnacePrestige = 5F;
 	public static float grainmillPrestige = 3F;
 	public static float universityPrestige = 60F;
-	public static float federalReservePrestige = 30F;
 	public static float templePrestige = 90F;
 	public static float statuePrestige = 15F;
 	public static float cityCenterPrestige = 0F;
@@ -222,7 +205,6 @@ public final class XFConfig {
 		commentCategories(config);
 		migrateTdmSoundConfig(config);
 		enableEarthWorldType = bool(config, CAT_EARTH_WORLD, "enableEarthWorldType", true, "Registers the template-backed xf_earth overworld type.");
-		enableFactionBuilders = bool(config, CAT_BUILDERS, "enableFactionBuilders", true, "Enable persistent faction Builder workers.");
 		tdmBombUnknownRemovalAsDefuse = bool(config, CAT_TDM, "tdmBombUnknownRemovalAsDefuse", true, "When an active tracked HBM CSGO bomb disappears before Xenofactions can observe HBM's brief disarmed state, treat the removal as a successful CT defuse if no detonation evidence exists and the bomb's supporting block is still valid. Disable this for strict OBJECTIVE_ERROR debugging.");
 		tdmBombLifecycleDebug = bool(config, CAT_TDM, "tdmBombLifecycleDebug", false, "Log detailed HBM CSGO bomb lifecycle transitions. Warnings and objective errors are always logged.");
 		tdmCtWinSounds = stringList(config, CAT_TDM, TDM_CT_WIN_SOUNDS_PROPERTY, DEFAULT_TDM_CT_WIN_SOUNDS, "Sound IDs randomly selected for Counter-Terrorist round wins. Empty disables the event.");
@@ -230,14 +212,6 @@ public final class XFConfig {
 		tdmCtRoundStartSounds = stringList(config, CAT_TDM, TDM_CT_ROUND_START_SOUNDS_PROPERTY, DEFAULT_TDM_CT_ROUND_START_SOUNDS, "Sound IDs randomly selected for Counter-Terrorists at round start.");
 		tdmTRoundStartSounds = stringList(config, CAT_TDM, TDM_T_ROUND_START_SOUNDS_PROPERTY, DEFAULT_TDM_T_ROUND_START_SOUNDS, "Sound IDs randomly selected for Terrorists at round start.");
 		tdmBombPlantedSounds = stringList(config, CAT_TDM, TDM_BOMB_PLANTED_SOUNDS_PROPERTY, DEFAULT_TDM_BOMB_PLANTED_SOUNDS, "Sound IDs randomly selected globally when a bomb is planted.");
-		builderWorkIntervalTicks = integer(config, CAT_BUILDERS, "builderWorkIntervalTicks", 10, 1, 1200, "Ticks between Builder work cycles.");
-		builderBlockScanBudget = integer(config, CAT_BUILDERS, "builderBlockScanBudget", 64, 1, 4096, "Maximum schematic entries examined per work cycle.");
-		builderAllowWilderness = bool(config, CAT_BUILDERS, "builderAllowWilderness", false, "Allow Builder modifications outside claimed territory.");
-		builderMaxSchematicBlocks = integer(config,CAT_BUILDERS,"builderMaxSchematicBlocks",262144,1,2000000,"Maximum normalized blocks accepted in one Builder schematic.");
-		builderMaxSchematicWidth = integer(config,CAT_BUILDERS,"builderMaxSchematicWidth",256,1,1024,"Maximum Builder schematic X dimension.");
-		builderMaxSchematicHeight = integer(config,CAT_BUILDERS,"builderMaxSchematicHeight",128,1,256,"Maximum Builder schematic Y dimension.");
-		builderMaxSchematicLength = integer(config,CAT_BUILDERS,"builderMaxSchematicLength",256,1,1024,"Maximum Builder schematic Z dimension.");
-		builderMaxUploadBytes = integer(config,CAT_BUILDERS,"builderMaxUploadBytes",8*1024*1024,1024,64*1024*1024,"Maximum encoded schematic upload size.");
 		earthWorldTypeName = "earthmap";
 		earthDefaultPackId = string(config, CAT_EARTH_WORLD, "earthDefaultPackId", "xf-earth-16k-clean", "Map pack selected when generator options are empty or invalid.");
 		earthBundledCacheDirectory = string(config, CAT_EARTH_WORLD, "earthBundledCacheDirectory", "", "Blank uses .minecraft/xenofactions/earthmaps/cache.");
@@ -268,17 +242,14 @@ public final class XFConfig {
 		startingPrestige = flt(config, CAT_PRESTIGE_GENERATION, "startingPrestige", startingPrestige, 0F, 1000000F, "Prestige granted to newly-created factions.");
 		basePrestigeGen = flt(config, CAT_PRESTIGE_GENERATION, "basePrestigeGeneration", basePrestigeGen, 0F, 100000F, "Base hourly prestige generation for factions.");
 		prestigeGenCap = flt(config, CAT_PRESTIGE_GENERATION, "prestigeGenerationCap", prestigeGenCap, 0F, 1000000F, "Maximum hourly prestige generation counted for a faction.");
-		blastFurnacePrestige = flt(config, CAT_PRESTIGE_GENERATION, "blastFurnacePrestigeGeneration", blastFurnacePrestige, 0F, 100000F, "Hourly prestige generated by blast furnaces.");
 		grainmillPrestige = flt(config, CAT_PRESTIGE_GENERATION, "grainmillPrestigeGeneration", grainmillPrestige, 0F, 100000F, "Hourly prestige generated by grainmills.");
 		universityPrestige = flt(config, CAT_PRESTIGE_GENERATION, "universityPrestigeGeneration", universityPrestige, 0F, 100000F, "Hourly prestige generated by universities.");
-		federalReservePrestige = flt(config, CAT_PRESTIGE_GENERATION, "federalReservePrestigeGeneration", federalReservePrestige, 0F, 100000F, "Hourly prestige generated by federal reserves.");
 		templePrestige = flt(config, CAT_PRESTIGE_GENERATION, "templePrestigeGeneration", templePrestige, 0F, 100000F, "Hourly prestige generated by temples.");
 		statuePrestige = flt(config, CAT_PRESTIGE_GENERATION, "statuePrestigeGeneration", statuePrestige, 0F, 100000F, "Hourly prestige generated by statues.");
 		cityCenterPrestige = flt(config, CAT_PRESTIGE_GENERATION, "cityCenterPrestigeGeneration", cityCenterPrestige, 0F, 100000F, "Hourly prestige generated by city centers.");
 
 		warpCost = flt(config, CAT_PRESTIGE_COSTS, "warpCreationCost", warpCost, 0F, 100000F, "Prestige cost to create a faction warp.");
 		warpTentUpkeep = flt(config, CAT_PRESTIGE_COSTS, "warpTentUpkeep", warpTentUpkeep, 0F, 100000F, "Hourly prestige upkeep consumed by warp tents.");
-		medTentUpkeep = flt(config, CAT_PRESTIGE_COSTS, "medicalTentUpkeep", medTentUpkeep, 0F, 100000F, "Hourly prestige upkeep consumed by medical tents.");
 		claimFlagUpkeep = flt(config, CAT_PRESTIGE_COSTS, "claimFlagUpkeep", claimFlagUpkeep, 0F, 100000F, "Multiplier applied to legacy conquest claim-flag upkeep cost units.");
 		cityClaimUpkeep = flt(config, CAT_PRESTIGE_COSTS, "settlementCityUpkeep", cityClaimUpkeep, 0F, 100000F, "Hourly upkeep added by active conquest flags.");
 		warDeclarationBaseCost = flt(config, CAT_PRESTIGE_COSTS, "warDeclarationBaseCost", warDeclarationBaseCost, 0F, 1000000F, "Base prestige cost to declare war.");
@@ -401,16 +372,11 @@ public final class XFConfig {
 		config.addCustomCategoryComment(CAT_DYNMAP, "09 - Optional Dynmap marker styling, labels, and refresh timing.");
 		config.addCustomCategoryComment(CAT_JOURNEYMAP, "09B - Optional JourneyMap client claim overlay styling and city territory labels.");
 		config.addCustomCategoryComment(CAT_PLAYER_IDENTITY, "09C - Server player identity policy. NAME is only for development/offline compatibility; UUID is secure production behavior.");
-		config.addCustomCategoryComment(CAT_LEGACY_MACHINES, "10 - Legacy machine and power settings moved under the Xenofactions category flow.");
-		config.addCustomCategoryComment(CAT_LEGACY_DEFENSE, "11 - Legacy radar and forcefield settings.");
-		config.addCustomCategoryComment(CAT_LEGACY_WEAPONS, "12 - Legacy missile, nuke, railgun, and explosive weapon settings.");
+		config.addCustomCategoryComment(CAT_LEGACY_MACHINES, "10 - Retained production, university, temple and fishing settings.");
 		config.addCustomCategoryComment(CAT_LEGACY_WORLD, "13 - Legacy world generation, entity control, mob, and world border settings.");
-		config.addCustomCategoryComment(CAT_LEGACY_MARKET, "14 - Legacy stock market settings and market broadcast text.");
 		config.addCustomCategoryComment(CAT_LEGACY_CHAT, "15 - Legacy chat filter settings.");
-		config.addCustomCategoryComment(CAT_LEGACY_GENERAL, "16 - Miscellaneous legacy settings that do not belong to a specific subsystem.");
-		config.addCustomCategoryComment(CAT_LEGACY_DEBUG, "17 - Legacy debug, logging, and precision-calculation settings.");
+		config.addCustomCategoryComment(CAT_LEGACY_DEBUG, "17 - Development and diagnostic logging settings.");
 		config.addCustomCategoryComment(CAT_EARTH_WORLD, "18 - Template-backed WorldPainter Earth overworld safeguards.");
-		config.addCustomCategoryComment(CAT_BUILDERS, "19 - Persistent faction Builder worker settings.");
 		config.addCustomCategoryComment(CAT_TDM, "20 - TDM compatibility and lifecycle diagnostics.");
 	}
 	private static String enumValue(String value, String def, String alternatives, String name) { String v=value.toUpperCase(); if(v.equals(def)) return v; for(String a:alternatives.split(",")) if(v.equals(a)) return v; warn(name+" is invalid; using "+def); return def; }

@@ -7,7 +7,6 @@ import net.minecraft.client.particle.EntityCloudFX;
 import net.minecraft.client.particle.EntityFX;
 import net.minecraft.client.particle.EntityFireworkSparkFX;
 import net.minecraft.client.particle.EntityFlameFX;
-import net.minecraft.client.particle.EntityLargeExplodeFX;
 import net.minecraft.client.particle.EntityLavaFX;
 import net.minecraft.client.particle.EntityReddustFX;
 import net.minecraft.client.particle.EntitySmokeFX;
@@ -33,32 +32,18 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 
-import com.hfr.effect.ParticleContrail;
-import com.hfr.effect.ParticleMush;
-import com.hfr.entity.*;
-import com.hfr.entity.grenade.*;
-import com.hfr.entity.logic.*;
-import com.hfr.entity.missile.*;
-import com.hfr.entity.projectile.*;
 import com.hfr.handler.ExplosionSound;
 import com.hfr.items.ModItems;
-import com.hfr.loader.HmfModelLoader;
 import com.hfr.render.block.*;
-import com.hfr.render.entity.*;
 import com.hfr.render.hud.*;
-import com.hfr.render.hud.RenderRadarScreen.Blip;
-import com.hfr.render.item.RenderFlaregun;
-import com.hfr.render.item.RenderPak;
 import com.hfr.render.living.*;
 import com.hfr.render.mob.*;
 import com.hfr.render.mob.ModelSheep.ModelSheepWooly;
 import com.hfr.render.tileentity.*;
-import com.hfr.rvi.RVICommon.Indicator;
 import com.hfr.tileentity.*;
 import com.hfr.tileentity.clowder.*;
 import com.hfr.tileentity.machine.*;
 import com.hfr.tileentity.prop.*;
-import com.hfr.tileentity.weapon.*;
 
 import cpw.mods.fml.client.registry.ClientRegistry;
 import cpw.mods.fml.client.registry.RenderingRegistry;
@@ -74,12 +59,9 @@ public class ClientProxy extends ServerProxy
 			com.hfr.client.journeymap.ClientClaimOverlayCache.accept(dimension, generation, part, parts, claims);
 		} });
 	}
-	public static KeyBinding toggleZoom = new KeyBinding("Toggle Radar Zoom", 33, "xRadar");
-	public static KeyBinding incScale = new KeyBinding("Increase Radar Scale", 78, "xRadar");
-	public static KeyBinding decScale = new KeyBinding("Decrease Radar Scale", 74, "xRadar");
-	public static KeyBinding slbm = new KeyBinding("Access SLBM Menu", 0, "xRadar");
+
 	public static KeyBinding filter = new KeyBinding("Toggle chat filter", 62, "xRadar");
-	public static KeyBinding markers = new KeyBinding("Toggle resource markers", 0, "xRadar");
+
 	public static KeyBinding flushLog = new KeyBinding("Flush extended debugging log", 0, "xRadar");
 	public static KeyBinding tdmMenu = new KeyBinding("key.hfr.tdmmenu", Keyboard.KEY_L, "key.categories.hfr.xenofactions");
 	public static KeyBinding tdmBuyMenu = new KeyBinding("key.hfr.tdmbuy", Keyboard.KEY_B, "key.categories.hfr.xenofactions");
@@ -94,28 +76,20 @@ public class ClientProxy extends ServerProxy
 		new EventHandlerClient().register();
 		com.hfr.client.journeymap.XFJourneyMapIntegration.register();
 		
-		AdvancedModelLoader.registerModelHandler(new HmfModelLoader());
 		RenderingRegistry.addNewArmourRendererPrefix("5");
 
-		RenderingRegistry.registerBlockHandler(new RenderRBMK());
-		RenderingRegistry.registerBlockHandler(new RenderControlRods());
 		RenderingRegistry.registerBlockHandler(new RenderPalisade());
 		RenderingRegistry.registerBlockHandler(new RenderWall());
 		RenderingRegistry.registerBlockHandler(new RenderBerliner());
-		RenderingRegistry.registerBlockHandler(new RenderBarbedWire());
+
 		RenderingRegistry.registerBlockHandler(new RenderSandbags());
-		RenderingRegistry.registerBlockHandler(new RenderRope());
+
 		RenderingRegistry.registerBlockHandler(new RenderWallArtBlock());
 
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityWallImage.class, new RenderWallImage());
 
-
-		ClientRegistry.registerKeyBinding(toggleZoom);
-		ClientRegistry.registerKeyBinding(incScale);
-		ClientRegistry.registerKeyBinding(decScale);
-		ClientRegistry.registerKeyBinding(slbm);
 		ClientRegistry.registerKeyBinding(filter);
-		ClientRegistry.registerKeyBinding(markers);
+
 		ClientRegistry.registerKeyBinding(flushLog);
 		ClientRegistry.registerKeyBinding(tdmMenu);
 		ClientRegistry.registerKeyBinding(tdmBuyMenu);
@@ -123,81 +97,19 @@ public class ClientProxy extends ServerProxy
 		ClientRegistry.registerKeyBinding(adminEditor);
 		ClientRegistry.registerKeyBinding(borderVisuals);
 		
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineRadar.class, new RenderRadar());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityForceField.class, new RenderMachineForceField());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityVaultDoor.class, new RenderVaultDoor());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityBlastDoor.class, new RenderBlastDoor());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityLaunchPad.class, new RenderLaunch());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityDebug.class, new RenderDebug());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineDerrick.class, new RenderDerrick());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineRefinery.class, new RenderRefinery());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityRailgun.class, new RenderRailgun());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityTank.class, new RenderTank());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityNaval.class, new RenderNaval());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityDuct.class, new RenderDuct());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineNet.class, new RenderNet());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityDisplay.class, new RenderDisplay());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineBuilder.class, new RenderBuilder());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineUni.class, new RenderUni());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineEMP.class, new RenderEMP());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityFlag.class, new RenderFlag());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityCap.class, new RenderCap());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityFlagBig.class, new RenderFlagBig());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityProp.class, new RenderProp());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityStatue.class, new RenderProp());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineGrainmill.class, new RenderMill());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineBlastFurnace.class, new RenderBlastFurnace());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineCoalMine.class, new RenderCoalMine());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityCoalGen.class, new RenderCoalGen());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineFactory.class, new RenderFactory());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineWindmill.class, new RenderWindmill());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityWaterWheel.class, new RenderWaterwheel());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityRift.class, new RenderRift());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineTurbine.class, new RenderTurbine());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineTemple.class, new RenderTemple());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityConquerer.class, new RenderConquerer());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityOfficerChest.class, new RenderChest());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityFoundry.class, new RenderFoundry());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineSawmill.class, new RenderSawmill());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityDieselGen.class, new RenderDieselGen());
-		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineEFurnace.class, new RenderEFurnace());
-
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileAT.class, new RenderMissileGeneric());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileGeneric.class, new RenderMissileGeneric());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileIncendiary.class, new RenderMissileGeneric());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileAntiBallistic.class, new RenderMissileGeneric());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileDecoy.class, new RenderMissileGeneric());
-
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileStrong.class, new RenderMissileStrong());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileIncendiaryStrong.class, new RenderMissileStrong());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileEMPStrong.class, new RenderMissileStrong());
-
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileBurst.class, new RenderMissileHuge());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileInferno.class, new RenderMissileHuge());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileNuclear.class, new RenderMissileHuge());
-
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileMartin.class, new RenderMissileMartin());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissilePegasus.class, new RenderMissilePegasus());
-
-		RenderingRegistry.registerEntityRenderingHandler(EntityMissileShell.class, new RenderTom());
-
-		
-
-		RenderingRegistry.registerEntityRenderingHandler(EntityEMP.class, new RenderEmpty());
-		RenderingRegistry.registerEntityRenderingHandler(EntityBlast.class, new RenderEmpty());
-		RenderingRegistry.registerEntityRenderingHandler(EntityNukeCloudSmall.class, new RenderSmallNukeMK3());
-		RenderingRegistry.registerEntityRenderingHandler(EntityRailgunBlast.class, new RenderTom());
-		RenderingRegistry.registerEntityRenderingHandler(EntityShell.class, new RenderTom());
-		RenderingRegistry.registerEntityRenderingHandler(EntityFlare.class, new RenderEmpty());
-		RenderingRegistry.registerEntityRenderingHandler(EntityPak.class, new RenderPakRocket());
-
-		RenderingRegistry.registerEntityRenderingHandler(EntityGrenadeGas.class, new RenderSnowball(ModItems.grenade_gas));
-		RenderingRegistry.registerEntityRenderingHandler(EntityGrenadeNuclear.class, new RenderSnowball(ModItems.grenade_nuclear));
-		RenderingRegistry.registerEntityRenderingHandler(EntityGrenadeBoxcar.class, new RenderBoxcar());
-		RenderingRegistry.registerEntityRenderingHandler(EntityHook.class, new RenderSnowball(ModItems.hook));
-
-		RenderingRegistry.registerEntityRenderingHandler(EntityFarmer.class, new RenderFarmer());
-		RenderingRegistry.registerEntityRenderingHandler(EntityFactionBuilder.class, new RenderFactionBuilder());
 
 		RenderingRegistry.registerEntityRenderingHandler(EntityCow.class, new RenderCow(new ModelBuffalo(), 1.0F));
 		RenderingRegistry.registerEntityRenderingHandler(EntityPig.class, new RenderPig(new ModelPig(), 1.0F));
@@ -205,24 +117,6 @@ public class ClientProxy extends ServerProxy
 		RenderingRegistry.registerEntityRenderingHandler(EntityChicken.class, new RenderChicken(new ModelChicken(), 0.5F));
 		//todo villager -> human
 
-
-		MinecraftForgeClient.registerItemRenderer(ModItems.flaregun, new RenderFlaregun());
-		MinecraftForgeClient.registerItemRenderer(ModItems.pakker, new RenderPak());
-	}
-	
-	@Override
-	public boolean isPressed(int id) {
-		
-		switch(id) {
-		case 0: return toggleZoom.isPressed();
-		case 1: return incScale.isPressed();
-		case 2: return decScale.isPressed();
-		case 3: return slbm.isPressed();
-		case 4: return filter.isPressed();
-		case 5: return markers.isPressed();
-		}
-		
-		return false;
 	}
 	
 	@Override
@@ -231,48 +125,6 @@ public class ClientProxy extends ServerProxy
 	//please fucking end my life i'm begging you
 	//everything is pain
 	//make it stop
-	@Override
-	public void howDoIUseTheZOMG(World world, double posX, double posY, double posZ, int type) {
-
-		switch(type) {
-
-		case 0:
-			ParticleContrail contrail = new ParticleContrail(Minecraft.getMinecraft().getTextureManager(), world, posX, posY, posZ);
-			Minecraft.getMinecraft().effectRenderer.addEffect(contrail);
-			break;
-		case 1:
-			EntityReddustFX fx = new EntityReddustFX(world, posX, posY, posZ, 51F/256F, 64F/256F, 119F/256F);
-			Minecraft.getMinecraft().effectRenderer.addEffect(fx);
-			break;
-		case 2:
-			EntityReddustFX fx1 = new EntityReddustFX(world, posX, posY, posZ, 106F/256F, 41F/256F, 143F/256F);
-			Minecraft.getMinecraft().effectRenderer.addEffect(fx1);
-			break;
-		case 3:
-			EntityReddustFX fx2 = new EntityReddustFX(world, posX, posY, posZ, 223F/256F, 55F/256F, 149F/256F);
-			Minecraft.getMinecraft().effectRenderer.addEffect(fx2);
-			break;
-		case 4:
-			EntityLargeExplodeFX fx3 = new EntityLargeExplodeFX(Minecraft.getMinecraft().getTextureManager(), world, posX, posY, posZ, 0, 0, 0);
-			Minecraft.getMinecraft().effectRenderer.addEffect(fx3);
-			break;
-		case 5:
-			EntityCloudFX fx4 = new EntityCloudFX(world, posX, posY, posZ, 0, 0, 0);
-			Minecraft.getMinecraft().effectRenderer.addEffect(fx4);
-			break;
-		case 6:
-			EntityReddustFX fx5 = new EntityReddustFX(world, posX, posY, posZ, 0, 0, 0);
-			Minecraft.getMinecraft().effectRenderer.addEffect(fx5);
-			break;
-		case 7:
-			ParticleMush mush = new ParticleMush(Minecraft.getMinecraft().getTextureManager(), world, posX, posY, posZ);
-			Minecraft.getMinecraft().effectRenderer.addEffect(mush);
-			break;
-			
-		default: break;
-		
-		}
-	}
 	
 	//sfx stands for special effects, not sound effects
 	@Override
@@ -281,30 +133,6 @@ public class ClientProxy extends ServerProxy
 		int part = Minecraft.getMinecraft().gameSettings.particleSetting;
 
 		switch(type) {
-		
-		/// RAILGUN BLAST ///
-		case SFX_RAILGUN:
-			int pow = 250;
-			float angle = 25;
-			float base = 0.5F;
-			for(int i = 0; i < pow; i++) {
-
-				float momentum = base * world.rand.nextFloat();
-				float sway = (pow - i) / (float)pow;
-				Vec3 vec = Vec3.createVectorHelper(((Vec3)payload).xCoord, ((Vec3)payload).yCoord, ((Vec3)payload).zCoord);
-				vec.rotateAroundZ((float) (angle * world.rand.nextGaussian() * sway * Math.PI / 180D));
-				vec.rotateAroundY((float) (angle * world.rand.nextGaussian() * sway * Math.PI / 180D));
-				
-				EntityFireworkSparkFX blast = new EntityFireworkSparkFX(world, posX, posY, posZ, vec.xCoord * momentum, vec.yCoord * momentum, vec.zCoord * momentum, Minecraft.getMinecraft().effectRenderer);
-				
-				if(world.rand.nextBoolean())
-					blast.setColour(0x0088EA);
-				else
-					blast.setColour(0x52A8E6);
-				
-				Minecraft.getMinecraft().effectRenderer.addEffect(blast);
-			}
-			break;
 			
 		/// CLOWDER BORDER ///
 		case SFX_BORDER:
@@ -370,31 +198,6 @@ public class ClientProxy extends ServerProxy
 		}
 	}
 	
-	public void spawnEFX(double posX, double posY, double posZ, float pow) {
-		ExplosionSound.handleClient(Minecraft.getMinecraft().thePlayer, (int)posX, (int)posY, (int)posZ, pow);
-	}
-	
-	@Override
-	public void addBlip(float x, float y, float z, float posX, float posZ, int type) {
-		
-		RenderRadarScreen.blips.add(new Blip(x, y, z, posX, posZ, type));
-	}
-	
-	@Override
-	public void addRVIs(List<Indicator> indicators) {
-		RenderRVIOverlay.indicators = indicators;
-	}
-	
-	@Override
-	public void clearBlips(boolean sufficient, boolean enabled, int offset, int range) {
-		
-		RenderRadarScreen.blips.clear();
-		RenderRadarScreen.sufficient = sufficient;
-		EventHandlerClient.lastEnabled = enabled;
-		EventHandlerClient.lastOffset = offset;
-		EventHandlerClient.lastRange = range;
-	}
-
 	@Override
 	public void updateFlag(ResourceLocation flag, ResourceLocation overlay, int color, String name, String title) {
 		RenderFlagOverlay.flag = flag;
@@ -407,12 +210,9 @@ public class ClientProxy extends ServerProxy
 		RenderFlagOverlay.startingTime = System.currentTimeMillis();
 	}
 	
-	@Override
-	public void openURL(String url) {
-		try {
-			Desktop.getDesktop().browse(new URI(url));
-		} catch (Exception e) { }
-	}
+
+
+
 
 	public void effectNT(NBTTagCompound nbt) {
 		
@@ -425,21 +225,7 @@ public class ClientProxy extends ServerProxy
 			return;
 		}
 		
-		if(type.equals("resources")) {
-			
-			int count = nbt.getInteger("count");
-			
-			for(int i = 0; i < count; i++) {
-
-				int minX = nbt.getInteger("minX" + i);
-				int minZ = nbt.getInteger("minZ" + i);
-				int maxX = nbt.getInteger("maxX" + i);
-				int maxZ = nbt.getInteger("maxZ" + i);
-				int color = nbt.getInteger("color" + i);
-				
-				EventHandlerClient.resourceBorders.add(new int[] {minX, minZ, maxX, maxZ, color});
-			}
-		} else if(type.equals("explosion")) {
+		 if(type.equals("explosion")) {
 			
 			try {
 				float strength = nbt.getFloat("strength");
@@ -487,4 +273,8 @@ public class ClientProxy extends ServerProxy
 			} catch(Exception ex) {}
 		}
 	}
+
+	public void spawnEFX(double posX, double posY, double posZ, float pow) {
+		ExplosionSound.handleClient(Minecraft.getMinecraft().thePlayer, (int)posX, (int)posY, (int)posZ, pow);
+}
 }

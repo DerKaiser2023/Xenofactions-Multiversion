@@ -21,7 +21,7 @@ public class ContainerFactory extends Container {
 		//Cogs
 		for(int i = 0; i < 4; i++)
 			this.addSlotToContainer(new LockedSlot(tedf, i, 26 + 18 * i, 35));
-		//Battery Slo- i mean jammed slot
+		// Jam slot
 		this.addSlotToContainer(new LockedSlot(tedf, 4, 116, 35));
 
 		for (int i = 0; i < 3; i++) {

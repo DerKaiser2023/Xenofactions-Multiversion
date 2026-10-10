@@ -1,13 +1,10 @@
 package com.hfr.tileentity.machine;
 
-import com.hfr.blocks.machine.MachineCoalMine;
-import com.hfr.handler.MultiblockHandler;
 import com.hfr.items.ModItems;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.oredict.OreDictionary;
 
 import java.util.ArrayList;
@@ -24,7 +21,6 @@ public final class MachineNeiRecipes {
         public ItemValue(ItemStack stack, float value) { this.stack = stack; this.value = value; }
     }
 
-
     public static final class ChanceEntry {
         public final ItemStack stack;
         public final int chancePercent;
@@ -37,15 +33,6 @@ public final class MachineNeiRecipes {
     public static ItemStack universityOutput() { return new ItemStack(ModItems.science); }
     public static ItemStack productionLineOutput() { return new ItemStack(ModItems.cog); }
     public static ItemStack templeOutput() { return new ItemStack(ModItems.scroll); }
-    public static ItemStack coalMineOutput() { return new ItemStack(Items.coal); }
-    public static ItemStack miner() { return new ItemStack(ModItems.miner); }
-    public static ItemStack minerSupplies() { return new ItemStack(ModItems.miner_supplies); }
-    public static ItemStack canary() { return new ItemStack(ModItems.canary); }
-    public static int coalMineMaxSupplies() { return TileEntityMachineCoalMine.maxSupplies; }
-    public static int coalMineSupplyChanceDenominator() { return 15; }
-    public static int coalMineMinerLossChancePercent() { return 25; }
-    public static int coalMineTicksForWorkforce(int workforce, MachineDisplaySnapshot snapshot) { return snapshot.coalRate * 20 / workforce; }
-    public static int[] coalMineRotatedFootprint() { return MultiblockHandler.rotate(new MachineCoalMine(net.minecraft.block.material.Material.rock).getDimensions(), ForgeDirection.NORTH); }
 
     public static List<ChanceEntry> universityJams() {
         List<ChanceEntry> list = new ArrayList<ChanceEntry>();
@@ -62,36 +49,6 @@ public final class MachineNeiRecipes {
         list.add(new ChanceEntry(new ItemStack(Items.skull).setStackDisplayName("Workplace Accident"), 20));
         list.add(new ChanceEntry(new ItemStack(Items.slime_ball).setStackDisplayName("Chemical Spill"), 20));
         list.add(new ChanceEntry(new ItemStack(Items.potato).setStackDisplayName("Communist Takeover"), 10));
-        return list;
-    }
-
-    public static List<ItemStack> blastFurnaceInputs() {
-        List<ItemStack> list = new ArrayList<ItemStack>();
-        list.add(new ItemStack(Items.iron_ingot));
-        list.add(new ItemStack(Blocks.iron_ore));
-        return list;
-    }
-
-    public static List<ItemValue> blastFurnaceFuels() {
-        List<ItemValue> list = new ArrayList<ItemValue>();
-        list.add(new ItemValue(new ItemStack(Items.coal), TileEntityMachineBlastFurnace.coalValue));
-        list.add(new ItemValue(new ItemStack(Blocks.coal_block), TileEntityMachineBlastFurnace.coalValue * 10));
-        return list;
-    }
-
-    public static int blastFurnaceTicks() { return TileEntityMachineBlastFurnace.maxProgress / 2; }
-
-    public static List<ItemValue> foundryMeltingInputs() {
-        List<ItemValue> list = new ArrayList<ItemValue>();
-        for (Item item : TileEntityFoundry.options) addIfValid(list, new ItemStack(item), TileEntityFoundry.getSteelValue(new ItemStack(item)));
-        for (ItemStack ore : OreDictionary.getOres("ingotSteel")) addIfValid(list, ore == null ? null : ore.copy(), TileEntityFoundry.getSteelValue(ore));
-        sort(list);
-        return list;
-    }
-
-    public static List<ItemValue> foundryCastingOutputs() {
-        List<ItemValue> list = new ArrayList<ItemValue>();
-        for (Item item : TileEntityFoundry.options) addIfValid(list, new ItemStack(item), TileEntityFoundry.getSteelCost(item));
         return list;
     }
 

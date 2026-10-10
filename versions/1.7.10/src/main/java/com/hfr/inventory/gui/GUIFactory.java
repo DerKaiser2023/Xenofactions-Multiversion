@@ -36,7 +36,7 @@ public class GUIFactory extends GuiContainer {
 
 		if(!diFurnace.operational()) {
 			if(guiLeft + 99 <= x && guiLeft + 99 + 10 > x && guiTop + 38 < y && guiTop + 38 + 10 >= y) {
-				this.func_146283_a(Arrays.asList(new String[] {"-Factory needs to be placed on top of foundation", "-Factory requires sky access", "-Factory requires electricity"}), x - guiLeft, y - guiTop);
+				this.func_146283_a(Arrays.asList(new String[] {"-Factory needs to be placed on top of foundation", "-Factory requires sky access"}), x - guiLeft, y - guiTop);
 			}
 		}
 	}
@@ -46,11 +46,10 @@ public class GUIFactory extends GuiContainer {
 		GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 		Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
 		drawTexturedModalRect(guiLeft, guiTop, 0, 0, xSize, ySize);
+		// Cover the retired power gauge using the panel background.
+		drawRect(guiLeft + 133, guiTop + 33, guiLeft + 169, guiTop + 52, 0xFFC6C6C6);
 		
 		if(!diFurnace.operational() || !diFurnace.hasSpace())
 			drawTexturedModalRect(guiLeft + 99, guiTop + 38, 176, 0, 10, 10);
-		
-		int i = diFurnace.getPowerScaled(34);
-		drawTexturedModalRect(guiLeft + 134, guiTop + 35, 176, 10, i, 16);
 	}
 }

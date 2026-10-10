@@ -21,7 +21,7 @@ Category: `XENOFACTIONS_01_MODULES`
 
 | Key | Default | Meaning |
 | --- | ---: | --- |
-| `enableSurvivalRecipes` | `true` | Register the audited survival recipes for faction, prestige, production, support infrastructure, and the fortifications listed in [survival recipes](survival-recipes.md). Set `false` to omit these optional recipes; registrations, legacy sandbag recipes, and unrelated recipes are unchanged. |
+| `enableSurvivalRecipes` | `true` | Register the audited survival recipes for faction, prestige, production, support infrastructure, and the fortifications listed in [survival recipes](survival-recipes.md). Set `false` to omit these optional recipes; registrations and unrelated recipes are unchanged. |
 | `enableDynmapIntegration` | `true` | Try to publish faction city/claim markers through Dynmap when Dynmap is installed. |
 | `enableJourneyMapIntegration` | `true` | Enable optional client overlays for JourneyMap 6.0.x on Minecraft 1.7.10; the 5.2.x hook remains available. |
 | `enableTDM` | `true` | Register and initialize the optional team-deathmatch module. |
@@ -49,10 +49,8 @@ Category: `XENOFACTIONS_02_PRESTIGE_GENERATION`
 | `startingPrestige` | `250` | Prestige granted to new factions. |
 | `basePrestigeGeneration` | `25` | Base prestige generation amount. |
 | `prestigeGenerationCap` | `2500` | Cap for generated prestige. |
-| `blastFurnacePrestigeGeneration` | `5` | Blast furnace contribution. |
 | `grainmillPrestigeGeneration` | `3` | Grain mill contribution. |
 | `universityPrestigeGeneration` | `60` | University contribution. |
-| `federalReservePrestigeGeneration` | `30` | Legacy compatibility key; the deprecated Federal Reserve is inert and does not contribute Prestige. |
 | `templePrestigeGeneration` | `90` | Temple contribution. |
 | `statuePrestigeGeneration` | `15` | Statue contribution. |
 | `cityCenterPrestigeGeneration` | `0` | City center contribution. |
@@ -65,7 +63,6 @@ Categories: `XENOFACTIONS_03_PRESTIGE_COSTS_UPKEEP` and `XENOFACTIONS_04_BANKRUP
 | --- | ---: | --- |
 | `warpCreationCost` | `125` | Cost to create a faction warp. |
 | `warpTentUpkeep` | `75` | Warp tent upkeep. |
-| `medicalTentUpkeep` | `5` | Medical tent upkeep. |
 | `claimFlagUpkeep` | `1` | Upkeep for claim flags. |
 | `settlementCityUpkeep` | `10` | Settlement city upkeep baseline. |
 | `warDeclarationBaseCost` | `150` | Base cost to declare war. |
@@ -228,36 +225,11 @@ Category: `XENOFACTIONS_09B_JOURNEYMAP_CLIENT`
 | `claimBorderOpacity` | `0.80` | Exposed perimeter opacity, clamped to `0.0–1.0`. |
 | `claimBorderWidth` | `1.0` | Perimeter width, clamped to `0.25–10.0` pixels. |
 
-## Legacy categories
+## Retained legacy machine settings
 
-The inherited xRadar/HFR systems are still configured under ordered legacy categories:
+`XENOFACTIONS_10_MACHINES_POWER` keeps its historical category name for configuration compatibility, but contains no power behavior. Supported settings are fishing intervals (`superFishrate`, `goodFishrate`, `averageFishrate`, `crapFishrate`), net `jamRate`/`whaleChance`, University `uniRate`/`uniJamRate`, Temple `templeRate`, and Production Line `factoryRate`/`factoryJamRate`. Defaults remain 20/40/60/1000000 seconds, 900 seconds/5 percent, 180/900 seconds, 1800 seconds, and 180/900 seconds respectively.
 
-- `XENOFACTIONS_10_MACHINES_POWER`
-- `XENOFACTIONS_11_RADAR_FORCEFIELD`
-- `XENOFACTIONS_12_WEAPONS_EXPLOSIVES`
-- `XENOFACTIONS_13_WORLD_MOBS_BORDER`
-- `XENOFACTIONS_14_STOCK_MARKET`
-- `XENOFACTIONS_15_CHAT_FILTER`
-- `XENOFACTIONS_16_GENERAL_LEGACY`
-- `XENOFACTIONS_17_DEBUG_LOGGING`
-
-Important defaults include:
-
-| Key | Default | Category | Meaning |
-| --- | ---: | --- | --- |
-| `FxR_enableRadar` | `false` | Radar/forcefield | Enable FMU+/Flan-style radar bridge; disabled for MCHeli compatibility. |
-| `radarRange` | `1000` | Radar/forcefield | Radar range setting. |
-| `radarBuffer` | `30` | Radar/forcefield | Height buffer above radar for detection. |
-| `radarAltitude` | `55` | Radar/forcefield | Minimum Y height for radar operation. |
-| `radarConsumptionNew` | `2000` | Radar/forcefield | RF/t required by radar. |
-| `freeRadar` | `false` | General legacy | Make radar and shield free to use. |
-| `craftingDifficulty` | `0` | General legacy | Recipe difficulty from easy to hard. |
-| `enableChatFilter` | `true` | Chat filter | Enable chat swear filter. |
-| `enableStocks` | `true` | Stock market | Enable the stock market. |
-| `updateInterval` | `600` | Stock market | Seconds between market updates. |
-| `stockCap` | `50` | Stock market | Shares a player can own per stock. |
-
-Use the generated comments in `hfr.cfg` for the many remaining legacy weapon, machine, entity, world, and market values.
+World/entity restrictions, entity effects/immunity, cave sickness, rectangular border, vanilla stone drops, chat filter and diagnostic logging remain configurable. Radar/forcefield, RF/oil/nuclear, weapons, stock/tax, obsolete-building rates and Builder Depot settings are no longer read or generated. Old keys may remain in an existing Forge config and are ignored; no destructive rewrite is performed.
 
 ## Custom stone drops JSON
 
@@ -297,9 +269,6 @@ The cooldown JSON contains `uuids` and normalized `nameFallbacks`; entries conta
 ## XENOFACTIONS_18_EARTH_WORLD
 
 Phase 1's template-backed Earth type is controlled by `enableEarthWorldType`, `earthWorldTypeName` (canonical value `xf_earth`), `earthRequireProfile`, `earthMissingChunkPolicy` (`FAIL` or `VOID`), `earthBoundaryMode` (`OFF`, `PROFILE`, or `CONFIG`), `earthAllowProfileMinecraftVersion`, `earthLogFallbackChunks`, and `earthBoundarySafetyMargin`. `PROFILE` derives the dimension-0 border from the validated save profile; `CONFIG` preserves the legacy administrator border coordinates; `OFF` does not activate a profile border. See [XFEARTH_INSTALLATION.md](XFEARTH_INSTALLATION.md).
-# Builder schematic limits
-
-Builder schematic processing is bounded by `builderMaxSchematicBlocks`, `builderMaxSchematicWidth`, `builderMaxSchematicHeight`, `builderMaxSchematicLength`, and `builderMaxUploadBytes` in `XENOFACTIONS_19_BUILDERS`. Defaults are 262144 blocks, 256×128×256 dimensions, and 8 MiB encoded upload data. Lower these values for smaller servers; existing persisted jobs are not replaced.
 # TDM event sounds
 
 The `20_tdm` configuration category accepts string lists for `ctWinSounds`,

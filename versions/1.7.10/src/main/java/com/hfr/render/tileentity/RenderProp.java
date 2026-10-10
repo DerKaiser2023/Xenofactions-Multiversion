@@ -24,7 +24,7 @@ public class RenderProp extends TileEntitySpecialRenderer {
         Block b = tile.getBlockType();
 
         if(b == ModBlocks.hesco_block) GL11.glRotatef(180, 0F, 1F, 0F);
-        if(b == ModBlocks.med_tent) GL11.glRotatef(90, 0F, 1F, 0F);
+
         if(b == ModBlocks.tp_tent) GL11.glRotatef(90, 0F, 1F, 0F);
         if(b == ModBlocks.statue) GL11.glRotatef(90, 0F, 1F, 0F);
 
@@ -43,7 +43,7 @@ public class RenderProp extends TileEntitySpecialRenderer {
         if(b == ModBlocks.brick_wall) GL11.glTranslated(0, 0, 0.5);
         if(b == ModBlocks.great_wall) GL11.glTranslated(0, 0, 0.5);
         if(b == ModBlocks.berlin_wall) GL11.glTranslated(0, 0, 0.5);
-        if(b == ModBlocks.med_tent) GL11.glTranslated(1.5 + p * 2, 0, 2.25 + p * 1.5);
+
         if(b == ModBlocks.tp_tent) GL11.glTranslated(1.5 + p * 2, 0, 2.25 + p * 1.5);
         if(b == ModBlocks.statue) GL11.glTranslated(0, 0, p * 3);
 		
@@ -80,11 +80,6 @@ public class RenderProp extends TileEntitySpecialRenderer {
             bindTexture(ResourceManager.tmt_berliner);
             ModelBerliner.instance.render();
         }*/
-		
-        if(b == ModBlocks.med_tent) {
-            bindTexture(ResourceManager.tmt_medtent);
-            ModelMedTent.instance.render();
-        }
 		
         if(b == ModBlocks.tp_tent) {
             bindTexture(ResourceManager.tmt_tptent);

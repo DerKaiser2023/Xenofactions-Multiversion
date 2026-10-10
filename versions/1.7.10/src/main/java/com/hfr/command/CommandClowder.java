@@ -26,7 +26,6 @@ import com.hfr.clowder.ClowderTerritory;
 import com.hfr.clowder.ClowderTerritory.Ownership;
 import com.hfr.clowder.ClowderTerritory.TerritoryMeta;
 import com.hfr.clowder.ClowderTerritory.Zone;
-import com.hfr.clowder.events.RegionOwnershipChangedEvent;
 import com.hfr.data.ClowderData;
 import com.hfr.items.ModItems;
 import com.hfr.main.MainRegistry;
@@ -67,7 +66,6 @@ public class CommandClowder extends CommandBase {
 	private static final HashMap<String, Long> CITY_UPGRADE_CONFIRMATIONS = new HashMap();
 	private static final HashMap<String, WarConfirmation> WAR_CONFIRMATIONS = new HashMap();
 
-
 	//private static final CoordPair wbpospos = new CoordPair(4274, 1335);
 	//private static final CoordPair wbnegneg = new CoordPair(2278, 4);
 
@@ -107,7 +105,6 @@ public class CommandClowder extends CommandBase {
 	}
 
 	//fuck bob and his entire ass spaghetti monster of a command system
-
 
 	//todone fix
 	//private String sanitizeFactionName(String name) {
@@ -210,7 +207,6 @@ public class CommandClowder extends CommandBase {
 		if(cmd.equals("warps")) { cmdWarps(sender); return; }
 		if(cmd.equals("balance")) { cmdBalance(sender); return; }
 		if(cmd.equals("deposit")) { if(!requireArgs(sender, cmd, args, 2)) return; cmdDeposit(sender, args[1]); return; }
-		if(cmd.equals("withdraw")) { if(!requireArgs(sender, cmd, args, 2)) return; sender.addChatMessage(new ChatComponentText(CRITICAL + "This command is currently disabled!")); return; }
 
 		if(cmd.equals("claim") || cmd.equals("city")) {
 			if(args.length > 1 && args[1].equalsIgnoreCase("upgrade")) {
@@ -282,7 +278,7 @@ public class CommandClowder extends CommandBase {
 		if(cmd.equals("delwarp")) return "/c delwarp <name>";
 		if(cmd.equals("warp")) return "/c warp <name>";
 		if(cmd.equals("deposit")) return "/c deposit <amount>";
-		if(cmd.equals("withdraw")) return "/c withdraw <amount>";
+
 		if(cmd.equals("promote")) return "/c promote <player>";
 		if(cmd.equals("demote")) return "/c demote <player>";
 		if(cmd.equals("nameclaim")) return "/c nameclaim <name>";
@@ -373,7 +369,7 @@ public class CommandClowder extends CommandBase {
 			sender.addChatMessage(new ChatComponentText(TITLE + "Prestige, alliances & merges"));
 			sender.addChatMessage(new ChatComponentText(COMMAND + "-balance" + TITLE + " - Shows faction prestige"));
 			sender.addChatMessage(new ChatComponentText(COMMAND + "-deposit <amount>" + TITLE + " - Turns prestige items into digiprestige"));
-			sender.addChatMessage(new ChatComponentText(COMMAND + "-withdraw <amount>" + TITLE + " - Withdraws digiprestige as prestige items"));
+
 			sender.addChatMessage(new ChatComponentText(COMMAND_LEADER + "-befriend <faction>" + TITLE + " - Sends an alliance offer"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_LEADER + "-acceptfriend <player>" + TITLE + " - Accepts an alliance offer"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_LEADER + "-unfriend <faction>" + TITLE + " - Cancels an alliance"));
@@ -403,7 +399,6 @@ public class CommandClowder extends CommandBase {
 			sender.addChatMessage(new ChatComponentText(COMMAND + "-stonedrops {page}" + TITLE + " - Lists configured stone drops"));
 		}
 	}
-
 	
 	private void cmdGraceBuild(ICommandSender sender) {
 		EntityPlayer player = getCommandSenderAsPlayer(sender);
@@ -445,8 +440,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 			sender.addChatMessage(new ChatComponentText(ERROR + "You can not create a new faction while already being in one!"));
 		}
 	}
-
-
 
 	private void cmdDisband(ICommandSender sender, String name) {
 
@@ -535,9 +528,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 				//ONLY LEADERS CAN MERGE
 				if(clowder.getPermLevel(player) > 2 ) {
 
-
-
-
 					if(clowder != target) {
 
 						sender.addChatMessage(new ChatComponentText("Sent merge request to " + target.name + "!"));
@@ -566,7 +556,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 			sender.addChatMessage(new ChatComponentText(ERROR + "You are not in any faction!"));
 		}
 	}
-
 	
 	private void cmdComrades(ICommandSender sender) {
 
@@ -661,7 +650,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 						} else
 							sender.addChatMessage(new ChatComponentText(ERROR + "We are already allies!"));
 
-
 					} else {
 						sender.addChatMessage(new ChatComponentText(ERROR + "There is no clowder with this name!"));
 					}
@@ -689,7 +677,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 
 			if(clowder.suzerain == null) {
 
-
 				if(clowder.getPermLevel(player) > 1) {
 
 					if(clowder.potentialFriends.contains(name))
@@ -701,13 +688,10 @@ private void cmdCreate(ICommandSender sender, String name) {
 
 							Clowder friend = Clowder.getClowderFromPlayerName(name); //clowder of guy who offered to ALLY
 
-
 							if (friend != clowder) //prevent becoming your own tributary
 							{
 								sender.addChatMessage(new ChatComponentText(INFO + "We accepted " + name + "'s offer to make " + friend.name + " our ally!"));
 								friend.notifyAll(player.worldObj, new ChatComponentText(INFO +  clowder.name + " accepted our offer. We are now their ally."));
-
-
 
 								//allah bookmark - install the actual ally shit here
 								clowder.addAlly(player.worldObj, friend);
@@ -722,10 +706,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 								//	clowder.notifyAll(player.worldObj, new ChatComponentText(INFO + "Because " + friend.name + " is now our ally, our war goals against them have been cancelled."));
 //
 								//}
-
-
-
-
 
 							}
 							else
@@ -761,7 +741,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 			//if (!clowder.bitch) {
 			//fuck yo whole bitch system
 
-
 				if (clowder.getPermLevel(player) > 1) {
 
 					if (formerFriend != null) {
@@ -789,7 +768,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 				} else {
 					sender.addChatMessage(new ChatComponentText(ERROR + "You lack the permissions to cancel alliances!"));
 				}
-
 
 			//} else
 			//	sender.addChatMessage(new ChatComponentText(
@@ -1280,7 +1258,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 								new ChatComponentText(ERROR + "Please wait " + (int)clowder.sethomeDelay + " seconds to set home again!"));
 					}
 
-
 				} else {
 					sender.addChatMessage(
                             new ChatComponentText(ERROR + "You can only set the home inside your designated capital!"));
@@ -1309,8 +1286,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 
 				if (owner != null && owner.zone == Zone.FACTION && owner.owner == clowder) {
 
-
-
 					if (clowder.sethomeDelay <= 0)
 					{
 						clowder.setAllyWarp(player.posX, player.posY, player.posZ, player);
@@ -1321,8 +1296,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 						sender.addChatMessage(
 								new ChatComponentText(ERROR + "Please wait " + (int)clowder.sethomeDelay + " seconds to move the alliance rally-point!"));
 					}
-
-
 
 				} else {
 					sender.addChatMessage(
@@ -1632,47 +1605,6 @@ private void cmdCreate(ICommandSender sender, String name) {
 			}
 
 			sender.addChatMessage(new ChatComponentText(INFO + "Deposited " + amount + " prestige!"));
-			clowder.save(player.worldObj);
-			player.inventoryContainer.detectAndSendChanges();
-
-		} else {
-			sender.addChatMessage(new ChatComponentText(ERROR + "You are not in any faction!"));
-		}
-	}
-
-	private void cmdWithdraw(ICommandSender sender, String a) {
-
-		EntityPlayerMP player = getCommandSenderAsPlayer(sender);
-		Clowder clowder = Clowder.getClowderFromPlayer(player);
-		int amount = parseInt(sender, a);
-
-		if(clowder != null) {
-
-			if(amount <= 0) {
-				sender.addChatMessage(new ChatComponentText(ERROR + "You cannot withdraw 0 or less prestige!"));
-				return;
-			}
-
-			amount = Math.min(amount, (int)clowder.getPrestige());
-
-			if(clowder.getPrestige() == 0) {
-				sender.addChatMessage(new ChatComponentText(INFO + "It seems like you're bankrupt."));
-				return;
-			}
-
-			clowder.addPrestige(-1, player.worldObj);
-
-			for(int i = 0; i < amount; i++) {
-
-				if(!player.inventory.addItemStackToInventory(new ItemStack(ModItems.province_point))) {
-					sender.addChatMessage(new ChatComponentText(INFO + "Withdrew " + i + " prestige!"));
-					clowder.save(player.worldObj);
-					player.inventoryContainer.detectAndSendChanges();
-					return;
-				}
-			}
-
-			sender.addChatMessage(new ChatComponentText(INFO + "Withdrew " + amount + " prestige!"));
 			clowder.save(player.worldObj);
 			player.inventoryContainer.detectAndSendChanges();
 
@@ -2401,7 +2333,7 @@ private void cmdCreate(ICommandSender sender, String name) {
 		return new String[] { "help", "enemy", "unenemy", "stonedrops", "create", "disband", "info", "list", "comrades", "alliance", "allies", "allylist", "permissions", "perms", "leave", "apply",
 				"applicants", "accept", "deny", "kick", "owner", "promote", "demote", "rename", "color", "motd",
 				"listflags", "flag", "gracebuild", "sethome", "home", "setwarp", "addwarp", "delwarp", "warp", "warps",
-                "claim", "city", "capital", "nameclaim", "balance", "deposit", "withdraw", "befriend", "ally", "acceptfriend",
+                "claim", "city", "capital", "nameclaim", "balance", "deposit", "befriend", "ally", "acceptfriend",
 				"acceptally", "unfriend", "unally", "setallywarp", "allywarp", "merge", "acceptmerge", "declarewar", "war", "listwars",
 				"peace", "acceptpeace", "ceasefire", "acceptceasefire", "surrender", "acceptsurrender", "defendally" };
 	}

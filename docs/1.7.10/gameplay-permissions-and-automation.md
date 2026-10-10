@@ -1,21 +1,14 @@
 # Gameplay permissions and automation
 
-## Survival and legacy content
+## Retained production and automation
 
-The Federal Reserve remains registered as `machine_fed` solely so existing chunks load without a missing-block remap. It is hidden from the creative tab, has no survival recipe or mace progression role, its tile entity is inert, and it no longer produces tax items or Prestige. Existing placed blocks may be removed manually but are not supported gameplay.
+Foundation crafts four blocks from `SIS / III / SIS` (`S` stone bricks, `I` iron ingots), under `enableSurvivalRecipes`. Vanilla hoppers satisfy the same foundation predicate at their footprint position for retained structures, including Grain Mills, Production Lines, Universities, Warp Tents and Statues.
 
-Foundation now crafts four blocks from `SIS / III / SIS` (`S` stone bricks, `I` iron ingots). A four-block yield makes the 3x3 and 9x9 structure footprints practical early in faction development while retaining an industrial iron cost. This recipe is part of the centralized survival recipe set and follows `enableSurvivalRecipes`.
+* **Grain Mill:** wheat inserts into four processing slots; completed flour extracts downward.
+* **Production Line:** no item input or power requirement. Level-one cogs extract downward; the jam/status slot cannot be drained by automation. Foundation and clearance checks still apply.
+* **University and Temple:** retain their existing level-one science/scroll generation, structure checks and inventory behavior.
 
-Vanilla hoppers satisfy the same central foundation predicate as Foundation/other `BlockSpeedy` blocks. This applies consistently to Grain Mills, Blast Furnaces, Coal Mines, Production Lines, Universities, Windmills, tents and statues. A hopper only replaces the block at its own footprint position.
-
-## Processor automation audit
-
-* **Grain Mill:** wheat inserts into the four processing slots; only completed flour extracts downward.
-* **Blast Furnace:** iron/iron ore inserts from the top, coal or coal blocks from a side, and only finished steel extracts downward.
-* **Coal Mine:** miners insert from sides; supplies and canaries insert from above; only produced coal extracts downward. Workers, canaries, and supplies cannot be drained.
-* **Production Line:** it has no item input recipe. Produced cogs extract downward; the jam/status slot remains protected.
-* **Foundry:** already implemented sided insertion (steel above, coal at sides) and output extraction below; it was audited and retained. Its existing direct output push was not broadened.
-* **Sawmill, electric furnace, coal generator, windmill, university, temple, and deprecated Federal Reserve:** excluded because they are unfinished, do not expose a legitimate item-processing loop, or are not active item processors. They were not resurrected by this pass.
+Blast Furnaces, Coal Mines, Foundries, generators and the Federal Reserve are removed. The custom steel ingot is removed; retained components use vanilla iron. No obsolete processing or fuel chain is required.
 
 ## Territory permissions
 

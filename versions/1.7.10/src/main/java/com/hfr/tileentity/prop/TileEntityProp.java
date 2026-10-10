@@ -16,7 +16,6 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
@@ -54,24 +53,6 @@ public class TileEntityProp extends TileEntity {
 		
 		if(!worldObj.isRemote) {
 
-			/// HEALING AURA ///
-			if(this.getBlockType() == ModBlocks.med_tent && operational()) {
-				
-				int radius = 5;
-
-				List<EntityLivingBase> entities = worldObj.getEntitiesWithinAABB(EntityLivingBase.class, AxisAlignedBB.getBoundingBox(
-						xCoord + 0.5 - radius,
-						yCoord,
-						zCoord + 0.5 - radius,
-						xCoord + 0.5 + radius,
-						yCoord + 3,
-						zCoord + 0.5 + radius
-				));
-				
-				for(EntityLivingBase entity : entities) {
-					entity.addPotionEffect(new PotionEffect(Potion.regeneration.id, 5 * 20, 2));
-				}
-			}
 			
 			Ownership o = ClowderTerritory.getOwnerFromInts(worldObj, xCoord, zCoord);
 			
@@ -90,9 +71,9 @@ public class TileEntityProp extends TileEntity {
 
 			/// PRESTIGE GEENERATOR ///
 			//FOR TENTS RETARD
-			if(this.getBlockType() == ModBlocks.tp_tent || this.getBlockType() == ModBlocks.med_tent) {
+			if(this.getBlockType() == ModBlocks.tp_tent) {
 				
-				float prestigeRate = this.getBlockType() == ModBlocks.med_tent ? Clowder.medTentRate() : Clowder.tentRate();
+				float prestigeRate = Clowder.tentRate();
 
 				if(this.operational()) {
 

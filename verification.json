@@ -11,8 +11,7 @@
     "com/hfr/clowder/FactionMemberRecord.class"
   ],
   "class_roots": [
-    "com/hfr/",
-    "cofh/api/"
+    "com/hfr/"
   ],
   "resource_roots": [
     "assets/{mod_id}/",

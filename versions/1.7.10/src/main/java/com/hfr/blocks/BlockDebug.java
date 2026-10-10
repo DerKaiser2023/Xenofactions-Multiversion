@@ -57,49 +57,10 @@ public class BlockDebug extends BlockContainer {
 				player.addChatMessage(new ChatComponentText("NOW WILDERNESS"));
 			}
 			
-			/*world.setBlockToAir(x, y, z);
-			
-			DemoThread thread = new DemoThread();
-			thread.explosion = new ExplosionNukeRay(world, x, y, z, 100, (int)(4 * Math.PI * Math.pow(100, 2) * 25));
-			thread.start();*/
-			
-			/*world.setBlockToAir(x, y, z);
-			
-			ExplosionController.registerExplosion(
-				new ExplosionNukeRay(world, x, y, z, 50, (int)(4 * Math.PI * Math.pow(50, 2) * 25))
-			);*/
-			
 			return true;
 		}
 
 		return true;
 	}
 	
-	/*class DemoThread extends Thread {
-		
-		public ExplosionNukeRay explosion;
-		
-		@Override
-		public void run() {
-			
-			System.out.println("Initiating Demon Test Thread!");
-			
-			boolean looper = true;
-			
-			do {
-				if(!explosion.isAusf3Complete) {
-					explosion.collectTipMk4_5(1000);
-					System.out.println("DT-Tip collector, passed!");
-				} else if(explosion.getStoredSize() > 0) {
-					explosion.processTip(1000);
-					System.out.println("DT-Tip processor, passed!");
-				} else {
-					looper = false;
 				}
-			} while(looper);
-			
-			System.out.println("DT-Thread, over!");
-		}
-	}*/
-
-}

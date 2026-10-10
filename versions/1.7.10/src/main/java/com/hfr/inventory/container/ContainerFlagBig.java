@@ -1,7 +1,6 @@
 package com.hfr.inventory.container;
 
 import com.hfr.tileentity.clowder.TileEntityFlagBig;
-import com.hfr.tileentity.machine.TileEntityMachineDistillery;
 import com.hfr.util.LockedSlot;
 
 import net.minecraft.entity.player.EntityPlayer;

@@ -82,7 +82,6 @@ Usage: `/clowder help`; aliases: `/clowder`, `/c`; permission level: 0.
 | Command | Purpose |
 | --- | --- |
 | `/c deposit <amount>` | Deposit prestige/resources into the faction system. |
-| `/c withdraw <amount>` | Parsed but currently disabled in source. |
 
 ### Diplomacy and war
 
@@ -179,10 +178,6 @@ Usage: `/cc <message>`; permission level: 0.
 | `/xshop link <ID/name> <x> <y> <z>` | Level 3 | Link a loaded admin shop block in your dimension. |
 | `/xshop unlink <x> <y> <z>` | Level 3 | Unlink a loaded admin shop block in your dimension. |
 | `/xshop removeoffer <ID/name> <index>` | Level 3 | Remove a zero-based offer. Legacy `/xshop delete <index> <shop>` also remains supported. |
-| `/xmarket setstock ...` | Level 3 | Admin stock market control. |
-| `/xmarket triggerstock ...` | Level 3 | Trigger stock movement/events. |
-| `/xmarket setshares ...` | Level 3 | Set player stock shares. |
-| `/xmarket getshares ...` | Level 3 | Inspect player stock shares. |
 | `/xplayer <cbt\|ramranch\|fps\|tilt\|shader\|vomit> <player>` | Level 3 | Toggle low-FPS, screen-tilt, or rapidly alternating shader effects for a player. |
 
 XShop commands also have the `/shop` alias. Use a stable ID from `/xshop list` for names containing spaces in commands with additional arguments. Creation, deletion, editing, and adding offers accept a complete name as their trailing argument. Tab completion offers configured IDs and single-word names, settings, boolean values, offer indices, list pages, and block coordinates. Catalog-management commands work from the console; GUI, hotbar, and block-link operations require a player.

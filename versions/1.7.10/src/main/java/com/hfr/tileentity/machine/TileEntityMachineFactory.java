@@ -4,8 +4,6 @@ import com.hfr.blocks.FoundationSupport;
 import com.hfr.items.ModItems;
 import com.hfr.main.MainRegistry;
 
-import cofh.api.energy.EnergyStorage;
-import cofh.api.energy.IEnergyReceiver;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import net.minecraft.block.material.Material;
@@ -15,11 +13,10 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
-import net.minecraftforge.common.util.ForgeDirection;
 
-public class TileEntityMachineFactory extends TileEntityMachineBase implements IEnergyReceiver {
+public class TileEntityMachineFactory extends TileEntityMachineBase {
 	
-	public EnergyStorage storage = new EnergyStorage(MainRegistry.factoryConsumption * 100, MainRegistry.factoryConsumption * 10, MainRegistry.factoryConsumption * 10);
+	private NBTTagCompound legacyData = new NBTTagCompound();
 
 	public TileEntityMachineFactory() {
 		super(6);
@@ -35,23 +32,9 @@ public class TileEntityMachineFactory extends TileEntityMachineBase implements I
 
 		if(!worldObj.isRemote) {
 			
-			/*if(slots[4] != null && slots[4].getItem() == ModItems.battery)
-				storage.setEnergyStored(storage.getMaxEnergyStored());
-
-			if (slots[4] != null && slots[4].getItem() instanceof IEnergyContainerItem) {
-				IEnergyContainerItem item = (IEnergyContainerItem) slots[4].getItem();
-				int extract = (int) Math.min(storage.getMaxEnergyStored() - storage.getEnergyStored(),
-						item.getEnergyStored(slots[4]));
-
-				int e = item.extractEnergy(slots[4], extract, false);
-				storage.setEnergyStored(storage.getEnergyStored() + e);
-			}*/
-			
 			if(operational() && hasSpace() && slots[4] == null) {
 				
-				storage.setEnergyStored(storage.getEnergyStored() - MainRegistry.factoryConsumption);
-
-				if(worldObj.rand.nextInt(MainRegistry.factoryRate * 20) == 0) {
+				if(worldObj.rand.nextInt(Math.max(1, MainRegistry.factoryRate) * 20) == 0) {
 					
 					for(int i = 0; i < 4; i++) {
 						if(slots[i] == null) {
@@ -62,9 +45,9 @@ public class TileEntityMachineFactory extends TileEntityMachineBase implements I
 							break;
 						}
 					}
+					this.markDirty();
 				}
-				
-				if(worldObj.rand.nextInt(MainRegistry.factoryJamRate * 20) == 0) {
+				if(worldObj.rand.nextInt(Math.max(1, MainRegistry.factoryJamRate) * 20) == 0) {
 					
 					int i = worldObj.rand.nextInt(10);
 					
@@ -76,15 +59,11 @@ public class TileEntityMachineFactory extends TileEntityMachineBase implements I
 						slots[4] = new ItemStack(Items.slime_ball).setStackDisplayName("Chemical Spill");
 					else
 						slots[4] = new ItemStack(Items.potato).setStackDisplayName("Communist Takeover");
+					this.markDirty();
 				}
 			}
 			
-			this.updateGauge(storage.getEnergyStored(), 0, 50);
 		}
-	}
-	
-	public void processGauge(int val, int id) {
-		storage.setEnergyStored(val);
 	}
 	
 	public boolean operational() {
@@ -97,9 +76,6 @@ public class TileEntityMachineFactory extends TileEntityMachineBase implements I
 		for(int x = -4; x <= 4; x++)
 			for(int z = -4; z <= 4; z++)
 				if(!FoundationSupport.isValid(worldObj.getBlock(xCoord + x, yCoord - 1, zCoord + z)))
-					return false;
-		
-		if(storage.getEnergyStored() < MainRegistry.factoryConsumption)
 			return false;
 		
 		if(slots[4] != null)
@@ -145,7 +121,7 @@ public class TileEntityMachineFactory extends TileEntityMachineBase implements I
 	public void readFromNBT(NBTTagCompound nbt) {
 		super.readFromNBT(nbt);
 		
-		storage.readFromNBT(nbt);
+		legacyData = (NBTTagCompound)nbt.copy();
 		
 		NBTTagList list = nbt.getTagList("items", 10);
 		slots = new ItemStack[getSizeInventory()];
@@ -163,7 +139,10 @@ public class TileEntityMachineFactory extends TileEntityMachineBase implements I
 	public void writeToNBT(NBTTagCompound nbt) {
 		super.writeToNBT(nbt);
 		
-		storage.writeToNBT(nbt);
+		for(Object key : legacyData.func_150296_c()) {
+			String name = (String)key;
+			if(!nbt.hasKey(name)) nbt.setTag(name, legacyData.getTag(name).copy());
+		}
 
 		NBTTagList list = new NBTTagList();
 
@@ -178,28 +157,4 @@ public class TileEntityMachineFactory extends TileEntityMachineBase implements I
 		nbt.setTag("items", list);
 	}
 
-	@Override
-	public boolean canConnectEnergy(ForgeDirection from) {
-		return from != ForgeDirection.UP && from != ForgeDirection.DOWN && from != ForgeDirection.UNKNOWN;
 	}
-
-	@Override
-	public int receiveEnergy(ForgeDirection from, int maxReceive, boolean simulate) {
-		return storage.receiveEnergy(maxReceive, simulate);
-	}
-
-	@Override
-	public int getEnergyStored(ForgeDirection from) {
-		return storage.getEnergyStored();
-	}
-
-	@Override
-	public int getMaxEnergyStored(ForgeDirection from) {
-		return storage.getMaxEnergyStored();
-	}
-	
-	public int getPowerScaled(int i) {
-		return (storage.getEnergyStored() * i) / storage.getMaxEnergyStored();
-	}
-
-}

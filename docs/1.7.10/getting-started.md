@@ -64,7 +64,7 @@ Useful commands:
 /c warps
 ```
 
-`/c withdraw` currently exists in command parsing but is disabled.
+Withdrawal is unavailable. Old Prestige tokens have no acquisition path; depositing existing tokens remains a compatibility path into faction accounting.
 
 ## 4. Manage faction identity
 

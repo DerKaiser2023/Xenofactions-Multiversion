@@ -3,10 +3,8 @@ package com.hfr.inventory.gui;
 import org.lwjgl.opengl.GL11;
 
 import com.hfr.inventory.container.ContainerFlagBig;
-import com.hfr.inventory.container.ContainerSawmill;
 import com.hfr.lib.RefStrings;
 import com.hfr.tileentity.clowder.TileEntityFlagBig;
-import com.hfr.tileentity.machine.TileEntityMachineSawmill;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.inventory.GuiContainer;

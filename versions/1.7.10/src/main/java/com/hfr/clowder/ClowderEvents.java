@@ -21,7 +21,6 @@ import com.hfr.compat.HbmCsgoChargeIntegration;
 import com.hfr.compat.OptionalHbmRadiationCompat;
 import com.hfr.tdm.TDMManager;
 import com.hfr.data.ClowderData;
-import com.hfr.handler.BobbyBreaker;
 import com.hfr.handler.ExplosionSound;
 import com.hfr.items.ItemMace;
 import com.hfr.items.ModItems;
@@ -30,8 +29,6 @@ import com.hfr.util.XFLog;
 import com.hfr.packet.PacketDispatcher;
 import com.hfr.packet.effect.ClowderBorderPacket;
 import com.hfr.packet.effect.ClowderFlagPacket;
-import com.hfr.packet.effect.CumPacket;
-import com.hfr.tileentity.prop.TileEntityProp;
 import com.hfr.tileentity.prop.TileEntityStatue;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -154,8 +151,6 @@ public class ClowderEvents {
 			ClowderData.release(event.world);
 		}
 	}
-
-
 
 /**
 	 * Handles chat events related to clowders, mainly adding the clowder name to a chat message.
@@ -299,7 +294,6 @@ public void handleChatServer(ServerChatEvent event) {
 
 		clowder.notifyAll(player.worldObj, new ChatComponentText(CommandClowderChat.LIST + name + " " + message));
 
-
 		System.out.println(name + " " + message);
 
 		for (Clowder a : clowder.allies.keySet())
@@ -315,8 +309,6 @@ public void handleChatServer(ServerChatEvent event) {
 	 */
 	@SubscribeEvent
 	public void clowderBlockEvent(BlockEvent event) {
-
-
 
 		if(event instanceof BreakEvent || event instanceof PlaceEvent) {
 			int x = event.x;
@@ -354,8 +346,6 @@ public void handleChatServer(ServerChatEvent event) {
 					
 					onBreak(event.world, b, x, y, z, owner);
 					
-					BobbyBreaker.handleDigEvent((BreakEvent)event);
-					
 				} else {
 					event.setCanceled(true);
 					return;
@@ -387,18 +377,6 @@ public void handleChatServer(ServerChatEvent event) {
 		
 		if(owner != null && owner.zone == Zone.FACTION && owner.owner != null) {
 			
-			if(b == ModBlocks.med_tent || b == ModBlocks.med_tent) {
-				
-				int[] loc = ((BlockDummyable)b).findCoreRec(world, x, y, z);
-				
-				if(loc != null) {
-					TileEntityProp prop = (TileEntityProp)world.getTileEntity(loc[0], loc[1], loc[2]);
-					
-					if(prop != null && prop.operational())
-						owner.owner.multPrestige(0.975F, world);
-				}
-			}
-			
 			if(b == ModBlocks.statue) {
 				
 				int[] loc = ((BlockDummyable)b).findCoreRec(world, x, y, z);
@@ -413,8 +391,6 @@ public void handleChatServer(ServerChatEvent event) {
 		}
 	}
 
-
-	
 	private boolean canBreak(EntityPlayer player, Clowder clowder, Ownership owner, Block b, int x, int y, int z) {
 		
 		if(player.inventory.hasItem(ModItems.debug))
@@ -425,7 +401,6 @@ public void handleChatServer(ServerChatEvent event) {
 
 		if(owner.zone == Zone.SAFEZONE || owner.zone == Zone.WARZONE)
 			return false;
-
 
 		if(owner.zone == Zone.FACTION) {
 
@@ -592,7 +567,6 @@ public void handleChatServer(ServerChatEvent event) {
 		
 		//TEMP
 		//if(bb)
-		//	BobbyBreaker.handleExplosionEvent(event);
 		
 		ExplosionSound.handleExplosion(event.world, event.explosion);
 	}
@@ -774,7 +748,6 @@ public void handleChatServer(ServerChatEvent event) {
 		player.getEntityData().setString(NBTKEY, name);
 	}
 
-
 	private static final String BUILD_GRACE_STUCK_X = "buildGraceStuckX";
 	private static final String BUILD_GRACE_STUCK_Z = "buildGraceStuckZ";
 
@@ -939,7 +912,6 @@ public void handleChatServer(ServerChatEvent event) {
 		}
 	}
 
-
 //first check
 
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -961,8 +933,6 @@ public void handleChatServer(ServerChatEvent event) {
 			event.setCanceled(true);
 		}
 	}
-
-
 	
 	/**
 	 * Compares two ownership instances.
@@ -1196,13 +1166,6 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 		}
 	}
 
-
-
-
-
-
-
-
 	@SubscribeEvent
 	public void onEntityDamage(LivingHurtEvent event) {
 
@@ -1300,14 +1263,6 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 		}
 	}
 
-
-
-
-
-
-
-
-	
 	/**
 	 * Handles player ticks for clowders, mainly the flag popup and online times (with retreat kick)
 	 * @param event
@@ -1336,7 +1291,6 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 				}
 				
 				if(!Clowder.retreating.contains(player.getUniqueID())) {
-
 
 					//System.out.println("POV: I mog you");
 					//10 minutes
@@ -1443,7 +1397,6 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 	 */
 	@SubscribeEvent
 	public void onWorldTick(WorldTickEvent event) {
-
 
 		//new check here for safezone
 		if (event.phase == Phase.END) { // After all entities have moved
@@ -1574,17 +1527,5 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 		/// CLOWDER TERRITORYY ADMINISTRATIVE STUFF END ///
 	}
 	
-	@SubscribeEvent
-	public void yeetEvent(ItemTossEvent event) {
 		
-		try {
-			
-			if(event.entityItem.getEntityItem().getItem() == ModItems.capsule) {
-				event.player.inventory.addItemStackToInventory(new ItemStack(ModItems.capsule));
-				event.player.inventory.addItemStackToInventory(new ItemStack(ModItems.capsule));
-				event.setCanceled(true);
 			}
-			
-		} catch(NullPointerException ex) { }
-	}
-}

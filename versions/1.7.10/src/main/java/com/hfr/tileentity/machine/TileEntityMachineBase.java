@@ -2,6 +2,8 @@ package com.hfr.tileentity.machine;
 
 import com.hfr.packet.PacketDispatcher;
 import com.hfr.packet.tile.AuxGaugePacket;
+import cpw.mods.fml.common.network.NetworkRegistry.TargetPoint;
+
 
 import cpw.mods.fml.common.network.NetworkRegistry.TargetPoint;
 import net.minecraft.entity.player.EntityPlayer;
@@ -184,9 +186,7 @@ public abstract class TileEntityMachineBase extends TileEntity implements ISided
 	//	return new int[] { 0, 1, 2, 3 };
 	//}
 	
-	public int getGaugeScaled(int i, FluidTank tank) {
-		return tank.getFluidAmount() * i / tank.getCapacity();
-	}
+
 
 	//abstracting this method forces child classes to implement it
 	//so i don't have to remember the fucking method name
@@ -195,14 +195,18 @@ public abstract class TileEntityMachineBase extends TileEntity implements ISided
 	@Override
     public abstract void updateEntity();
 	
+
+
+
+
 	public void updateGauge(int val, int id, int range) {
 
 		if(!worldObj.isRemote)
 			PacketDispatcher.wrapper.sendToAllAround(new AuxGaugePacket(xCoord, yCoord, zCoord, val, id), new TargetPoint(this.worldObj.provider.dimensionId, xCoord, yCoord, zCoord, range));
 	}
-	
+
 	public void processGauge(int val, int id) { }
-	
+
 	@Override
 	public void readFromNBT(NBTTagCompound nbt) {
 		super.readFromNBT(nbt);

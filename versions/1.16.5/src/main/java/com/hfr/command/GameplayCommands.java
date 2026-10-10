@@ -45,7 +45,7 @@ public final class GameplayCommands {
                 "/c apply <faction>, applicants, accept/deny/kick <player>, promote/demote/owner <player>.",
                 "/c rename <name>, motd <text>, color <hex>, flag <pattern>, listflags, gracebuild; permissions [ally|neutral] <build|destroy|container|interact|switch> <true|false>.",
                 "/c claim <city name>, city upgrade/cancelmove/recovermove, nameclaim <name>, capital [set <city>], sethome, home, setwarp/delwarp/warp <name>, warps; /xmap.",
-                "/c balance, deposit <amount>, alliance, befriend <faction>, acceptfriend <offering player>, unfriend <faction>, setallywarp, allywarp <faction>, merge/acceptmerge <faction>, enemy/unenemy <faction>. Withdraw is disabled.",
+                "/c balance, deposit <amount>, alliance, befriend <faction>, acceptfriend <offering player>, unfriend <faction>, setallywarp, allywarp <faction>, merge/acceptmerge <faction>, enemy/unenemy <faction>.",
                 "/c declarewar <faction>, listwars, peace <faction> [city], acceptpeace/ceasefire/acceptceasefire/surrender/acceptsurrender/defendally <faction>, retreat, stonedrops [page]; /xflags, /xmulti, /xignore <player>."
         };
         int selected = page < 1 || page > text.length ? 1 : page; c.getSource().sendSuccess(new StringTextComponent("Page " + selected + "/" + text.length + "\n" + text[selected - 1]), false); return 1;
@@ -80,7 +80,6 @@ public final class GameplayCommands {
         d.register(Commands.literal("c").then(Commands.literal("gracebuild").executes(c -> run(c, FactionGameplay::buildGrace))));
         d.register(Commands.literal("c").then(Commands.literal("balance").executes(c -> run(c, (g, p) -> g.economy(p, "balance", 0)))));
         d.register(Commands.literal("c").then(Commands.literal("deposit").then(Commands.argument("amount", IntegerArgumentType.integer(1)).executes(c -> run(c, (g, p) -> g.economy(p, "deposit", IntegerArgumentType.getInteger(c, "amount")))))));
-        d.register(Commands.literal("c").then(Commands.literal("withdraw").then(Commands.argument("amount", IntegerArgumentType.integer()).executes(c -> run(c, (g, p) -> { throw new IllegalArgumentException("This command is currently disabled."); })))));
         for (String[] commands : new String[][]{{"alliance", "alliance"}, {"allies", "alliance"}, {"allylist", "alliance"}, {"listwars", "wars"}}) d.register(Commands.literal("c").then(Commands.literal(commands[0]).executes(c -> run(c, (g, p) -> g.diplomacy(p, commands[1], "", "")))));
         for (String[] commands : new String[][]{{"befriend", "befriend"}, {"ally", "befriend"}, {"acceptfriend", "acceptfriend"}, {"acceptally", "acceptfriend"}, {"unfriend", "unfriend"}, {"unally", "unfriend"}, {"enemy", "enemy"}, {"unenemy", "unenemy"}, {"declarewar", "declarewar"}, {"war", "declarewar"}, {"acceptpeace", "acceptpeace"}, {"ceasefire", "ceasefire"}, {"acceptceasefire", "acceptceasefire"}, {"surrender", "surrender"}, {"acceptsurrender", "acceptsurrender"}, {"defendally", "defendally"}})
             d.register(Commands.literal("c").then(Commands.literal(commands[0]).then(faction().executes(c -> run(c, (g, p) -> g.diplomacy(p, commands[1], StringArgumentType.getString(c, "faction"), ""))))));

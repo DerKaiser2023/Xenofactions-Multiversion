@@ -7,7 +7,6 @@ import com.hfr.blocks.ModBlocks;
 import com.hfr.handler.MultiblockHandler;
 import com.hfr.main.MainRegistry;
 import com.hfr.tileentity.machine.TileEntityMachineFactory;
-import com.hfr.tileentity.machine.TileEntityProxy;
 
 import cpw.mods.fml.common.network.internal.FMLNetworkHandler;
 import net.minecraft.block.Block;
@@ -35,9 +34,6 @@ public class MachineFactory extends BlockDummyable {
 		//only cores with the "UNKNOWN" metadata can carry a tile entity
 		if(meta >= 12)
 			return new TileEntityMachineFactory();
-		
-		if(meta >= 6)
-			return new TileEntityProxy();
 		
 		return null;
 	}

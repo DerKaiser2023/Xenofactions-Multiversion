@@ -91,3 +91,18 @@
 - Assign all registered player-facing 1.16.5 items and block items to the Xenofactions Creative tab, retaining registry IDs and the legacy hidden server-issued selection wand.
 - Restore server-owned faction/city/zone transition tracking, five-second flag popups, the original border-crossing sound and nearby exposed-edge firework particles. Suppress repeated notifications, seed login/respawn silently, clean session state and retain Right Alt particle toggling. Require matching native client/server protocol versions.
 - Restore non-opaque City Center and Conquest Flag blocks and sample raised cloth lighting at its world position. Preserve normal lighting, selected faction tint and untinted pattern overlays without full-bright rendering.
+
+2026-10-09 23:16 — Preserve MCHeli ownership of private steel
+
+- Remove the 1.7.10 compatibility hook that exported MCHeli's private steel ingot into
+  the generic ingotSteel OreDictionary namespace. This preserves MCHeli's resource
+  boundary during extraction of the vehicle furnace/foundry chain.
+- Leave XF metallurgy blocks, items, processing, recipes and world data in place for
+  the subsequent cleanup pass. The standalone Xenofactions repository is unchanged.
+
+2026-10-10 01:36 — Maintained gameplay content cleanup
+
+- Removed obsolete RF/oil/nuclear, weapons, stock/tax, block health, NPC/Builder and abandoned building/material/equipment paths from the multiversion targets, including registrations, recipes, packets, configuration, renderers and unused assets.
+- Kept the Production Line power-free with level-one cogs, original University research and active faction/map/shop/TDM/world systems. Removed the custom steel ingot and its acquisition paths; retained components use iron. Removed rubber sandbag recipes.
+- Removed withdrawal in both targets; existing hidden Prestige tokens retain deposit compatibility. Removed registry IDs are deliberately unsupported, old excluded stores remain untouched, and native unknown-NBT preservation continues. Clients and servers must match builds.
+- Updated maintained feature, recipe, configuration and migration documentation; the standalone historical repository is unchanged.

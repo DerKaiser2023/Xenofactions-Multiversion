@@ -5,8 +5,7 @@ import com.hfr.main.MainRegistry;
 public final class MachineDisplaySnapshot {
     public static final int MIN_SECONDS = 0;
     public static final int MAX_SECONDS = 1000000;
-    public static final int MIN_RF = 0;
-    public static final int MAX_RF = 1000000000;
+
     private static volatile MachineDisplaySnapshot clientSnapshot;
 
     public final int superFishrate;
@@ -18,13 +17,11 @@ public final class MachineDisplaySnapshot {
     public final int uniRate;
     public final int uniJamRate;
     public final int factoryRate;
-    public final int factoryConsumption;
+
     public final int factoryJamRate;
     public final int temple;
-    public final int coalRate;
-    public final int coalJamRate;
 
-    public MachineDisplaySnapshot(int superFishrate, int goodFishrate, int averageFishrate, int crapFishrate, int jamRate, int whaleChance, int uniRate, int uniJamRate, int factoryRate, int factoryConsumption, int factoryJamRate, int temple, int coalRate, int coalJamRate) {
+    public MachineDisplaySnapshot(int superFishrate, int goodFishrate, int averageFishrate, int crapFishrate, int jamRate, int whaleChance, int uniRate, int uniJamRate, int factoryRate, int factoryJamRate, int temple) {
         this.superFishrate = clamp(superFishrate, MIN_SECONDS, MAX_SECONDS);
         this.goodFishrate = clamp(goodFishrate, MIN_SECONDS, MAX_SECONDS);
         this.averageFishrate = clamp(averageFishrate, MIN_SECONDS, MAX_SECONDS);
@@ -34,15 +31,14 @@ public final class MachineDisplaySnapshot {
         this.uniRate = clamp(uniRate, MIN_SECONDS, MAX_SECONDS);
         this.uniJamRate = clamp(uniJamRate, MIN_SECONDS, MAX_SECONDS);
         this.factoryRate = clamp(factoryRate, MIN_SECONDS, MAX_SECONDS);
-        this.factoryConsumption = clamp(factoryConsumption, MIN_RF, MAX_RF);
+
         this.factoryJamRate = clamp(factoryJamRate, MIN_SECONDS, MAX_SECONDS);
         this.temple = clamp(temple, MIN_SECONDS, MAX_SECONDS);
-        this.coalRate = clamp(coalRate, MIN_SECONDS, MAX_SECONDS);
-        this.coalJamRate = clamp(coalJamRate, MIN_SECONDS, MAX_SECONDS);
+
     }
 
     public static MachineDisplaySnapshot fromRuntime() {
-        return new MachineDisplaySnapshot(MainRegistry.superFishrate, MainRegistry.goodFishrate, MainRegistry.averageFishrate, MainRegistry.crapFishrate, MainRegistry.jamRate, MainRegistry.whaleChance, MainRegistry.uniRate, MainRegistry.uniJamRate, MainRegistry.factoryRate, MainRegistry.factoryConsumption, MainRegistry.factoryJamRate, MainRegistry.temple, MainRegistry.coalRate, MainRegistry.coalJamRate);
+        return new MachineDisplaySnapshot(MainRegistry.superFishrate, MainRegistry.goodFishrate, MainRegistry.averageFishrate, MainRegistry.crapFishrate, MainRegistry.jamRate, MainRegistry.whaleChance, MainRegistry.uniRate, MainRegistry.uniJamRate, MainRegistry.factoryRate, MainRegistry.factoryJamRate, MainRegistry.temple);
     }
 
     public static MachineDisplaySnapshot forClientDisplay() {

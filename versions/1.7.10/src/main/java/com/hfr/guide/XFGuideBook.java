@@ -90,7 +90,7 @@ public final class XFGuideBook {
 		invokeBuilder(builder, bookBuilderClass, "setBookColor", Color.class, new Color(80, 35, 135));
 		invokeBuilder(builder, bookBuilderClass, "setSpawnWithBook", Boolean.TYPE, false);
 		invokeBuilder(builder, bookBuilderClass, "setIsLostBook", Boolean.TYPE, false);
-		invokeBuilder(builder, bookBuilderClass, "setItemTexture", String.class, RefStrings.MODID + ":designator_manual");
+		invokeBuilder(builder, bookBuilderClass, "setItemTexture", String.class, RefStrings.MODID + ":clowder_map");
 
 		return bookBuilderClass.getMethod("build").invoke(builder);
 	}
@@ -160,7 +160,7 @@ public final class XFGuideBook {
 		if("prestige_config".equals(key))
 			return String.format(template, format(XFConfig.startingPrestige), format(XFConfig.basePrestigeGen), format(XFConfig.prestigeGenCap));
 		if("upkeep_config".equals(key))
-			return String.format(template, format(XFConfig.warpTentUpkeep), format(XFConfig.medTentUpkeep), format(XFConfig.cityClaimUpkeep), format(XFConfig.activeWarUpkeep));
+			return String.format(template, format(XFConfig.warpTentUpkeep), format(XFConfig.cityClaimUpkeep), format(XFConfig.activeWarUpkeep));
 		if("new_player_grace_config".equals(key))
 			return String.format(template, hours(XFConfig.pvpGraceDurationMs), hours(XFConfig.keepInventoryDurationMs));
 		if("build_grace_config".equals(key))

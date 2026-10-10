@@ -24,7 +24,6 @@ import com.hfr.util.XFLog;
 import com.hfr.tileentity.clowder.TileEntityFlag;
 import com.hfr.tileentity.prop.TileEntityProp;
 
-import cpw.mods.fml.common.Loader;
 import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -226,8 +225,6 @@ public class Clowder {
 		return getTerritoryPermission(actor != null && allies.containsKey(actor) ? FactionRelationship.ALLY : FactionRelationship.NEUTRAL, permission);
 	}
 
-
-
 	// because we can't have ANYTHING nice
 	private float prestige = 0;
 	private float prestigeGen = 0;
@@ -250,22 +247,20 @@ public class Clowder {
 	public static final float NATIONAL_COLLAPSE_UPKEEP_MULT = 1.50F;
 	public static final float FALLEN_NATION_UPKEEP_MULT = 2.00F;
 	public static final float tentRate = -75F;
-	public static final float medTentRate = -5F;
-	public static final float BlastRate = 5F;
+
 	public static final float GrainRate = 3F;
 	public static final float UniRate = 60F;
-	public static final float FedRate = 30F;
+
 	public static final float TempleRate = 90F;
 	public static final float statueRate = 15F;
 	public static final float flagRate = 0F;
 	public static final float flagReq = 10F;
 
 	public static float tentRate() { return -XFConfig.warpTentUpkeep; }
-	public static float medTentRate() { return -XFConfig.medTentUpkeep; }
-	public static float BlastRate() { return XFConfig.blastFurnacePrestige; }
+
 	public static float GrainRate() { return XFConfig.grainmillPrestige; }
 	public static float UniRate() { return XFConfig.universityPrestige; }
-	public static float FedRate() { return XFConfig.federalReservePrestige; }
+
 	public static float TempleRate() { return XFConfig.templePrestige; }
 	public static float statueRate() { return XFConfig.statuePrestige; }
 	public static float flagRate() { return XFConfig.cityCenterPrestige; }
@@ -274,13 +269,7 @@ public class Clowder {
 	//this mod is so fucking retarded I guarantee you theres like 16 different ways this shit can be exploited
 	//or is just SHIT coding. and that's coming from a MCHELI developer.
 
-
-
 	//i guess you have to do this horseshit for the save to work
-
-
-
-
 
 	//minute timer for war declarations and war timer
 //	public static void updateWars(World world) {
@@ -810,7 +799,6 @@ public class Clowder {
 			//if(clowder.suzerain==null)
 			//	clowder.bitch = false;
 
-
 			//using shitty strings to trick NBT into being able to memorize your allies
 			for (String friend : clowder.alliesS.keySet())
 			{
@@ -856,8 +844,6 @@ public class Clowder {
 			notifyAll(world, new ChatComponentText(EnumChatFormatting.RED + "Your closest warp is " + closest + " (" + ((int)dist) + "m)"));
 		}
 	}
-
-
 
 	//to prevent sethome spam / allypoint spam
 	public void addSethomeDelay(float f, World world) {
@@ -911,8 +897,6 @@ public class Clowder {
 		if(getClowderFromName(Master) == null || getClowderFromName(Vassal) == null)
 			return false;
 
-
-
 		getClowderFromName(Vassal).suzerainS = Master;
 		getClowderFromName(Vassal).suzerain = getClowderFromName(Master);
 		ClowderData.getData(world).markDirty();
@@ -920,13 +904,10 @@ public class Clowder {
 		return true;
 	}
 
-
 	public boolean markEnemy(World world, String Attacker, String Target) {
 
 		if(getClowderFromName(Attacker) == null || getClowderFromName(Target) == null)
 			return false;
-
-
 
 		getClowderFromName(Attacker).enemyS = Target;
 		getClowderFromName(Attacker).enemy = getClowderFromName(Target);
@@ -984,7 +965,6 @@ public class Clowder {
 		return false;
 	}
 
-
 	public boolean addMember(World world, String name) {
 		if (FactionMembershipGuard.isBlocked(world))
 			return false;
@@ -994,7 +974,6 @@ public class Clowder {
 
 		if (legacyInverseMap.containsKey(name) || members.get(name) != null)
 			return false;
-
 
 		EntityPlayer player = world.getPlayerEntityByName(name);
 		UUID uuid = PlayerIdentityService.uuid(player);
@@ -1165,7 +1144,6 @@ public class Clowder {
 		return true;
 	}
 
-
 	//public int getBitches(Clowder clowder) {
 //
 	//	int bitches = 0;
@@ -1178,8 +1156,6 @@ public class Clowder {
 //
 	//	return bitches;
 	//}
-
-
 
 	public void setHome(double x, double y, double z, EntityPlayer player) {
         if (player == null || !isInCapital(player.worldObj, (int)Math.floor(x), (int)Math.floor(z)))
@@ -1408,8 +1384,6 @@ public class Clowder {
 
 		return true;
 	}
-
-
 
 	public boolean disbandClowder(World world) {
 
@@ -1756,7 +1730,6 @@ public class Clowder {
 		ceasefireRequests.remove(target.name);
 		surrenderRequests.remove(target.name);
 	}
-
 
 	//war time goes to 10 for retreat bonus level
 	public boolean hasValidBuildGraceHome() {

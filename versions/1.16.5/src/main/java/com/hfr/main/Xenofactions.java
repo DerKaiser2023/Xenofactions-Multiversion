@@ -39,7 +39,7 @@ public final class Xenofactions {
     public static final RegistryObject<Item> WAND = ITEMS.register("item.world_border_wand", AdminSelectionWand::new);
     public static final RegistryObject<net.minecraft.block.Block> CITY = BLOCKS.register("tile.clowder_flag", com.hfr.blocks.CityCenterBlock::new);
     public static final RegistryObject<Item> CITY_ITEM = ITEMS.register("tile.clowder_flag", () -> new com.hfr.items.CityCenterItem(CITY.get()));
-    public static final RegistryObject<Item> PRESTIGE = ITEMS.register("item.province_point", () -> new Item(new Item.Properties().tab(TAB)));
+    public static final RegistryObject<Item> PRESTIGE = ITEMS.register("item.province_point", () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> DEBUG = ITEMS.register("item.debug", () -> new Item(new Item.Properties().tab(TAB).stacksTo(1)));
     public static final RegistryObject<Item> MACE = ITEMS.register("item.mace", com.hfr.items.RaidingMace::new);
     public static final RegistryObject<Item> MULTITOOL = ITEMS.register("item.mult_alloy", com.hfr.items.RaidingMace::new);

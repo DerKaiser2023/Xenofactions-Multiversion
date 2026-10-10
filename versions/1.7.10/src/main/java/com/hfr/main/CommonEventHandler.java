@@ -10,8 +10,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
-
-import com.hfr.blocks.ModBlocks;
 import com.hfr.clowder.Clowder;
 import com.hfr.command.CommandClowderChat;
 import com.hfr.command.IgnoreManager;
@@ -19,32 +17,17 @@ import com.hfr.command.Mute;
 import com.hfr.command.MuteManager;
 import com.hfr.clowder.flag.CustomFlagService;
 import com.hfr.config.XFConfig;
-import com.hfr.data.AntiMobData;
 import com.hfr.data.OutOfBoundsData;
 import com.hfr.data.CBTData;
-import com.hfr.data.ResourceData;
 import com.hfr.data.CBTData.CBTEntry;
-import com.hfr.data.StockData;
-import com.hfr.data.StockData.Stock;
 //import com.hfr.dim.WorldProviderMoon;
-import com.hfr.handler.SLBMHandler;
 import com.hfr.items.ModItems;
 import com.hfr.world.border.EarthBoundaryManager;
 import com.hfr.main.MainRegistry.ControlEntry;
 import com.hfr.main.MainRegistry.ImmunityEntry;
 import com.hfr.main.MainRegistry.PotionEntry;
 import com.hfr.packet.PacketDispatcher;
-import com.hfr.packet.effect.AuxParticlePacketNT;
 import com.hfr.packet.effect.CBTPacket;
-import com.hfr.packet.effect.RVIPacket;
-import com.hfr.packet.effect.SLBMOfferPacket;
-import com.hfr.packet.tile.SRadarPacket;
-import com.hfr.packet.tile.SchemOfferPacket;
-import com.hfr.pon4.ExplosionController;
-import com.hfr.potion.HFRPotion;
-import com.hfr.render.hud.RenderRadarScreen.Blip;
-import com.hfr.rvi.RVICommon.Indicator;
-import com.hfr.rvi.RVICommon.RVIType;
 
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -94,8 +77,6 @@ import net.minecraftforge.event.world.BlockEvent.BreakEvent;
 import net.minecraftforge.event.world.WorldEvent;
 import com.hfr.wallart.WallArtService;
 
-
-
 public class CommonEventHandler {
 	private static final Set<UUID> PLAYERS_PREVIOUSLY_EXEMPT = new HashSet<UUID>();
 
@@ -107,29 +88,6 @@ public class CommonEventHandler {
 		
 		if(!player.worldObj.isRemote && event.phase == Phase.START) {
 
-
-			player.worldObj.theProfiler.startSection("xr_radar");
-
-			/// RADAR SHIT ///
-			Object vehicle = ReflectionEngine.getVehicleFromSeat(player.ridingEntity);
-
-			// if the player is sitting in a vehicle with radar support
-			//gfys retard
-
-			player.worldObj.theProfiler.endSection();
-			/// RADAR SHIT ///
-
-			/// SLBM OFFER HANDLER ///
-			if (vehicle != null && SLBMHandler.getFlightType(vehicle) > 0) {
-				PacketDispatcher.wrapper.sendTo(
-						new SLBMOfferPacket(SLBMHandler.getFlightType(vehicle), SLBMHandler.getWarhead(vehicle)),
-						(EntityPlayerMP) player);
-			} else {
-				PacketDispatcher.wrapper.sendTo(new SLBMOfferPacket(0, 0), (EntityPlayerMP) player);
-			}
-			/// SLBM OFFER HANDLER ///
-
-			
 			/// CAVE SICKNESS ///
 			if(player.posY <= MainRegistry.caveCap && !player.isRiding()) {
 				player.addPotionEffect(new PotionEffect(Potion.blindness.id, 50, 0));
@@ -138,25 +96,6 @@ public class CommonEventHandler {
 				player.addPotionEffect(new PotionEffect(Potion.weakness.id, 50, 2));
 			}
 			/// CAVE SICKNESS ///
-
-			/// MUD CREATION ///
-
-			//todo make this handle grass above grassblocks and pams harvest craft blocks to not delete those for mud
-			
-			if(player.worldObj.isRaining()) {
-				
-				for(int i = 0; i < MainRegistry.mudrate; i++) {
-	
-					int ix = (int)(player.posX + player.getRNG().nextDouble() * 100 - 50);
-					int iz = (int)(player.posZ + player.getRNG().nextDouble() * 100 - 50);
-					int iy = player.worldObj.getHeightValue(ix, iz) - 1;
-					
-					if(player.worldObj.getBlock(ix, iy, iz) == Blocks.dirt)
-						player.worldObj.setBlock(ix, iy, iz, ModBlocks.soil_mud);
-				}
-			}
-			
-			/// MUD CREATION ///
 
 			/// UPDATE CLOWDER INFO ///
 			
@@ -190,7 +129,7 @@ public class CommonEventHandler {
 		//
 		//	if(!player.capabilities.isFlying) {
 //
-		//		if(player.getCurrentArmor(0) != null && player.getCurrentArmor(0).getItem() == ModItems.lead_boots) {
+
 		//			player.motionY += 0.02D;
 		//		} else {
 		//			player.motionY += 0.035D;
@@ -200,7 +139,7 @@ public class CommonEventHandler {
 		//} else {
 //
 		//	if(!player.capabilities.isFlying) {
-		//		if(player.getCurrentArmor(0) != null && player.getCurrentArmor(0).getItem() == ModItems.lead_boots) {
+
 		//			player.motionY -= 0.04D;
 		//			player.addPotionEffect(new PotionEffect(Potion.moveSlowdown.id, 20, 2));
 		//		}
@@ -330,105 +269,6 @@ public class CommonEventHandler {
 
 			event.setCanceled(true); // Cancel vanilla broadcast so ignored players don't see it
 		}
-	}
-
-	public boolean hasDigiOverlay(EntityPlayer player) {
-		
-		Object vehicle = ReflectionEngine.getVehicleFromSeat(player.ridingEntity);
-
-
-		
-		return false;
-	}
-
-	/** UNUSED shitty bobcode or something
-	@SubscribeEvent
-	public void handleRVITick(TickEvent.PlayerTickEvent event) {
-		
-		EntityPlayer player = event.player;
-		
-		if(!player.worldObj.isRemote && event.phase == Phase.START) {
-			
-			player.worldObj.theProfiler.startSection("xr_rvi");
-
-			int range = 500;	//the maximum distance where vehicles are visible
-			int buffer = 200;	//the minimum distance where vehicles are visible
-			int delay = 4;		//the time in ticks between scans
-			boolean digital = hasDigiOverlay(player);
-
-			if(player.ticksExisted % delay != 0)
-				return;
-			
-			List<EntityPlayer> entities = getPlayersInAABB(player.worldObj, player.posX, player.posY, player.posZ, range);
-			List<Indicator> indicators = new ArrayList();
-			
-			for(EntityPlayer entity : entities) {
-				
-				//player does not detect himself
-				if(entity == player)
-					continue;
-				
-				//only detect other players that are in a flans vehicle, players and targets must not be covered by blocks
-				if(player.worldObj.getHeightValue((int)player.posX, (int)player.posZ) <= player.posY + 2 &&
-						player.worldObj.getHeightValue((int)entity.posX, (int)entity.posZ) <= entity.posY + 2) {
-					
-					Object bogey = ReflectionEngine.getVehicleFromSeat(entity.ridingEntity);
-					
-					if(bogey == null)
-						continue;
-					
-					Entity entBogey = (Entity)bogey;
-					
-					Vec3 vec = Vec3.createVectorHelper(entBogey.posX - player.posX, entBogey.posY - player.posY, entBogey.posZ - player.posZ);
-					double dist = vec.lengthVector();
-					
-					if(dist > range)
-						continue;
-					
-					if(!digital && buffer > dist)
-						continue;
-					
-					RVIType type = RVIType.VEHICLE;
-					
-					if(!digital) {
-						if("EntityPlane".equals(bogey.getClass().getSimpleName()))
-							type = RVIType.PLANE;
-						if("EntityVehicle".equals(bogey.getClass().getSimpleName()))
-							type = RVIType.VEHICLE;
-					} else {
-						
-						if(Clowder.areFriends(player, entity)) {
-							type = RVIType.FRIEND;
-						} else {
-							type = RVIType.ENEMY;
-						}
-					}
-					
-					indicators.add(new Indicator(entBogey.posX, entBogey.posY + 2, entBogey.posZ, type));
-				}
-			}
-			
-			PacketDispatcher.wrapper.sendTo(new RVIPacket(indicators.toArray(new Indicator[0])), (EntityPlayerMP) player);
-			
-			player.worldObj.theProfiler.endSection();
-		}
-	}
-	**/
-
-	public List<EntityPlayer> getPlayersInAABB(World world, double x, double y, double z, double range) {
-
-		List<EntityPlayer> list = new ArrayList();
-
-		for(Object entry : world.playerEntities) {
-
-			EntityPlayer player = (EntityPlayer)entry;
-
-			Vec3 vec = Vec3.createVectorHelper(x - player.posX, y - player.posY, z - player.posZ);
-			if(vec.lengthVector() <= range)
-				list.add(player);
-		}
-
-		return list;
 	}
 
 	// world border logic - fixed
@@ -645,7 +485,6 @@ public class CommonEventHandler {
 		player.addChatComponentMessage(new ChatComponentText(EnumChatFormatting.RED + "Your world border exemption ended outside the map; you were returned to the Earth map center."));
 	}
 
-
 	private double wrapX(double x) { return wrapCoordinate(x, MainRegistry.borderNegX, MainRegistry.borderPosX); }
 	private double wrapZ(double z) { return wrapCoordinate(z, MainRegistry.borderNegZ, MainRegistry.borderPosZ); }
 	private static double wrapCoordinate(double value, double min, double max) {
@@ -783,19 +622,7 @@ public class CommonEventHandler {
 			PLAYERS_PREVIOUSLY_EXEMPT.clear();
 		}
 
-		
 		if(!world.isRemote && event.phase == Phase.START) {
-			
-			List<int[]> list = AntiMobData.getData(world).list;
-			
-			for(int[] i : list) {
-				
-				List<EntityMob> entities = world.getEntitiesWithinAABB(EntityMob.class, AxisAlignedBB.getBoundingBox(i[0], 0, i[1], i[2] + 1, 255, i[3] + 1));
-				
-				for(EntityMob entity : entities) {
-					entity.setHealth(0);
-				}
-			}
 			
 			timer++;
 			
@@ -814,28 +641,10 @@ public class CommonEventHandler {
 				}
 			}
 			
-			if(MainRegistry.enableStocks && timer % (MainRegistry.updateInterval * 20) == 0) {
-				
-				StockData data = StockData.getData(world);
-				
-				for(Stock stock : data.stocks) {
-					
-					for(int i = 0; i < 14; i++)
-						stock.value[i] = stock.value[i + 1];
-					
-					stock.rollTheDice();
-					stock.update();
-
-					data.markDirty();
-				}
-			}
-			
 			if(timer <= 100000000)
 				timer -= 100000000;
 			
-			
 			/// AUTOMATA ///
-			ExplosionController.automaton(world);
 		}
 	}
 
@@ -938,7 +747,6 @@ public class CommonEventHandler {
 	//			posZ > MainRegistry.borderPosZ - borderPadding;
 	//}
 
-
 	//for manipulating zombert AI and handling spawn control
 	@SubscribeEvent
 	public void onEntityJoinWorld(EntityJoinWorldEvent event) {
@@ -1023,10 +831,6 @@ public class CommonEventHandler {
 			}
 		}
 
-		if(e.getEquipmentInSlot(2) != null && e.getEquipmentInSlot(2).getItem() == ModItems.graphene_vest) {
-			e.worldObj.playSoundAtEntity(e, "random.break", 5F, 1.0F + e.getRNG().nextFloat() * 0.5F);
-			event.setCanceled(true);
-		}
 	}
 	
 	private boolean isWithinCustomDropYRange(int y, Integer minY, Integer maxY) {
@@ -1037,10 +841,6 @@ public class CommonEventHandler {
 	public void onEntityDropEvent(LivingDropsEvent event) {
 		
 		World world = event.entityLiving.worldObj;
-		
-		/*if(event.entityLiving instanceof EntitySheep && world.rand.nextInt(3) == 0) {
-			event.drops.add(new EntityItem(world, event.entityLiving.posX, event.entityLiving.posY, event.entityLiving.posZ, new ItemStack(ModItems.mutton_raw)));
-		}*/
 		
 		if(event.entityLiving instanceof EntitySquid && world.rand.nextInt(3) == 0) {
 			event.drops.add(new EntityItem(world, event.entityLiving.posX, event.entityLiving.posY, event.entityLiving.posZ, new ItemStack(ModItems.squid_raw)));
@@ -1109,14 +909,6 @@ public class CommonEventHandler {
 		//		world.spawnEntityInWorld(entityItem);
 		//	}
 		//}
-
-		/*ResourceData data = ResourceData.getData(world);
-		
-		if(world.rand.nextFloat() < 0.05F && data.isInArea(event.x, event.z, data.iron))
-			world.spawnEntityInWorld(new EntityItem(world, event.x + 0.5, event.y + 0.5, event.z + 0.5, new ItemStack(Blocks.iron_ore)));
-		
-		if(world.rand.nextFloat() < 0.1F && data.isInArea(event.x, event.z, data.coal))
-			world.spawnEntityInWorld(new EntityItem(world, event.x + 0.5, event.y + 0.5, event.z + 0.5, new ItemStack(Items.coal)));*/
 
 	}
 }

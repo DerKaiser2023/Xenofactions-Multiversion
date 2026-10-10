@@ -455,7 +455,6 @@ public final class FactionGameplay {
     private String balance(CompoundNBT f) { return "Prestige " + f.getFloat("prestige") + " | generation " + f.getFloat("prestigeGen") + "/h | upkeep " + upkeep(f) + "/h | war " + warCost(f) + "/h | net " + net(f) + "/h | " + new String[]{"Stable Nation", "Financial Crisis", "National Collapse", "Fallen Nation"}[bankruptcy(f)]; }
     public String economy(ServerPlayerEntity player, String action, int amount) {
         CompoundNBT f = require(player, 1); if (action.equals("balance")) return balance(f);
-        if (action.equals("withdraw")) throw new IllegalArgumentException("This command is currently disabled, matching the reference command dispatcher.");
         if (amount <= 0) throw new IllegalArgumentException("Amount must be positive.");
         if (!action.equals("deposit")) throw new IllegalArgumentException("Unknown economy action.");
         members.prepareEdit(); List<ItemStack> original = new ArrayList<>(); for (ItemStack stack : player.inventory.items) original.add(stack.copy());

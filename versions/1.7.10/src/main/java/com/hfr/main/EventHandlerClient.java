@@ -1,6 +1,7 @@
 package com.hfr.main;
 
-import java.util.ArrayList;
+import com.hfr.render.util.RenderAccessoryUtility;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
@@ -9,8 +10,6 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
 import com.hfr.command.CommandClowderChat;
-import com.hfr.handler.SLBMHandler;
-import com.hfr.items.ModItems;
 import com.hfr.packet.PacketDispatcher;
 import com.hfr.packet.client.ReseatRequestPacket;
 import com.hfr.packet.effect.PlayerDataPacket;
@@ -22,12 +21,7 @@ import com.hfr.inventory.gui.GUITDMKitSelect;
 import com.hfr.inventory.gui.GUITDMMapVote;
 import com.hfr.inventory.gui.GUIAdminEditor;
 import com.hfr.render.hud.RenderFlagOverlay;
-import com.hfr.render.hud.RenderRVIOverlay;
-import com.hfr.render.hud.RenderRadarScreen;
-import com.hfr.render.util.RenderAccessoryUtility;
 import com.hfr.tileentity.machine.MachineDisplaySnapshot;
-import com.hfr.tileentity.machine.TileEntityMachineBuilder;
-import com.hfr.schematic.SchematicRenderer;
 import com.hfr.util.LoggingEngine;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture.Type;
 
@@ -70,10 +64,6 @@ import net.minecraftforge.event.world.WorldEvent;
 
 public class EventHandlerClient {
 	
-	public static boolean zoom = false;
-	public static boolean lastEnabled = false;
-	public static int lastOffset = 0;
-	public static int lastRange = 500;
 	boolean lock = false;
 	
 	public static boolean fps = false;
@@ -129,7 +119,6 @@ public class EventHandlerClient {
 	private static int tdmBluePlayerCount;
 	private static boolean tdmEconomy;
 	
-	public static List<int[]> resourceBorders = new ArrayList();
 	boolean resources = false;
 	
 	public static void updateTDMStatus(boolean enabled, boolean voting, int roundSeconds, int voteSeconds, int redScore, int blueScore, String mapName) {
@@ -277,7 +266,6 @@ public class EventHandlerClient {
 		return "";
 	}
 
-
 	public static void openTDMMenu(String currentTeam, int cooldownSeconds, String[] friendlyLines, String[] enemyLines,boolean canOpenBuyMenu,boolean ffa,boolean showUtility,boolean showKillstreaks,int killScore) {
 		Minecraft mc = Minecraft.getMinecraft();
 		if (mc != null) {
@@ -323,60 +311,11 @@ public class EventHandlerClient {
 			/// START KEYBINDS ///
 			if(/*!FMLClientHandler.instance().isGUIOpen(GuiChat.class)*/ Minecraft.getMinecraft().currentScreen == null) {
 				
-				//flans radar zoom
-				if(Keyboard.isKeyDown(ClientProxy.toggleZoom.getKeyCode())) {
-					
-					if(!lock) {
-						zoom = !zoom;
-						Minecraft.getMinecraft().thePlayer.playSound("hfr:item.toggle", 0.5F, 0.75F);
-					}
-					
-					lock = true;
-					
-				//flans radar scale +
-				} else if(Keyboard.isKeyDown(ClientProxy.incScale.getKeyCode()) && RenderRadarScreen.scale < 3) {
-					
-					if(!lock) {
-						RenderRadarScreen.scale += 0.1F;
-						Minecraft.getMinecraft().thePlayer.playSound("hfr:item.toggle", 0.25F, 1.25F);
-					}
-					
-					lock = true;
-					
-				//flans radar scale -
-				} else if(Keyboard.isKeyDown(ClientProxy.decScale.getKeyCode()) && RenderRadarScreen.scale > 0.5) {
-					
-					if(!lock) {
-						RenderRadarScreen.scale -= 0.1F;
-						Minecraft.getMinecraft().thePlayer.playSound("hfr:item.toggle", 0.25F, 1.1F);
-					}
-					
-					lock = true;
-					
-				//slbm launch screen
-				} else if(Keyboard.isKeyDown(ClientProxy.slbm.getKeyCode())/* && Minecraft.getMinecraft().currentScreen != null*/) {
-					
-					if(!lock && SLBMHandler.flight > 0 && player.isRiding()) {
-						player.openGui(MainRegistry.instance, ModItems.guiID_slbm, player.worldObj, 0, 0, 0);
-					}
-					
-					lock = true;
-				
 				//chat filter
-				} else if(Keyboard.isKeyDown(ClientProxy.filter.getKeyCode())/* && Minecraft.getMinecraft().currentScreen != null*/) {
+				if(Keyboard.isKeyDown(ClientProxy.filter.getKeyCode())/* && Minecraft.getMinecraft().currentScreen != null*/) {
 					
 					if(!lock) {
 						MainRegistry.chatfilter = !MainRegistry.chatfilter;
-						Minecraft.getMinecraft().thePlayer.playSound("hfr:item.toggle", 0.25F, 0.5F);
-					}
-					
-					lock = true;
-
-				//resource markers
-				} else if(Keyboard.isKeyDown(ClientProxy.markers.getKeyCode())) {
-					
-					if(!lock) {
-						resources = !resources;
 						Minecraft.getMinecraft().thePlayer.playSound("hfr:item.toggle", 0.25F, 0.5F);
 					}
 					
@@ -412,17 +351,6 @@ public class EventHandlerClient {
 			}
 			/// END KEYBINDS ///
 			
-			/// RADAR SHIT ///
-			if(lastEnabled) {
-				int offset = lastOffset;
-				int range = 250;
-				
-				if(!zoom)
-					range = lastRange;
-				
-				RenderRadarScreen.renderRadar(offset, range, zoom);
-			}
-			
 			/// CLOWDER TRASH ///
 			//todo fix with HMG
 			RenderFlagOverlay.drawFlag();
@@ -441,100 +369,7 @@ public class EventHandlerClient {
 		}
 	}
 	
-	@SideOnly(Side.CLIENT)
-	@SubscribeEvent
-	public void onRenderWorldLastEvent(RenderWorldLastEvent event) {
-		
-		GL11.glPushMatrix();
-		
-		RenderRVIOverlay.renderIndicators(event.partialTicks);
-		renderBuilderPreviews(event.partialTicks);
-		
-		/*World world = Minecraft.getMinecraft().theWorld;
-		EntityPlayer player = Minecraft.getMinecraft().thePlayer;
-
-		double x = player.lastTickPosX + (player.posX - player.lastTickPosX) * event.partialTicks;
-		double y = player.lastTickPosY + (player.posY - player.lastTickPosY) * event.partialTicks;
-		double z = player.lastTickPosZ + (player.posZ - player.lastTickPosZ) * event.partialTicks;
-		
-		if(resources) {
-			for(int[] pos : resourceBorders) {
-	
-				int minX = pos[0];
-				int minZ = pos[1];
-				int maxX = pos[2];
-				int maxZ = pos[3];
-				int color = pos[4];
-	
-				int avgX = (minX + maxX) / 2;
-				int avgZ = (minZ + maxZ) / 2;
-				
-				if(Vec3.createVectorHelper(avgX - x, 0, avgZ - z).lengthVector() > 50)
-					continue;
-				
-				int iy;
-				for(int ix = minX; ix <= maxX; ix++) {
-	
-					iy = getLocalY(world, ix, (int)y, minZ);
-					drawX(ix - x, iy - y, minZ - z, color);
-					iy = getLocalY(world, ix, (int)y, maxZ);
-					drawX(ix - x, iy - y, maxZ - z, color);
-				}
-				for(int iz = minZ; iz <= maxZ; iz++) {
-	
-					iy = getLocalY(world, minX, (int)y, iz);
-					drawX(minX - x, iy - y, iz - z, color);
-					iy = getLocalY(world, maxX, (int)y, iz);
-					drawX(maxX - x, iy - y, iz - z, color);
-				}
-			}
-		}*/
-		
-		GL11.glPopMatrix();
-	}
-
 	/** Render plans in world space, independently of the Depot TESR's frustum. */
-	private void renderBuilderPreviews(float partialTicks) {
-		Minecraft mc=Minecraft.getMinecraft();if(mc.theWorld==null||mc.renderViewEntity==null)return;
-		Entity camera=mc.renderViewEntity;double cx=camera.lastTickPosX+(camera.posX-camera.lastTickPosX)*partialTicks,cy=camera.lastTickPosY+(camera.posY-camera.lastTickPosY)*partialTicks,cz=camera.lastTickPosZ+(camera.posZ-camera.lastTickPosZ)*partialTicks;
-		for(Object value:mc.theWorld.loadedTileEntityList)if(value instanceof TileEntityMachineBuilder){TileEntityMachineBuilder d=(TileEntityMachineBuilder)value;if(d.preview==null)continue;GL11.glPushMatrix();GL11.glTranslated(d.previewX-cx,d.previewY-cy,d.previewZ-cz);mc.getTextureManager().bindTexture(TextureMap.locationBlocksTexture);SchematicRenderer.render(d.preview,1F,0,0,0,0,d.previewRotation,d.previewMirrored);GL11.glPopMatrix();}
-	}
-	
-	private int getLocalY(World world, int x, int y, int z) {
-		
-		for(int i = y + 10; i > y - 30; i--) {
-			
-			if(world.getBlock(x, i, z).canPlaceTorchOnTop(world, x, i, z))
-				return i;
-		}
-		
-		return -1;
-	}
-	
-	private void drawX(double x, double y, double z, int color) {
-
-		GL11.glPushMatrix();
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glTranslated(x, y + 1.05, z);
-        GL11.glLineWidth(3F);
-		
-		Tessellator tess = Tessellator.instance;
-		
-		tess.startDrawing(3);
-		tess.setColorOpaque_I(color);
-		tess.addVertex(0, 0, 0);
-		tess.addVertex(1, 0, 1);
-		tess.draw();
-		tess.startDrawing(3);
-		tess.setColorOpaque_I(color);
-		tess.addVertex(1, 0, 0);
-		tess.addVertex(0, 0, 1);
-		tess.draw();
-		
-        GL11.glLineWidth(2F);
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-		GL11.glPopMatrix();
-	}
 	
 	@SubscribeEvent
 	public void preRenderEvent(RenderPlayerEvent.Pre event) {
@@ -550,9 +385,6 @@ public class EventHandlerClient {
 		if(player.getHeldItem() != null) {
 			Item item = player.getHeldItem().getItem();
 			
-			if(item == ModItems.flaregun || item == ModItems.pakker) {
-				renderer.modelBipedMain.aimedBow = true;
-			}
 		}
 	}
 	
@@ -826,7 +658,6 @@ public class EventHandlerClient {
 			}
 		}
 
-		
 		IChatComponent text = new ChatComponentText(msg);
 		player.addChatComponentMessage(text);
 		
