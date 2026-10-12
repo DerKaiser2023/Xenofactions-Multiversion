@@ -24,6 +24,12 @@ public class GUIHandler implements IGuiHandler {
 	@Override
 	public Object getServerGuiElement(int ID, EntityPlayer player, World world, int x, int y, int z) {
 		TileEntity entity = world.getTileEntity(x, y, z);
+        if (ID == com.hfr.ender.EnderChestInteraction.GUI_ID) {
+            if (world.getBlock(x, y, z) != net.minecraft.init.Blocks.ender_chest || !(entity instanceof net.minecraft.tileentity.TileEntityEnderChest)) return null;
+            player.getInventoryEnderChest().func_146031_a((net.minecraft.tileentity.TileEntityEnderChest) entity);
+            return world.isRemote ? new GuiChest(player.inventory, player.getInventoryEnderChest())
+                : new com.hfr.ender.RestrictedEnderChestContainer(player.inventory, player.getInventoryEnderChest());
+        }
 		switch(ID)
 		{
 
@@ -97,6 +103,12 @@ public class GUIHandler implements IGuiHandler {
 	@Override
 	public Object getClientGuiElement(int ID, EntityPlayer player, World world, int x, int y, int z) {
 		TileEntity entity = world.getTileEntity(x, y, z);
+        if (ID == com.hfr.ender.EnderChestInteraction.GUI_ID) {
+            if (world.getBlock(x, y, z) != net.minecraft.init.Blocks.ender_chest || !(entity instanceof net.minecraft.tileentity.TileEntityEnderChest)) return null;
+            player.getInventoryEnderChest().func_146031_a((net.minecraft.tileentity.TileEntityEnderChest) entity);
+            return world.isRemote ? new GuiChest(player.inventory, player.getInventoryEnderChest())
+                : new com.hfr.ender.RestrictedEnderChestContainer(player.inventory, player.getInventoryEnderChest());
+        }
 		if(entity != null)
 		{
 			switch(ID)

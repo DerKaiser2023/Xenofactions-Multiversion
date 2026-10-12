@@ -531,6 +531,8 @@ public class MainRegistry
 		GameRegistry.registerTileEntity(TileEntityProp.class, "tileentity_hfr_prop");
 		GameRegistry.registerTileEntity(TileEntityStatue.class, "tileentity_hfr_statue");
 		GameRegistry.registerTileEntity(TileEntityMachineGrainmill.class, "tileentity_hfr_mill");
+        GameRegistry.registerTileEntity(com.hfr.tileentity.machine.TileEntityGrainmillInputProxy.class, "tileentity_hfr_mill_input_proxy");
+        GameRegistry.registerTileEntity(com.hfr.blocks.machine.PlayerTrader.Tile.class, "tileentity_hfr_player_trader");
 		GameRegistry.registerTileEntity(TileEntityBerlin.class, "tileentity_hfr_berlin");
 		GameRegistry.registerTileEntity(TileEntityMachineFactory.class, "tileentity_hfr_factory");
 		GameRegistry.registerTileEntity(TileEntityMachineTemple.class, "tileentity_hfr_temple");
@@ -564,6 +566,7 @@ public class MainRegistry
 		//FMLCommonHandler.instance().bus().register(pon4);
 		MinecraftForge.EVENT_BUS.register(handler);
 		MinecraftForge.EVENT_BUS.register(clowder);
+        MinecraftForge.EVENT_BUS.register(new com.hfr.ender.EnderChestInteraction());
 		//MinecraftForge.EVENT_BUS.register(pon4);
 
 		//GameRegistry.registerWorldGenerator(worldGenMoon, 0);
@@ -622,6 +625,7 @@ public class MainRegistry
 	{
 		//in postload, long after all blocks have been registered, the buffered config is being evaluated and processed.
 
+		com.hfr.ender.EnderChestRestrictions.validateRegistry();
 		HbmStoneDropIntegration.seedDefaultsIfAvailable(stoneDropLoadState);
 		XFGuideBook.register();
 		StoneDropSnapshotSync.sendToAll();

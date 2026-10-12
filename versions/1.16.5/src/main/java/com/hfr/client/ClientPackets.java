@@ -11,5 +11,10 @@ public final class ClientPackets {
                 && client.player.containerMenu.containerId == packet.container)
             ((FoundationContainer)client.player.containerMenu).receive(packet.data);
     }
+    public static void trader(FoundationNetwork.TraderSnapshot packet) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player != null && client.player.containerMenu instanceof com.hfr.inventory.PlayerTraderContainer && client.player.containerMenu.containerId == packet.container)
+            ((com.hfr.inventory.PlayerTraderContainer)client.player.containerMenu).receive(packet.data);
+    }
     private ClientPackets() { }
 }

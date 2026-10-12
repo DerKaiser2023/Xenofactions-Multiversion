@@ -59,6 +59,22 @@ public class BlockRice extends BlockCrops {
         return 1;
     }
     
+    @Override
+    public boolean onBlockActivated(World world, int x, int y, int z, net.minecraft.entity.player.EntityPlayer player,
+                                    int side, float hitX, float hitY, float hitZ)
+    {
+        if (world.getBlockMetadata(x, y, z) != 7)
+            return false;
+
+        if (!world.isRemote)
+        {
+            world.setBlockMetadataWithNotify(x, y, z, 0, 2);
+            world.spawnEntityInWorld(new net.minecraft.entity.item.EntityItem(world, x + 0.5D, y + 0.5D, z + 0.5D,
+                    new net.minecraft.item.ItemStack(ModItems.rice)));
+        }
+        return true;
+    }
+
     public void dropBlockAsItemWithChance(World p_149690_1_, int p_149690_2_, int p_149690_3_, int p_149690_4_, int p_149690_5_, float p_149690_6_, int p_149690_7_)
     {
         super.dropBlockAsItemWithChance(p_149690_1_, p_149690_2_, p_149690_3_, p_149690_4_, p_149690_5_, p_149690_6_, p_149690_7_);

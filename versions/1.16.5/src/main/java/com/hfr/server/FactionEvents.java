@@ -120,6 +120,10 @@ public final class FactionEvents {
     @SubscribeEvent public void interact(PlayerInteractEvent.RightClickBlock e) {
         if (!(e.getPlayer() instanceof ServerPlayerEntity)) return; ServerPlayerEntity p = (ServerPlayerEntity)e.getPlayer();
         FactionGameplay g = FactionRuntime.view(p.getServer()); Block b = p.level.getBlockState(e.getPos()).getBlock(); TileEntity t = p.level.getBlockEntity(e.getPos());
+        if (b == Xenofactions.TRADER.get() && t instanceof com.hfr.tile.PlayerTraderTile) {
+            if (!com.hfr.shop.PlayerTraderService.near(p, (com.hfr.tile.PlayerTraderTile)t)) e.setCanceled(true);
+            return;
+        }
         String action = t instanceof IInventory ? "CONTAINER" : b instanceof DoorBlock || b instanceof TrapDoorBlock || b instanceof FenceGateBlock || b instanceof AbstractButtonBlock || b instanceof LeverBlock || b instanceof AbstractPressurePlateBlock ? "SWITCH" : "INTERACT";
         TerritoryRecord r = g.at(p.level, e.getPos());
         // Reference safe/war zones permit interaction; their restrictions concern editing and damage.

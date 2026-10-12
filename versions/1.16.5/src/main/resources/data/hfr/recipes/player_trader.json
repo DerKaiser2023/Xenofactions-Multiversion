@@ -1,0 +1,30 @@
+{
+  "conditions": [
+    {
+      "type": "hfr:survival_recipes"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IRI",
+    "ECE",
+    "IRI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "E": {
+      "item": "minecraft:emerald"
+    },
+    "C": {
+      "item": "minecraft:trapped_chest"
+    }
+  },
+  "result": {
+    "item": "hfr:tile.player_trader"
+  }
+}

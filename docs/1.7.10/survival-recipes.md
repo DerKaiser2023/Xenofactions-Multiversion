@@ -52,3 +52,7 @@ The Production Line creates only level-one cogs. University output remains origi
 Admin XShop/debug/selection tools and generated city-cap internals remain non-craftable. Fishing Net (`WWW / RAR / BBB`: W ladder, R iron bars, A trapped chest, B fence) and Grain Mill remain supported. The survival toggle controls `XenoRecipes`, including the fortifications above, including Fishing Net, while existing component/rice/mill/banner and furnace recipes remain independent. The maintained `/c claim` continues to supply named city tokens.
 
 Excluded weapons, oil/RF/nuclear chains, vehicle parts, farming contracts, obsolete buildings, masks, stock/tax items and advanced production materials have no recipes or machine outputs. See [the maintained inventory](../MIGRATION.md#maintained-content-cleanup) for exact removals and save boundaries.
+
+## Player Trader
+
+The stocked single-offer Player Trader crafts as `IRI / ECE / IRI`: four iron ingots, two redstone, two emeralds and one trapped chest. It follows `enableSurvivalRecipes`. This is distinct from the faction market recipe, which uses a normal chest. No removed material or machine is required.

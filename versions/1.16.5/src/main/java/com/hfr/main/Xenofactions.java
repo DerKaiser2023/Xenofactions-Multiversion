@@ -61,16 +61,23 @@ public final class Xenofactions {
     public static final RegistryObject<ContainerType<com.hfr.inventory.CityCenterContainer>> CITY_MENU = CONTAINERS.register("city_center", () -> IForgeContainerType.create((id, inventory, buffer) -> new com.hfr.inventory.CityCenterContainer(id, buffer.readNbt(), inventory.player.level)));
     public static final RegistryObject<ContainerType<FoundationContainer>> EDITOR = CONTAINERS.register("admin_editor",
             () -> IForgeContainerType.create((id, inventory, buffer) -> new FoundationContainer(id, buffer.readNbt())));
+    public static final RegistryObject<net.minecraft.block.Block> TRADER = BLOCKS.register("tile.player_trader", com.hfr.blocks.PlayerTraderBlock::new);
+    public static final RegistryObject<Item> TRADER_ITEM = ITEMS.register("tile.player_trader", () -> new net.minecraft.item.BlockItem(TRADER.get(), new Item.Properties().tab(TAB)));
+    public static final RegistryObject<net.minecraft.tileentity.TileEntityType<com.hfr.tile.PlayerTraderTile>> TRADER_TILE = TILES.register("player_trader", () -> net.minecraft.tileentity.TileEntityType.Builder.of(com.hfr.tile.PlayerTraderTile::new, TRADER.get()).build(null));
+    public static final RegistryObject<ContainerType<com.hfr.inventory.PlayerTraderContainer>> TRADER_MENU = CONTAINERS.register("player_trader", () -> IForgeContainerType.create((id, inventory, buffer) -> new com.hfr.inventory.PlayerTraderContainer(id, buffer.readNbt())));
     public Xenofactions() {
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
         ITEMS.register(bus); BLOCKS.register(bus); TILES.register(bus); CONTAINERS.register(bus); SOUNDS.register(bus);
         bus.addListener(this::setup);
+
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, FoundationConfig.SPEC, "xenofactions-foundation.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, com.hfr.config.GameplayConfig.SPEC, "xenofactions-gameplay.toml");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, com.hfr.config.EnderChestConfig.SPEC, "xenofactions-ender-chest.toml");
+        MinecraftForge.EVENT_BUS.register(new com.hfr.ender.EnderChestInteraction());
         MinecraftForge.EVENT_BUS.register(new FoundationLifecycle());
         MinecraftForge.EVENT_BUS.register(new com.hfr.server.PlayerLifecycle());
         MinecraftForge.EVENT_BUS.register(new com.hfr.server.FactionEvents());
         MinecraftForge.EVENT_BUS.register(new com.hfr.server.ChatModeration());
     }
-    private void setup(net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent event) { event.enqueueWork(() -> { FoundationNetwork.register(); net.minecraftforge.common.crafting.CraftingHelper.register(new com.hfr.config.SurvivalRecipeCondition.Serializer()); }); }
+    private void setup(net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent event) { event.enqueueWork(() -> { FoundationNetwork.register(); com.hfr.ender.EnderChestRestrictions.load(); net.minecraftforge.common.crafting.CraftingHelper.register(new com.hfr.config.SurvivalRecipeCondition.Serializer()); }); }
 }

@@ -36,7 +36,7 @@ public class MachineGrainmill extends BlockDummyable {
 		if(meta >= ForgeDirection.UNKNOWN.ordinal())
 			return new TileEntityMachineGrainmill();
 		
-		return null;
+		return new com.hfr.tileentity.machine.TileEntityGrainmillInputProxy();
 	}
 	
 	@Override
@@ -91,7 +91,7 @@ public class MachineGrainmill extends BlockDummyable {
     {
         if (!keepInventory)
         {
-        	ISidedInventory tileentityfurnace = (ISidedInventory)world.getTileEntity(x, y, z);
+            ISidedInventory tileentityfurnace = i >= ForgeDirection.UNKNOWN.ordinal() ? (ISidedInventory)world.getTileEntity(x, y, z) : null;
 
             if (tileentityfurnace != null)
             {

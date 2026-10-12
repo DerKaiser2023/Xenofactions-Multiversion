@@ -14,5 +14,6 @@
   "item.hfr.item.mace": "Raiding Mace",
   "item.hfr.item.mult_alloy": "Multitool",
   "item.hfr.item.clowder_map": "Claim Map",
-  "item.hfr.item.debug": "Debug Protection Bypass"
+  "item.hfr.item.debug": "Debug Protection Bypass",
+  "block.hfr.tile.player_trader": "Player Trader"
 }

@@ -116,3 +116,11 @@
 
 - Add the optional 1.7.10 PublicChat callback API after mute checks, public routing, filtering and Minecraft delivery. Faction/alliance and command/private routes never publish external messages; no Nilcord dependency is required.
 - Apply the existing configured substitutions to public message bodies on the server. Mark filtered public components so clients do not substitute them twice; keep client filtering and styled components for other messages.
+
+2026-10-11 22:39 — Recover retained legacy automation, traders and deposit rules
+
+- Recover grain mill hopper inputs through inventory-free structure proxies and mature-rice right-click harvesting on 1.7.10, preserving core inventory NBT, processing and faction protection.
+- Add craftable UUID-owned stocked single-offer Player Traders on both targets alongside the existing XShop architecture. Keep templates, stock and collected payments separate; validate exact item/NBT identity, offer revision, fresh permissions and all capacities before committing whole purchases.
+- Add disabled-by-default server ender chest deposit restrictions with blacklist/whitelist, optional portable-storage rules and quantity caps. Validate each vanilla click against its prior state and restore player/ender/cursor state when rejected; retain withdrawals and vanilla save format. Legacy metadata rules are supported only on 1.7.10; modern rules require flattened registry names.
+- Store new alliance offers by faction UUID on both targets, resolve faction/player command targets, retain resolvable old pending keys and unresolved native migration records, and remove only the accepted offer after saving both relationships and refreshing presentation.
+- Keep removed systems absent; preserve native adapters, optional HBM absence handling, existing XShop saves and target-specific item serialization. Update durable usage, configuration, recipes and migration documentation; modern networking now requires matching foundation-3 peers.

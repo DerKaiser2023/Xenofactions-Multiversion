@@ -45,7 +45,7 @@ public final class GameplayCommands {
                 "/c apply <faction>, applicants, accept/deny/kick <player>, promote/demote/owner <player>.",
                 "/c rename <name>, motd <text>, color <hex>, flag <pattern>, listflags, gracebuild; permissions [ally|neutral] <build|destroy|container|interact|switch> <true|false>.",
                 "/c claim <city name>, city upgrade/cancelmove/recovermove, nameclaim <name>, capital [set <city>], sethome, home, setwarp/delwarp/warp <name>, warps; /xmap.",
-                "/c balance, deposit <amount>, alliance, befriend <faction>, acceptfriend <offering player>, unfriend <faction>, setallywarp, allywarp <faction>, merge/acceptmerge <faction>, enemy/unenemy <faction>.",
+                "/c balance, deposit <amount>, alliance, befriend <faction|player>, acceptfriend <faction|player>, unfriend <faction>, setallywarp, allywarp <faction>, merge/acceptmerge <faction>, enemy/unenemy <faction>.",
                 "/c declarewar <faction>, listwars, peace <faction> [city], acceptpeace/ceasefire/acceptceasefire/surrender/acceptsurrender/defendally <faction>, retreat, stonedrops [page]; /xflags, /xmulti, /xignore <player>."
         };
         int selected = page < 1 || page > text.length ? 1 : page; c.getSource().sendSuccess(new StringTextComponent("Page " + selected + "/" + text.length + "\n" + text[selected - 1]), false); return 1;

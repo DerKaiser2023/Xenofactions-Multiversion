@@ -638,6 +638,8 @@ public void handleChatServer(ServerChatEvent event) {
 		
 		if(player.inventory.hasItem(ModItems.debug))
 			return true;
+        if(b == ModBlocks.player_trader)
+            return com.hfr.shop.PlayerTraderService.mayAccess(player, event.x, event.z);
 
 		if(owner == null)
 			return true;

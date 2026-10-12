@@ -87,8 +87,8 @@ Usage: `/clowder help`; aliases: `/clowder`, `/c`; permission level: 0.
 
 | Command | Purpose |
 | --- | --- |
-| `/c ally <faction>` or `/c befriend <faction>` | Request an alliance. |
-| `/c acceptally <faction>` or `/c acceptfriend <faction>` | Accept an alliance request. |
+| `/c ally <faction>` or `/c befriend <faction|player>` | Request an alliance. |
+| `/c acceptally <faction|player>` or `/c acceptfriend <faction|player>` | Accept an alliance request. |
 | `/c unally <faction>` or `/c unfriend <faction>` | Break an alliance. |
 | `/c enemy <faction>` | Leader-only one-way enemy marker. It is separate from wars, costs no Prestige, and enemy kills grant faction Prestige. |
 | `/c unenemy <faction>` | Leader-only enemy removal request. The enemy relation remains active for 72 real hours before expiring. |
@@ -270,3 +270,5 @@ Administrator commands:
 - `/tdm map killscorereward <map> <amount>` sets spendable kill score awarded per valid kill.
 
 `/tdm help` is task-oriented and permission-aware. Player pages cover Match & Voting, Teams, Kits & Loadouts, and Maps. Operators additionally see administration pages, including `[Admin] /tdm teamless`, Kits, Utility & Killstreaks, and Map Configuration.
+
+Alliance targets resolve a faction name first, otherwise a player and their current faction. Pending offers belong to the sending faction UUID; resolvable historical faction/player keys remain accepted. Only the matching incoming offer is removed after both alliance records are saved.

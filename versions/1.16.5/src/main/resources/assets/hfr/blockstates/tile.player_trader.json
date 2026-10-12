@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "hfr:block/player_trader"
+    }
+  }
+}

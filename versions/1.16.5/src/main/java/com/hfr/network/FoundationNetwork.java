@@ -18,7 +18,7 @@ import net.minecraftforge.fml.network.PacketDistributor;
 import net.minecraftforge.fml.network.simple.SimpleChannel;
 
 public final class FoundationNetwork {
-    private static final String PROTOCOL = "foundation-2";
+    private static final String PROTOCOL = "foundation-3";
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(new ResourceLocation(Xenofactions.MODID, "foundation"),
             () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private FoundationNetwork() { }
@@ -26,6 +26,34 @@ public final class FoundationNetwork {
         CHANNEL.registerMessage(0, Action.class, Action::encode, Action::decode, Action::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(1, Snapshot.class, Snapshot::encode, Snapshot::decode, Snapshot::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(2, Border.class, Border::encode, Border::decode, Border::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(3, TraderAction.class, TraderAction::encode, TraderAction::decode, TraderAction::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(4, TraderSnapshot.class, TraderSnapshot::encode, TraderSnapshot::decode, TraderSnapshot::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+    }
+    public static void traderAction(int container, String token, String action, long revision, int slot, int quantity) {
+        CHANNEL.sendToServer(new TraderAction(container, token, action, revision, slot, quantity));
+    }
+    public static void traderSnapshot(ServerPlayerEntity player, int container, CompoundNBT data) {
+        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new TraderSnapshot(container, data));
+    }
+    public static final class TraderAction {
+        final int container, slot, quantity; final String token, action; final long revision;
+        TraderAction(int container, String token, String action, long revision, int slot, int quantity) { this.container = container; this.token = token; this.action = action; this.revision = revision; this.slot = slot; this.quantity = quantity; }
+        static void encode(TraderAction p, PacketBuffer b) { b.writeVarInt(p.container); b.writeUtf(p.token, 36); b.writeUtf(p.action, 16); b.writeLong(p.revision); b.writeVarInt(p.slot); b.writeVarInt(p.quantity); }
+        static TraderAction decode(PacketBuffer b) { return new TraderAction(b.readVarInt(), b.readUtf(36), b.readUtf(16), b.readLong(), b.readVarInt(), b.readVarInt()); }
+        static void handle(TraderAction p, Supplier<NetworkEvent.Context> supplier) {
+            NetworkEvent.Context c = supplier.get(); c.enqueueWork(() -> {
+                ServerPlayerEntity player = c.getSender(); if (player != null) com.hfr.shop.PlayerTraderService.action(player, p.container, p.token, p.action, p.revision, p.slot, p.quantity);
+            }); c.setPacketHandled(true);
+        }
+    }
+    public static final class TraderSnapshot {
+        public final int container; public final CompoundNBT data;
+        TraderSnapshot(int container, CompoundNBT data) { this.container = container; this.data = data.copy(); }
+        static void encode(TraderSnapshot p, PacketBuffer b) { b.writeVarInt(p.container); b.writeNbt(p.data); }
+        static TraderSnapshot decode(PacketBuffer b) { int id = b.readVarInt(); CompoundNBT data = b.readNbt(); return new TraderSnapshot(id, data == null ? new CompoundNBT() : data); }
+        static void handle(TraderSnapshot p, Supplier<NetworkEvent.Context> supplier) {
+            NetworkEvent.Context c = supplier.get(); c.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientPackets.trader(p))); c.setPacketHandled(true);
+        }
     }
     public static void action(int container, String token, int action) { CHANNEL.sendToServer(new Action(container, token, action)); }
     public static void snapshot(ServerPlayerEntity player, int container, CompoundNBT data) {

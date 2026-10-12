@@ -40,6 +40,8 @@ public final class XenoRecipes {
 
 		shaped(ModBlocks.machine_net, "WWW", "RAR", "BBB", 'W', Blocks.ladder, 'R', Blocks.iron_bars, 'B', Blocks.fence, 'A', Blocks.trapped_chest);
 
+        shaped(ModBlocks.player_trader, "IRI", "ECE", "IRI", 'I', Items.iron_ingot,
+            'R', Items.redstone, 'E', Items.emerald, 'C', Blocks.trapped_chest);
         shaped(ModBlocks.faction_market, "IRI", "ECE", "IRI", 'I', Items.iron_ingot,
             'R', Items.redstone, 'E', Items.emerald, 'C', Blocks.chest);
 

@@ -328,7 +328,7 @@ public final class FactionGameplay {
         String capital = "Not designated"; for (TerritoryRecord c : cities(f)) if (c.cityId.equals(f.getString("capitalCityId"))) capital = c.name;
         List<String> allies = new ArrayList<>(), enemies = new ArrayList<>(), wars = new ArrayList<>(), offers = new ArrayList<>();
         for (CompoundNBT other : factions) if (other != f) { CompoundNBT r = storedRelation(f, other); if (r.getBoolean("ally")) allies.add(other.getString("name")); if (r.getBoolean("enemy")) enemies.add(other.getString("name")); if (declaredWar(f, other)) wars.add(other.getString("name")); for (String kind : new String[]{"peace", "ceasefire", "surrender"}) if (storedRelation(other, f).getBoolean(kind + "Requested")) offers.add(kind + " from " + other.getString("name")); }
-        return decorated(f) + "\n" + f.getString("motd") + "\nLeader: " + f.getString("leader") + " | members: " + f.getList("identityMembers", 10).size() + " | online: " + online(f) + " | cities: " + cities(f).size() + "\nCapital: " + capital + " | home: " + (validHome(f) ? home(f) + " in dimension " + f.getInt("homeDim") : "unset") + " | build grace: " + (grace(f) ? "active" : "inactive") + "\n" + balance(f) + "\nAllies: " + allies + " | enemies: " + enemies + " | active wars: " + wars + "\nTreaty offers: " + offers + " | alliance offers: " + f.getCompound("nativeAllianceOffers").getAllKeys();
+        return decorated(f) + "\n" + f.getString("motd") + "\nLeader: " + f.getString("leader") + " | members: " + f.getList("identityMembers", 10).size() + " | online: " + online(f) + " | cities: " + cities(f).size() + "\nCapital: " + capital + " | home: " + (validHome(f) ? home(f) + " in dimension " + f.getInt("homeDim") : "unset") + " | build grace: " + (grace(f) ? "active" : "inactive") + "\n" + balance(f) + "\nAllies: " + allies + " | enemies: " + enemies + " | active wars: " + wars + "\nTreaty offers: " + offers + " | alliance offers: " + allianceOfferNames(f);
     }
     public static String decorated(CompoundNBT f) {
         float p = f.getFloat("prestige"); String title = p < 0 ? "Bankrupt State" : p < 100 ? "Unorganized Mob" : p < 250 ? "Clan" : p < 500 ? "Tribe" : p < 1000 ? "Chiefdom" : p < 1750 ? "City-State" : p < 2750 ? "Sheikhdom" : p < 4000 ? "Emirate" : p < 6000 ? "Sultanate" : p < 8500 ? "Empire" : "Caliphate";
@@ -385,28 +385,84 @@ public final class FactionGameplay {
         if (allowed == null) { StringBuilder text = new StringBuilder(); for (String rel : new String[]{"Ally", "Neutral"}) for (String a : new String[]{"BUILD", "DESTROY", "CONTAINER", "INTERACT", "SWITCH"}) text.append(rel).append(' ').append(a).append('=').append(f.contains("permission" + rel + "_" + a) ? f.getBoolean("permission" + rel + "_" + a) : rel.equals("Ally") && (a.equals("INTERACT") || a.equals("SWITCH"))).append(' '); return text.toString(); }
         f.putBoolean("permission" + (relationship.equalsIgnoreCase("ally") ? "Ally_" : "Neutral_") + action.toUpperCase(java.util.Locale.ROOT), allowed); commit(); return "Territory permission updated.";
     }
+    /** Faction names take precedence; player identities resolve through current canonical membership. */
+    private CompoundNBT allianceTarget(String value) {
+        CompoundNBT f = find(value); if (f != null) return f;
+        ServerPlayerEntity online = server.getPlayerList().getPlayerByName(value);
+        if (online != null) return faction(online);
+        CompoundNBT match = null;
+        for (CompoundNBT candidate : factions) {
+            ListNBT ms = candidate.getList("identityMembers", 10);
+            for (int i = 0; i < ms.size(); i++) {
+                CompoundNBT m = ms.getCompound(i);
+                // UUID cache lookup is local-only; unresolved saved offers never trigger profile network requests.
+                com.mojang.authlib.GameProfile profile = server.getProfileCache().get(UUID.fromString(m.getString("uuid")));
+                String currentName = !FactionService.usesNames(server) && profile != null ? profile.getName() : m.getString("lastKnownName");
+                boolean matches = currentName.equalsIgnoreCase(value);
+                if (matches) { if (match != null && match != candidate) return null; match = candidate; }
+            }
+        }
+        return match;
+    }
+    private CompoundNBT storedAllianceSender(String key, CompoundNBT offer) {
+        String factionId = offer.getString("factionId");
+        if (!factionId.isEmpty()) return find(factionId);
+        return allianceTarget(offer.getString("legacyKey").isEmpty() ? key : offer.getString("legacyKey"));
+    }
+    private String allianceOfferKey(CompoundNBT receiver, CompoundNBT sender) {
+        CompoundNBT offers = receiver.getCompound("nativeAllianceOffers");
+        if (offers.contains(id(sender), 10) && storedAllianceSender(id(sender), offers.getCompound(id(sender))) == sender) return id(sender);
+        for (String key : offers.getAllKeys()) if (storedAllianceSender(key, offers.getCompound(key)) == sender) return key;
+        return null;
+    }
+    private String allianceOfferNames(CompoundNBT receiver) {
+        Set<String> names = new LinkedHashSet<>(); CompoundNBT offers = receiver.getCompound("nativeAllianceOffers");
+        for (String key : offers.getAllKeys()) { CompoundNBT f = storedAllianceSender(key, offers.getCompound(key)); names.add(f == null ? "Unknown faction" : f.getString("name")); }
+        return String.join(", ", names);
+    }
+    private void importAllianceOffers(CompoundNBT receiver) {
+        if (receiver.getInt("nativeAllianceOfferVersion") >= 2) return;
+        CompoundNBT offers = receiver.getCompound("nativeAllianceOffers");
+        for (int i = 0; i < receiver.getInt("potentialFriends"); i++) {
+            String key = receiver.getString(i + "_pfriend"); if (key.isEmpty()) continue;
+            CompoundNBT sender = allianceTarget(key);
+            receiver.put("nativeAllianceOffers", offers);
+            if ((sender != null && allianceOfferKey(receiver, sender) != null) || offers.contains(key)) continue;
+            CompoundNBT offer = new CompoundNBT(); offer.putString("legacyKey", key);
+            if (sender != null) offer.putString("factionId", id(sender));
+            offers.put(sender == null ? key : id(sender), offer);
+        }
+        receiver.put("nativeAllianceOffers", offers); receiver.putInt("nativeAllianceOfferVersion", 2);
+    }
+
     public String diplomacy(ServerPlayerEntity player, String action, String targetName, String cityName) {
         CompoundNBT me = require(player, action.equals("alliance") || action.equals("wars") ? 1 : action.equals("befriend") || action.equals("acceptfriend") || action.equals("unfriend") ? 2 : 3);
         if (action.equals("alliance") || action.equals("wars")) {
-            List<String> names = new ArrayList<>(); for (CompoundNBT other : factions) if (other != me && (action.equals("alliance") ? relation(me, other).getBoolean("ally") : declaredWar(me, other))) names.add(other.getString("name") + (action.equals("wars") ? " (" + (canRaid(me, other) ? "raidable" : "raid-gated") + ", " + Math.max(0, (System.currentTimeMillis() - relation(me, other).getLong("declaredAt")) / 60000) + " minutes)" : "")); if (action.equals("alliance") && !me.getCompound("nativeAllianceOffers").isEmpty()) names.add("Pending offers: " + me.getCompound("nativeAllianceOffers").getAllKeys()); return names.isEmpty() ? "None." : String.join(", ", names);
+            List<String> names = new ArrayList<>(); for (CompoundNBT other : factions) if (other != me && (action.equals("alliance") ? relation(me, other).getBoolean("ally") : declaredWar(me, other))) names.add(other.getString("name") + (action.equals("wars") ? " (" + (canRaid(me, other) ? "raidable" : "raid-gated") + ", " + Math.max(0, (System.currentTimeMillis() - relation(me, other).getLong("declaredAt")) / 60000) + " minutes)" : "")); if (action.equals("alliance") && !me.getCompound("nativeAllianceOffers").isEmpty()) names.add("Pending offers: " + allianceOfferNames(me)); return names.isEmpty() ? "None." : String.join(", ", names);
         }
         if (action.equals("acceptfriend")) {
-            CompoundNBT offers = me.getCompound("nativeAllianceOffers"), offer = offers.getCompound(targetName.toLowerCase(java.util.Locale.ROOT));
-            CompoundNBT friend = find(offer.getString("factionId"));
-            if (friend == null || friend == me || !me.getString("suzerain").isEmpty() && !me.getString("suzerain").equals("nobody2584369")) throw new IllegalArgumentException("No valid alliance offer from this player, or your faction is a tributary.");
-            boolean envoyPresent = false; ListNBT envoys = friend.getList("identityMembers", 10);
-            for (int i = 0; i < envoys.size(); i++) if (envoys.getCompound(i).getString("uuid").equals(offer.getString("playerId"))) envoyPresent = true;
-            if (!envoyPresent) throw new IllegalArgumentException("The offering player has left that faction; request a new offer.");
+            CompoundNBT friend = allianceTarget(targetName);
+            if (friend == null || friend == me || !me.getString("suzerain").isEmpty() && !me.getString("suzerain").equals("nobody2584369")) throw new IllegalArgumentException("Choose an offering faction; tributaries cannot accept alliances.");
+            String key = allianceOfferKey(me, friend);
+            if (key == null) throw new IllegalArgumentException("There is no alliance offer from " + friend.getString("name") + ".");
             if (war(me, friend)) throw new IllegalArgumentException("End enemy/war relations before forming an alliance.");
-            relation(me, friend).putBoolean("ally", true); relation(friend, me).putBoolean("ally", true); offers.remove(targetName.toLowerCase(java.util.Locale.ROOT)); me.put("nativeAllianceOffers", offers); commit(); notify(friend, "Alliance accepted by " + me.getString("name") + "."); return "Alliance formed.";
+            relation(me, friend).putBoolean("ally", true); relation(friend, me).putBoolean("ally", true);
+            CompoundNBT offers = me.getCompound("nativeAllianceOffers"); offers.remove(key); me.put("nativeAllianceOffers", offers);
+            commit();
+            for (ServerPlayerEntity observer : server.getPlayerList().getPlayers()) { observer.refreshDisplayName(); observer.refreshTabListName(); }
+            notify(friend, "Alliance accepted by " + me.getString("name") + "."); return "Alliance formed with " + friend.getString("name") + ".";
         }
-        CompoundNBT target = find(targetName); if (target == null || target == me || id(target).isEmpty()) throw new IllegalArgumentException("Choose another faction with a stable identity.");
+        CompoundNBT target = action.equals("befriend") ? allianceTarget(targetName) : find(targetName);
+        if (target == null || target == me || id(target).isEmpty()) throw new IllegalArgumentException("Choose another faction with a stable identity.");
         CompoundNBT outward = relation(me, target), inward = relation(target, me); long now = System.currentTimeMillis();
         switch (action) {
         case "befriend":
-            if (outward.getBoolean("ally")) throw new IllegalArgumentException("You are already allies.");
-            CompoundNBT offers = target.getCompound("nativeAllianceOffers"), offer = new CompoundNBT(); offer.putString("factionId", id(me)); offer.putString("playerId", player.getUUID().toString()); offer.putString("playerName", player.getGameProfile().getName());
-            offers.put(player.getGameProfile().getName().toLowerCase(java.util.Locale.ROOT), offer); target.put("nativeAllianceOffers", offers); notify(target, "Alliance offer from " + player.getGameProfile().getName() + " of " + me.getString("name") + ". Use /c acceptfriend " + player.getGameProfile().getName()); break;
+            if (outward.getBoolean("ally") || inward.getBoolean("ally")) throw new IllegalArgumentException("You are already allies.");
+            if (war(me, target)) throw new IllegalArgumentException("End enemy/war relations before offering an alliance.");
+            if (allianceOfferKey(target, me) != null) throw new IllegalArgumentException("An alliance offer to " + target.getString("name") + " is already pending.");
+            CompoundNBT offers = target.getCompound("nativeAllianceOffers"), offer = new CompoundNBT(); offer.putString("factionId", id(me));
+            offers.put(id(me), offer); target.put("nativeAllianceOffers", offers);
+            notify(target, "Alliance offer from " + me.getString("name") + ". Use /c acceptfriend " + me.getString("name")); break;
         case "unfriend": outward.putBoolean("ally", false); inward.putBoolean("ally", false); outward.putLong("formerAllyUntil", now + GameplayConfig.hours("allianceBreakCooldownHours")); inward.putLong("formerAllyUntil", outward.getLong("formerAllyUntil")); break;
         case "enemy":
             if (outward.getBoolean("ally")) throw new IllegalArgumentException("You cannot mark an ally as an enemy.");
@@ -481,6 +537,7 @@ public final class FactionGameplay {
         for (CompoundNBT f : factions) {
             if (f.getInt("nativeGameplayVersion") > 1) throw new IllegalArgumentException("Unsupported native faction gameplay schema.");
             if (!f.contains("nativeRelations", 10)) importRelations(f);
+            importAllianceOffers(f);
             f.putInt("nativeGameplayVersion", 1);
             if (!f.contains("nativeTributeFactionId")) { CompoundNBT target = find(f.getString("surrenderTributeTo")); f.putString("nativeTributeFactionId", id(target)); }
             CompoundNBT relations = f.getCompound("nativeRelations");
@@ -508,9 +565,16 @@ public final class FactionGameplay {
             for (int i = 0; i < f.getInt(group[0]); i++) { String value = f.getString(i + "_" + group[1]); String[] peaceCity = value.split(":city:", 2); CompoundNBT target = find(peaceCity[0]); if (target != null && target != f) { CompoundNBT r = relation(f, target); r.putBoolean(group[2], true); if (peaceCity.length == 2) { try { addPeaceCity(r, city(f, peaceCity[1]).cityId); } catch (IllegalArgumentException absent) { } } } }
         for (String[] group : new String[][]{{"warDeclaredAt", "wdecl_n", "wdecl_t", "declaredAt"}, {"noWarUntil", "nwu_n", "nwu_t", "noWarUntil"}, {"formerAllyNoWar", "fanwu_n", "fanwu_t", "formerAllyUntil"}, {"pendingEnemyRemovalTimes", "pendingEnemyUuid", "pendingEnemyTime", "enemyRemovalAt"}})
             for (int i = 0; i < f.getInt(group[0]); i++) { CompoundNBT target = find(f.getString(i + "_" + group[1])); if (target != null && target != f) relation(f, target).putLong(group[3], f.getLong(i + "_" + group[2])); }
-        CompoundNBT offers = new CompoundNBT(); for (int i = 0; i < f.getInt("potentialFriends"); i++) { String player = f.getString(i + "_pfriend"); for (CompoundNBT sender : factions) { ListNBT ms = sender.getList("identityMembers", 10); for (int j = 0; j < ms.size(); j++) if (ms.getCompound(j).getString("lastKnownName").equalsIgnoreCase(player)) { CompoundNBT o = new CompoundNBT(); o.putString("factionId", id(sender)); o.putString("playerId", ms.getCompound(j).getString("uuid")); o.putString("playerName", player); offers.put(player.toLowerCase(java.util.Locale.ROOT), o); } } } f.put("nativeAllianceOffers", offers);
+
     }
     private void mirrorRelations(CompoundNBT f) {
+        CompoundNBT offers = f.getCompound("nativeAllianceOffers"); int offerCount = 0, oldOffers = f.getInt("potentialFriends");
+        for (String key : offers.getAllKeys()) {
+            CompoundNBT offer = offers.getCompound(key); String legacy = offer.getString("legacyKey");
+            f.putString(offerCount++ + "_pfriend", legacy.isEmpty() ? key : legacy);
+        }
+        for (int i = offerCount; i < oldOffers; i++) f.remove(i + "_pfriend"); f.putInt("potentialFriends", offerCount);
+
         for (String[] group : new String[][]{{"allies", "ally", "ally"}, {"activeWars", "war", "war"}, {"enemyFactionUuids", "enemyFactionUuid", "enemy"}, {"defendingAllies", "def", "defending"}, {"surrenderReq", "sreq", "surrenderRequested"}, {"ceaseReq", "creq", "ceasefireRequested"}, {"peaceReq", "preq", "peaceRequested"}}) {
             int old = f.getInt(group[0]), count = 0;
             for (CompoundNBT other : factions) if (other != f && storedRelation(f, other).getBoolean(group[2])) {

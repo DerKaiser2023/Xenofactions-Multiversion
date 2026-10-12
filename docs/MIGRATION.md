@@ -36,6 +36,8 @@ The matrix describes maintained behavior after cleanup. **Pending** applies only
 | Diplomacy, war, surrender | `Clowder`, `CommandClowder`, `CommandClowderAdmin`, `ClowderEvents` | Preserved | Native UUID alliances, one-way enemies, declared wars/timers/raid gates, peace/ceasefire/surrender/transfers/tribute and allied defense | VERSION-SPECIFIC | Runtime acceptance; imported active wars resume because the reference explicitly restores them |
 | Player grace and creation penalties | `PlayerProtectionData`, `FactionCreationCooldownData`, `ClowderEvents` | Preserved | Native JSON timers/disband penalties/PvP grace, plus city-dependent faction build grace and cleanup | VERSION-SPECIFIC | Full timer/build-grace acceptance; keep-inventory remains a timestamp only |
 | XShop registry / trading / management | `MarketData`, `XShopService`, `CommandXShop`, `MachineMarket`, shop packets/GUIs | Preserved schema 2, UUID shop identity, aliases, level-3 admin, session/revision authority | Pending | COMMON LOGIC offer/identity rules; VERSION-SPECIFIC inventory/world/GUI | Preserve all offer fields, migration backup, rename-safe links, eligibility, distance and stale-action validation |
+| Stocked player traders | `PlayerTrader`, `PlayerTraderService`, trader packets and GUI | UUID-owned single offers, separately persisted stock and payments; craftable | Native block/tile/container/screen and owning-thread packet transactions; same behavioral rules | VERSION-SPECIFIC inventory, registry, GUI and lifecycle | Native item names/NBT are required; legacy item stacks are not converted between game versions |
+| Ender chest deposit restrictions | `EnderChestRestrictions`, `RestrictedEnderChestContainer`, `EnderChestInteraction` | Disabled by default; registry/metadata rules, optional HBM deny list, quantity caps and server click rollback | Native TOML, flattened item registry rules, vanilla 27-slot menu and complete click rollback including offhand/cursor | VERSION-SPECIFIC inventory/config/event adapters | Metadata selectors only on 1.7.10; modern HBM names require explicit configuration; direct third-party writes remain outside the GUI enforcement boundary |
 | Faction market terminals | `FactionMarketRegistry`, `Clowder`, `MachineMarket`, `TileEntityMarket` | Preserved craftability, Officer+ placement, capital, one-active-terminal/token, stale recovery | Registration fields retained only | VERSION-SPECIFIC + COMMON LOGIC eligibility | Native block, ownership/token registration, stale-coordinate recovery and capital invalidation |
 | Map metadata, modes, spawns | `TDMManager.TDMMap`, `TDMData`, `CommandTDM` | Preserved physical map/mode pairing, per-mode spawns, legacy unassigned entries/fallbacks | Native map metadata loading/creation and bounds writes; other fields losslessly retained | COMMON LOGIC candidates + VERSION-SPECIFIC storage | Decode native map/spawn models, dimension adapters, exact legacy spawn migrations and mode configuration |
 | Kits and purchases | `TDMKitManager`, `TDMPurchasableManager`, `TDMAdminKitEdit`, kit/reward GUIs | Preserved 36 main + 4 armor slots, item/NBT, mode exclusions, inventory lease/restoration | Pending; no kit inventory is exposed | NEEDS REDESIGN at inventory boundary | Native item registry/NBT migration; deliberately decide offhand support without dropping legacy slots |
@@ -345,3 +347,60 @@ Additional archive inspection found no deleted Java classes, CoFH API classes or
 The attempted isolated 1.7.10 `runServer` stopped at RetroFuturaGradle's Minecraft EULA check before the game process started. No EULA was accepted, existing world was opened, or retained gameplay was runtime-tested. No 1.16.5 Minecraft runtime launch was performed. Test tasks reported `NO-SOURCE`, so no automated gameplay-test coverage is claimed. Existing compiler/Gradle deprecation and unchecked warnings remain.
 
 Runtime acceptance still needs fresh dedicated/client startup, faction creation/cities/capital/home/protection/diplomacy/war/accounting restart checks, XShop/terminals, retained level-one factory/University/Temple/Grain Mill output and recipes, GUI/flag/wall-art/map/TDM/editor/overlay behavior, and optional-mod absence/presence checks in the supported versions. Prepare any old-world upgrade explicitly; never force missing registry mappings or infer chunk conversion from logical-NBT preservation.
+
+## Recovered trader and alliance persistence
+
+Player traders remain separate from XShop's UUID catalogs and faction terminal registration. Their tile saves `OwnerUUID`, `Sale`, `Payment`, `SaleQuantity`, `PaymentQuantity`, `OfferRevision` and `Items`; stock occupies slots 0–8 and collected payments 9–17. Templates are never real sale stock. The 1.7.10 registry identities are `hfr:tile.player_trader` / `tileentity_hfr_player_trader`; 1.16.5 retains the block/item identity with its native `hfr:player_trader` tile type. Native Minecraft item NBT stays version-specific; copying chunks/item stacks between Minecraft versions is unsupported.
+
+New alliance offers identify the sending faction UUID, independent of the envoy's continued membership. 1.7.10 retains the existing `potentialFriends` set and resolves old faction-name/player-name keys at acceptance. 1.16.5 stores offers in `nativeAllianceOffers` with `factionId`, imports older `potentialFriends` keys once under `nativeAllianceOfferVersion=2`, preserves unresolved keys as `legacyKey`, and keeps the legacy pending-list mirror consistent with the native store. Existing native envoy-keyed offers remain resolvable by faction ID. Acceptance removes only the matched offer after committing both relationship records; unresolved unrelated offers remain saved. Existing unknown-field preservation and first-write backups remain in effect.
+
+Grain mill proxy inventory and rice harvesting apply to retained 1.7.10 content. Their native 1.16.5 crop/machine ports remain pending; these fixes do not register removed content or substitute new processing/storage formats. Grain mill inventory continues to use its existing core `items`/`slot` NBT; dummy tiles carry only ordinary tile identity/position, with no inventory payload. Ender restrictions use each player's original vanilla ender inventory and introduce no replacement save store. Modern trader packets use protocol `foundation-3`; clients and servers must match.
+
+## Legacy recovery reference inventory
+The following historical commits were inspected as behavioral references, not cherry-picked. Every changed legacy file is listed; the standalone historical checkout remains unchanged.
+**Grain mill automation — `592af869`**
+- `CHANGELOG.md`
+- `docs/gameplay-permissions-and-automation.md`
+- `src/main/java/com/hfr/blocks/machine/MachineGrainmill.java`
+- `src/main/java/com/hfr/main/MainRegistry.java`
+- `src/main/java/com/hfr/tileentity/machine/TileEntityGrainmillInputProxy.java`
+- `src/main/java/com/hfr/tileentity/machine/TileEntityMachineGrainmill.java`
+
+**Stocked player trader — `9373a1a5`**
+- `CHANGELOG.md`
+- `docs/gameplay-permissions-and-automation.md`
+- `docs/survival-recipes.md`
+- `src/main/java/com/hfr/blocks/ModBlocks.java`
+- `src/main/java/com/hfr/blocks/machine/PlayerTrader.java`
+- `src/main/java/com/hfr/clowder/ClowderEvents.java`
+- `src/main/java/com/hfr/data/ClowderData.java`
+- `src/main/java/com/hfr/inventory/gui/GUIPlayerTrader.java`
+- `src/main/java/com/hfr/main/MainRegistry.java`
+- `src/main/java/com/hfr/main/XenoRecipes.java`
+- `src/main/java/com/hfr/packet/PacketDispatcher.java`
+- `src/main/java/com/hfr/packet/shop/PlayerTraderActionPacket.java`
+- `src/main/java/com/hfr/packet/shop/PlayerTraderSnapshotPacket.java`
+- `src/main/java/com/hfr/shop/PlayerTraderService.java`
+- `src/main/java/com/hfr/tdm/AdminEditorLifecycle.java`
+- `src/main/resources/assets/hfr/lang/en_US.lang`
+- `src/main/resources/assets/hfr/textures/blocks/player_trader.png`
+
+**Ender chest deposits — `c792792e`**
+- `CHANGELOG.md`
+- `docs/configuration.md`
+- `src/main/java/com/hfr/config/XFConfig.java`
+- `src/main/java/com/hfr/ender/EnderChestInteraction.java`
+- `src/main/java/com/hfr/ender/EnderChestRestrictions.java`
+- `src/main/java/com/hfr/ender/RestrictedEnderChestContainer.java`
+- `src/main/java/com/hfr/handler/GUIHandler.java`
+- `src/main/java/com/hfr/main/MainRegistry.java`
+
+**Alliance offers — `d616a8e2`**
+- `CHANGELOG.md`
+- `src/main/java/com/hfr/command/CommandClowder.java`
+
+**Rice harvest — `69d6d58c`**
+- `CHANGELOG.md`
+- `src/main/java/com/hfr/blocks/BlockRice.java`
+
+The port excludes the removed generic proxy/energy infrastructure, the legacy recipe's commented debug placeholder, unrelated command history/withdrawal text, and deprecated content. Grain proxies use the retained mill core lookup directly. Traders retain independent physical stock rather than replacing or redirecting XShop catalogs. Modern menus and packets use native owning-thread APIs; modern ender rules reject legacy metadata selectors. No legacy item/chunk converter or speculative third-party inventory mutation hooks were added.

@@ -25,6 +25,7 @@ public final class ClientLifecycle {
         event.enqueueWork(() -> {
             ScreenManager.register(Xenofactions.EDITOR.get(), FoundationScreen::new);
             ScreenManager.register(Xenofactions.CITY_MENU.get(), CityCenterScreen::new);
+            ScreenManager.register(Xenofactions.TRADER_MENU.get(), PlayerTraderScreen::new);
         });
     }
     @Mod.EventBusSubscriber(modid = Xenofactions.MODID, value = Dist.CLIENT)
