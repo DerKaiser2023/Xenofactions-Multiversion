@@ -1002,7 +1002,7 @@ public class MainRegistry
         freeRaid = createConfigBool(config, XFConfig.CAT_CLAIMS, "freeRaid", "Enabling this will cause all raidability checks to be ignored, everyone will alway be raidable", true);
 
         Property prop_chatfilter = config.get(XFConfig.CAT_LEGACY_CHAT, "enableChatFilter", true);
-        prop_chatfilter.comment = "Enables the swear filter for chat";
+        prop_chatfilter.comment = "Enables server public chat filtering and client display filtering";
         prop_chatfilter.setRequiresMcRestart(false);
         prop_chatfilter.setRequiresWorldRestart(false);
         chatfilter = prop_chatfilter.getBoolean(true);

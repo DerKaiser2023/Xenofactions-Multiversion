@@ -20,6 +20,12 @@
 - **Free raid:** The legacy `freeRaid=true` default ignores raidability checks. Review this setting carefully for protected-claim servers.
 - **Debug logging:** Leave `enableDebugLogging=false` for normal servers. Enable it only while diagnosing noisy systems such as registration confirmations, OreDictionary integration chatter, market packet traces, background task confirmations, and other developer diagnostics; warnings, errors, and important operational events still log when it is disabled.
 
+## Public chat and Discord bridges
+
+On 1.7.10, Xenofactions owns public chat dispatch and cancels the vanilla chat event. Use a Nilcord build with finalized public chat support together with the matching Xenofactions build. Server `enableChatFilter` controls public message substitutions; faction/alliance channels, private messages, commands and muted senders never enter the external relay. Recipient ignores remain local delivery preferences rather than a global ban on public relay.
+
+For optional bridge developers, `com.hfr.api.PublicChat.addListener(BiConsumer<EntityPlayerMP, String>)` registers a callback once during mod initialization; `removeListener` removes the same callback instance. Callbacks receive the approved message body after public Minecraft delivery, on the existing chat dispatch thread. Keep Discord formatting and sender identity separate from the body. Resolve this API optionally and skip the raw Forge path while Xenofactions owns chat; never relay canceled raw input when the API is absent. Xenofactions requires no Discord mod. This API is scoped to 1.7.10; Nilcord has no 1.16.5 target.
+
 ## Common staff commands
 
 ```text

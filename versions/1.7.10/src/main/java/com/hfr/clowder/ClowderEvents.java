@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import com.hfr.api.PublicChat;
+import com.hfr.util.ChatTextFilter;
 import com.hfr.blocks.BlockDummyable;
 import com.hfr.blocks.ModBlocks;
 import com.hfr.clowder.Clowder.ScheduledTeleport;
@@ -239,7 +241,15 @@ public void handleChatServer(ServerChatEvent event) {
 		}
 	}
 
-	String messageLine = EnumChatFormatting.WHITE + playerName + ": " + message;
+	// Public filtering is server-owned so external bridges cannot bypass the client display filter.
+	if (message == null || message.isEmpty()) return;
+	boolean filtered = MainRegistry.chatfilter;
+	if (filtered) message = ChatTextFilter.filter(message);
+	if (message == null || message.isEmpty()) return;
+	IChatComponent messageLine = filtered
+			? new ChatComponentTranslation(PublicChat.FILTERED_CHAT_KEY,
+					EnumChatFormatting.WHITE + playerName + ": ", new ChatComponentText(message))
+			: new ChatComponentText(EnumChatFormatting.WHITE + playerName + ": " + message);
 
 	for (Object obj : MinecraftServer.getServer()
 			.getConfigurationManager()
@@ -255,8 +265,9 @@ public void handleChatServer(ServerChatEvent event) {
 			recipient.addChatMessage(new ChatComponentText(factionLine));
 		}
 
-		recipient.addChatMessage(new ChatComponentText(messageLine));
+		recipient.addChatMessage(messageLine.createCopy());
 	}
+	PublicChat.publish(sender, message);
 }
 
 	private void sendToTeam(Clowder clowder, EntityPlayer player, String message) {

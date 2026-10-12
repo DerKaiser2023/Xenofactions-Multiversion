@@ -557,3 +557,5 @@ wallart.command.give=Giving you a Wall Art block.
 
 item.world_border_wand.name=Admin Selection Wand
 key.hfr.bordervisuals=Toggle In-World Border Effects
+
+hfr.chat.public.filtered=%s%s

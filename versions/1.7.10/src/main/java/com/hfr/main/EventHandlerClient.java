@@ -4,7 +4,8 @@ import com.hfr.render.util.RenderAccessoryUtility;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map.Entry;
+import com.hfr.api.PublicChat;
+import com.hfr.util.ChatTextFilter;
 
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
@@ -641,6 +642,10 @@ public class EventHandlerClient {
 			return;
 		}
 		
+		// Server-filtered public bodies must not run through substitutions a second time.
+		if(component instanceof ChatComponentTranslation &&
+				PublicChat.FILTERED_CHAT_KEY.equals(((ChatComponentTranslation) component).getKey())) return;
+
 		if(!MainRegistry.chatfilter)
 			return;
 
@@ -676,17 +681,6 @@ public class EventHandlerClient {
 	}
 
 	private static String filterChatText(String msg) {
-		for(Entry<String, String> pair : MainRegistry.sub.entrySet()) {
-			
-			String prev = msg;
-			msg = msg.replaceAll("(?i)" + pair.getKey() + "", pair.getValue());
-			
-			while(!prev.equals(msg)) {
-				msg = msg.replaceAll("(?i)" + pair.getKey() + "", pair.getValue());
-				prev = msg;
-			}
-		}
-
-		return msg;
+		return ChatTextFilter.filter(msg);
 	}
 }

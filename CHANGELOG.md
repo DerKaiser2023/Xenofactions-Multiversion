@@ -111,3 +111,8 @@
 
 - Replace formatted-string reconstruction with recursive filtering of text components and translation arguments, copying each component's original style and siblings. Preserve URL/command click events, hover events, formatting and translation keys without modifying the received component.
 - Return the filtered component through Forge's normal client chat event instead of manually printing plain text and canceling delivery. Keep the filter toggle, substitutions and intentional chat-mute behavior.
+
+2026-10-10 19:17 — Finalize public chat for optional Discord bridges
+
+- Add the optional 1.7.10 PublicChat callback API after mute checks, public routing, filtering and Minecraft delivery. Faction/alliance and command/private routes never publish external messages; no Nilcord dependency is required.
+- Apply the existing configured substitutions to public message bodies on the server. Mark filtered public components so clients do not substitute them twice; keep client filtering and styled components for other messages.
