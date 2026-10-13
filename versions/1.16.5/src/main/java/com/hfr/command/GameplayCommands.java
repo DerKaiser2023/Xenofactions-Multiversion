@@ -42,7 +42,7 @@ public final class GameplayCommands {
                 "/xc clearcreationcooldown <player-or-uuid>, factiontimeoutcreationreset <player>, newplayerprotection, resetnewplayerprotection, endnewplayerprotection, cities, foundation."
         } : new String[]{
                 "/c create <name>, info [faction], list, comrades, leave, disband <own faction>; /cc [public|faction|alliance|mute|unmute].",
-                "/c apply <faction>, applicants, accept/deny/kick <player>, promote/demote/owner <player>.",
+                "/c apply/join <faction>, invite/uninvite <player> (Officer+), applicants, accept/deny/kick <player>, promote/demote/owner <player>.",
                 "/c rename <name>, motd <text>, color <hex>, flag <pattern>, listflags, gracebuild; permissions [ally|neutral] <build|destroy|container|interact|switch> <true|false>.",
                 "/c claim <city name>, city upgrade/cancelmove/recovermove, nameclaim <name>, capital [set <city>], sethome, home, setwarp/delwarp/warp <name>, warps; /xmap.",
                 "/c balance, deposit <amount>, alliance, befriend <faction|player>, acceptfriend <faction|player>, unfriend <faction>, setallywarp, allywarp <faction>, merge/acceptmerge <faction>, enemy/unenemy <faction>.",

@@ -136,6 +136,8 @@ The legacy source comparison covered all 723 original Java files, including the 
 | `/c`, `/c help`, `/c list`, `/c info [faction]` | Public; membership inspection without a named faction requires a player |
 | `/c create <name>` | Player outside any resolved faction; creation cooldown expired; mapped current dimension |
 | `/c apply <faction>` | Player outside any resolved faction; no duplicate application to that faction |
+| `/c invite <player>`, `/c uninvite <player>` | Officer or Leader; invitation requires an online player outside any faction; revocation also resolves saved offline invitations |
+| `/c join <faction>` | Player outside any resolved faction with a pending invitation from that faction |
 | `/c comrades` | Resolved faction member |
 | `/c leave` | Citizen or Officer; Leader must transfer/disband |
 | `/c applicants`, `/c accept <player>`, `/c deny <player>` | Officer or Leader; acceptance requires an online applicant outside any faction |
@@ -166,7 +168,7 @@ The legacy source comparison covered all 723 original Java files, including the 
 | `/xc resetnewplayerprotection`, `/xc endnewplayerprotection` | Operator level 3; deliberately reset/end existing records, without deleting the record of previous grants |
 | `/tdm map list`, `/tdm map create <name>`, `/tdm editor gui [map]` | Operator level 4; existing editor session/lifecycle validation retained |
 
-`/clowder` aliases `/c`; `/xclowder` aliases `/xc`. Faction/member/applicant suggestions are server-owned and do not bypass permission checks. There is no direct `/c join` or invitation path in the registered reference workflow, so none is invented. Remaining legacy `/c` and `/xc` operations are not registered as placeholders.
+`/clowder` aliases `/c`; `/xclowder` aliases `/xc`. Faction/member/applicant suggestions are server-owned and do not bypass permission checks. Both maintained targets support `/c invite`, `/c uninvite` and invitation acceptance through `/c join`, alongside the existing application workflow. Native `identityInvitations` lists persist inside the owning faction record, with `factionId`, player `uuid` and `lastKnownName`; no faction display name is used as invitation identity. Matching follows each target’s configured player identity mode. Successful membership changes clear all invitations for that player; faction deletion or absorption discards the removed faction’s offers. Remaining legacy `/c` and `/xc` operations are not registered as placeholders.
 
 ### Networking, GUI and optional dependencies
 

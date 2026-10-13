@@ -561,3 +561,10 @@ key.hfr.bordervisuals=Toggle In-World Border Effects
 hfr.chat.public.filtered=%s%s
 
 tile.player_trader.name=Player Trader
+
+xf.command.c_invite.name=c invite
+xf.command.c_invite.desc=Officer or leader: invite an online player to your faction.
+xf.command.c_uninvite.name=c uninvite
+xf.command.c_uninvite.desc=Officer or leader: revoke a pending faction invitation, including offline players.
+xf.command.c_join.name=c join
+xf.command.c_join.desc=Accept an invitation to the named faction.

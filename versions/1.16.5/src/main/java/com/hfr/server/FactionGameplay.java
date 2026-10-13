@@ -823,6 +823,14 @@ public final class FactionGameplay {
             mine.putInt(countKey, count);
         }
         mine.put("identityMembers", ms); FactionService.mirror(mine);
+        for (CompoundNBT f : factions) {
+            ListNBT invitations = f.getList("identityInvitations", 10);
+            for (int i = 0; i < incoming.size(); i++) {
+                CompoundNBT member = incoming.getCompound(i);
+                FactionInvitations.remove(invitations, UUID.fromString(member.getString("uuid")), member.getString("lastKnownName"), FactionService.usesNames(server));
+            }
+            if (f.contains("identityInvitations")) f.put("identityInvitations", invitations);
+        }
         for (TerritoryRecord c : cities(other)) transfer(c, mine, false);
         for (TerritoryRecord r : territory.values()) if (r.faction.equals(id(other))) { r.faction = id(mine); territoryChanged = true; }
         // City accounting moved above; add the absorbed base/building generation exactly once.

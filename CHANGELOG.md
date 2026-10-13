@@ -124,3 +124,10 @@
 - Add disabled-by-default server ender chest deposit restrictions with blacklist/whitelist, optional portable-storage rules and quantity caps. Validate each vanilla click against its prior state and restore player/ender/cursor state when rejected; retain withdrawals and vanilla save format. Legacy metadata rules are supported only on 1.7.10; modern rules require flattened registry names.
 - Store new alliance offers by faction UUID on both targets, resolve faction/player command targets, retain resolvable old pending keys and unresolved native migration records, and remove only the accepted offer after saving both relationships and refreshing presentation.
 - Keep removed systems absent; preserve native adapters, optional HBM absence handling, existing XShop saves and target-specific item serialization. Update durable usage, configuration, recipes and migration documentation; modern networking now requires matching foundation-3 peers.
+
+2026-10-12 19:40 — Add persistent faction invitations to both maintained targets
+
+- Add Officer/Leader `/c invite <player>` and `/c uninvite <player>` commands, rejecting missing online targets, existing faction membership and equivalent pending invitations. Saved invitation records allow offline revocation.
+- Add `/c join <faction>` to accept invitations alongside the existing application workflow. Save invitations under the owning faction UUID in existing faction NBT, preserving faction renames and configured player identity semantics.
+- Clear invitations only after successful membership changes, including application acceptance, faction creation, forced joins and merges; remove disbanded factions’ invitations. Keep legacy TDM membership restrictions.
+- Include commands in native help, completion, the legacy command catalog and durable command documentation.

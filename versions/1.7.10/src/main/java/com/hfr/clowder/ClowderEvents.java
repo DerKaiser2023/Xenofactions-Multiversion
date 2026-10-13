@@ -1013,7 +1013,10 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 	public void onPlayerLogin(PlayerLoggedInEvent event) {
 
 		Clowder loginFaction = Clowder.getClowderFromPlayer(event.player);
-		if(loginFaction != null) loginFaction.updateLastKnownName(event.player);
+		if(loginFaction != null) { loginFaction.updateLastKnownName(event.player); Clowder.clearInvitations(event.player); }
+        else for (Clowder faction : Clowder.clowders)
+            if (FactionInvitations.has(faction.invitations, faction.uuid, PlayerIdentityService.uuid(event.player), PlayerIdentityService.profileName(event.player), PlayerIdentityService.usesNames()))
+                event.player.addChatMessage(new ChatComponentText("You are invited to " + faction.name + ". Accept with /c join " + faction.name + "."));
 		if(event.player instanceof EntityPlayerMP) Clowder.syncNameplateDataAll();
 
 		if(event.player != null)

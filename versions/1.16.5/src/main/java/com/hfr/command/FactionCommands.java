@@ -31,11 +31,20 @@ public final class FactionCommands {
             catch (CommandSyntaxException | IllegalArgumentException | IllegalStateException denied) { return builder.buildFuture(); }
         });
     }
+    private static RequiredArgumentBuilder<CommandSource, String> invitationPlayer(boolean revoke) {
+        return Commands.argument("player", StringArgumentType.word()).suggests((context, builder) -> {
+            try {
+                FactionService service = FactionService.get(context.getSource().getServer());
+                java.util.List<String> pending = service.invitationNames(context.getSource().getPlayerOrException());
+                return ISuggestionProvider.suggest(revoke ? pending : java.util.Arrays.asList(context.getSource().getServer().getPlayerNames()), builder);
+            } catch (CommandSyntaxException | IllegalArgumentException | IllegalStateException denied) { return builder.buildFuture(); }
+        });
+    }
     public static void register(CommandDispatcher<CommandSource> dispatcher) {
         dispatcher.register(Commands.literal("c")
                 .executes(context -> run(context, (factions, player) -> factions.membership(player)))
                 .then(Commands.literal("help").executes(context -> reply(context,
-                        "/c list, info [faction], create <name>, apply <faction>, comrades, leave; officers: applicants, accept/deny/kick <player>, rename <name>, motd <text>; leader: promote/demote/owner <player>, disband <faction name>. /c help lists faction gameplay.")))
+                        "/c list, info [faction], create <name>, apply/join <faction>, comrades, leave; officers: invite/uninvite <player>, applicants, accept/deny/kick <player>, rename <name>, motd <text>; leader: promote/demote/owner <player>, disband <faction name>. /c help lists faction gameplay.")))
                 .then(Commands.literal("list").executes(context -> reply(context, String.join(", ", FactionSavedData.get(context.getSource().getServer()).names()))))
                 .then(Commands.literal("info").executes(context -> run(context, (factions, player) -> factions.membership(player)))
                         .then(faction().executes(context -> {
@@ -44,6 +53,9 @@ public final class FactionCommands {
                         })))
                 .then(Commands.literal("create").then(faction().executes(context -> run(context, (factions, player) -> factions.create(player, StringArgumentType.getString(context, "faction"))))))
                 .then(Commands.literal("apply").then(faction().executes(context -> run(context, (factions, player) -> factions.apply(player, StringArgumentType.getString(context, "faction"))))))
+                .then(Commands.literal("join").then(faction().executes(context -> run(context, (factions, player) -> factions.join(player, StringArgumentType.getString(context, "faction"))))))
+                .then(Commands.literal("invite").then(invitationPlayer(false).executes(context -> run(context, (factions, player) -> factions.invitation(player, StringArgumentType.getString(context, "player"), false)))))
+                .then(Commands.literal("uninvite").then(invitationPlayer(true).executes(context -> run(context, (factions, player) -> factions.invitation(player, StringArgumentType.getString(context, "player"), true)))))
                 .then(Commands.literal("rename").then(faction().executes(context -> run(context, (factions, player) -> factions.rename(player, StringArgumentType.getString(context, "faction"))))))
                 .then(Commands.literal("disband").then(faction().executes(context -> run(context, (factions, player) -> factions.disband(player, StringArgumentType.getString(context, "faction"))))))
                 .then(Commands.literal("comrades").executes(context -> run(context, (factions, player) -> String.join(", ", factions.names(player, false)))))

@@ -14,6 +14,7 @@ import com.hfr.clowder.Clowder;
 import com.hfr.clowder.FactionCreationCooldownData;
 import com.hfr.clowder.FactionMemberRecord;
 import com.hfr.clowder.FactionRole;
+import com.hfr.clowder.FactionInvitations;
 import com.hfr.clowder.FactionPermission;
 import com.hfr.clowder.FactionRelationship;
 import com.hfr.clowder.PlayerIdentityService;
@@ -181,6 +182,8 @@ public class CommandClowder extends CommandBase {
 		if(cmd.equals("list")) { cmdList(sender); return; }
 		if(cmd.equals("motd")) { if(!requireArgs(sender, cmd, args, 2)) return; cmdMOTD(sender, args); return; }
 		if(cmd.equals("owner")) { if(!requireArgs(sender, cmd, args, 2)) return; cmdOwner(sender, args[1]); return; }
+        if(cmd.equals("invite") || cmd.equals("uninvite")) { if(!requireArgs(sender, cmd, args, 2)) return; cmdInvitation(sender, args[1], cmd.equals("uninvite")); return; }
+        if(cmd.equals("join")) { if(!requireArgs(sender, cmd, args, 2)) return; cmdJoin(sender, joinArgs(args, 1)); return; }
 		if(cmd.equals("apply")) { if(!requireArgs(sender, cmd, args, 2)) return; cmdApply(sender, joinArgs(args, 1)); return; }
 		if(cmd.equals("leave")) { cmdLeave(sender); return; }
 		if(cmd.equals("accept")) { if(!requireArgs(sender, cmd, args, 2)) return; cmdAccept(sender, args[1]); return; }
@@ -267,6 +270,8 @@ public class CommandClowder extends CommandBase {
 		if(cmd.equals("rename")) return "/c rename <name>";
 		if(cmd.equals("motd")) return "/c motd <message>";
 		if(cmd.equals("owner")) return "/c owner <player>";
+        if(cmd.equals("invite") || cmd.equals("uninvite")) return "/c " + cmd + " <player>";
+        if(cmd.equals("join")) return "/c join <faction>";
 		if(cmd.equals("apply")) return "/c apply <faction>";
 		if(cmd.equals("accept")) return "/c accept <player>";
 		if(cmd.equals("befriend") || cmd.equals("ally")) return "/c befriend <faction>";
@@ -329,6 +334,8 @@ public class CommandClowder extends CommandBase {
 
 		if(p == 2) {
 			sender.addChatMessage(new ChatComponentText(TITLE + "Joining & member management"));
+            sender.addChatMessage(new ChatComponentText(COMMAND + "-join <faction>" + TITLE + " - Accepts a faction invitation"));
+            sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-invite/uninvite <player>" + TITLE + " - Sends or revokes an invitation"));
 			sender.addChatMessage(new ChatComponentText(COMMAND + "-apply <faction>" + TITLE + " - Applies to join a faction"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-applicants" + TITLE + " - Lists faction applications"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-accept <player>" + TITLE + " - Accepts a player's application"));
@@ -1006,6 +1013,38 @@ private void cmdCreate(ICommandSender sender, String name) {
 			sender.addChatMessage(new ChatComponentText(ERROR + "You are not in any faction!"));
 		}
 	}
+
+    private void cmdInvitation(ICommandSender sender, String name, boolean revoke) {
+        EntityPlayer player = getCommandSenderAsPlayer(sender);
+        if(com.hfr.clowder.FactionMembershipGuard.rejectIfBlocked(sender)) return;
+        Clowder faction = Clowder.getClowderFromPlayer(player);
+        if(faction == null) { sender.addChatMessage(new ChatComponentText(ERROR + "You are not in any faction!")); return; }
+        try {
+            FactionInvitations.requireOfficer(faction.getPermLevel(player));
+            EntityPlayer target = MinecraftServer.getServer().getConfigurationManager().func_152612_a(name);
+            if(revoke) FactionInvitations.revoke(faction.invitations, faction.uuid, target == null ? null : PlayerIdentityService.uuid(target), target == null ? name : PlayerIdentityService.profileName(target), PlayerIdentityService.usesNames(), faction.getPermLevel(player));
+            else {
+                if(target == null) throw new IllegalArgumentException("The player must be online.");
+                FactionInvitations.add(faction.invitations, faction.uuid, PlayerIdentityService.uuid(target), PlayerIdentityService.profileName(target), PlayerIdentityService.usesNames(), faction.getPermLevel(player), Clowder.getClowderFromPlayer(target) != null);
+            }
+            ClowderData.getData(player.worldObj).markDirty();
+            sender.addChatMessage(new ChatComponentText(INFO + (revoke ? "Revoked invitation for " : "Invited ") + name + (revoke ? "." : " to " + faction.name + ".")));
+            if(target != null) target.addChatMessage(new ChatComponentText(INFO + (revoke ? "Your invitation to " + faction.name + " was revoked." : "You are invited to " + faction.name + ". Accept with /c join " + faction.name + ".")));
+        } catch(IllegalArgumentException invalid) { sender.addChatMessage(new ChatComponentText(ERROR + invalid.getMessage())); }
+    }
+
+    private void cmdJoin(ICommandSender sender, String name) {
+        EntityPlayer player = getCommandSenderAsPlayer(sender);
+        if(com.hfr.clowder.FactionMembershipGuard.rejectIfBlocked(sender)) return;
+        Clowder faction = Clowder.getClowderFromName(name);
+        if(faction == null) { sender.addChatMessage(new ChatComponentText(ERROR + "There is no faction with this name!")); return; }
+        try {
+            FactionInvitations.requireJoin(faction.invitations, faction.uuid, PlayerIdentityService.uuid(player), PlayerIdentityService.profileName(player), PlayerIdentityService.usesNames(), Clowder.getClowderFromPlayer(player) != null);
+            if(!faction.addMember(player.worldObj, PlayerIdentityService.profileName(player))) throw new IllegalArgumentException("Could not join the faction; your invitation is still pending.");
+            sender.addChatMessage(new ChatComponentText(INFO + "Joined " + faction.name + "."));
+            faction.notifyAll(player.worldObj, new ChatComponentText(INFO + PlayerIdentityService.profileName(player) + " joined the faction."));
+        } catch(IllegalArgumentException invalid) { sender.addChatMessage(new ChatComponentText(ERROR + invalid.getMessage())); }
+    }
 
 	private void cmdApply(ICommandSender sender, String name) {
 
@@ -2241,6 +2280,11 @@ private void cmdCreate(ICommandSender sender, String name) {
             targets.addAll(Arrays.asList(MinecraftServer.getServer().getAllUsernames()));
             return getListOfStringsFromIterableMatchingLastWord(args, targets);
         }
+        if(cmd.equals("uninvite") && sender instanceof EntityPlayer) {
+            Clowder faction = Clowder.getClowderFromPlayer((EntityPlayer)sender);
+            if(faction == null || faction.getPermLevel((EntityPlayer)sender) < 2) return null;
+            return getListOfStringsFromIterableMatchingLastWord(args, FactionInvitations.names(faction.invitations));
+        }
 		if(isPlayerCompletionCommand(cmd))
 			return getListOfStringsMatchingLastWord(args, MinecraftServer.getServer().getAllUsernames());
 
@@ -2369,7 +2413,7 @@ private void cmdCreate(ICommandSender sender, String name) {
 	}
 
 	private String[] getPlayerCommandNames() {
-		return new String[] { "help", "enemy", "unenemy", "stonedrops", "create", "disband", "info", "list", "comrades", "alliance", "allies", "allylist", "permissions", "perms", "leave", "apply",
+		return new String[] { "help", "enemy", "unenemy", "stonedrops", "create", "disband", "info", "list", "comrades", "alliance", "allies", "allylist", "permissions", "perms", "leave", "apply", "join", "invite", "uninvite",
 				"applicants", "accept", "deny", "kick", "owner", "promote", "demote", "rename", "color", "motd",
 				"listflags", "flag", "gracebuild", "sethome", "home", "setwarp", "addwarp", "delwarp", "warp", "warps",
                 "claim", "city", "capital", "nameclaim", "balance", "deposit", "befriend", "ally", "acceptfriend",
@@ -2378,12 +2422,12 @@ private void cmdCreate(ICommandSender sender, String name) {
 	}
 
 	private boolean isPlayerCompletionCommand(String cmd) {
-		return cmd.equals("owner") || cmd.equals("accept")
+		return cmd.equals("invite") || cmd.equals("owner") || cmd.equals("accept")
 				|| cmd.equals("deny") || cmd.equals("kick") || cmd.equals("promote") || cmd.equals("demote");
 	}
 
 	private boolean isFactionCompletionCommand(String cmd) {
-		return cmd.equals("info") || cmd.equals("apply")
+		return cmd.equals("join") || cmd.equals("info") || cmd.equals("apply")
 				|| cmd.equals("unfriend") || cmd.equals("unally") || cmd.equals("allywarp") || cmd.equals("merge")
 				|| cmd.equals("acceptmerge") || cmd.equals("declarewar") || cmd.equals("war") || cmd.equals("peace") || cmd.equals("acceptpeace")
 				|| cmd.equals("ceasefire") || cmd.equals("acceptceasefire") || cmd.equals("surrender")

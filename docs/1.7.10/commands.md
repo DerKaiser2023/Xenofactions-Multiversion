@@ -34,6 +34,9 @@ Usage: `/clowder help`; aliases: `/clowder`, `/c`; permission level: 0.
 | Command | Purpose |
 | --- | --- |
 | `/c apply <faction>` | Apply to join a faction. |
+| `/c invite <player>` | Officer or leader: invite an online player outside any faction; equivalent pending invites are rejected. |
+| `/c uninvite <player>` | Officer or leader: revoke a pending invitation, including while the invited player is offline. |
+| `/c join <faction>` | Accept a pending invitation; applications remain a separate membership path. |
 | `/c applicants` | List applications. |
 | `/c accept <player>` | Accept an application. |
 | `/c deny <player>` | Deny an application. |
@@ -42,6 +45,8 @@ Usage: `/clowder help`; aliases: `/clowder`, `/c`; permission level: 0.
 | `/c promote <player>` | Promote a member to officer. |
 | `/c demote <player>` | Demote an officer. |
 | `/c owner <player>` | Transfer ownership. |
+
+Invitations are saved in the existing faction data with faction and player UUIDs, using the configured player identity mode for matching. Faction renames preserve them; use the current faction name to join. Successful joining, application acceptance, faction creation or forced joining clears all your invitations. Disbanding removes the faction’s invitations. Failed joining keeps the invitation. TDM blocks invitation and joining commands.
 
 ### Identity and flags
 

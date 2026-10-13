@@ -146,6 +146,7 @@ public class Clowder {
 
 	/** Canonical membership and role authority, keyed only by Mojang UUID. */
 	public final Map<UUID, FactionMemberRecord> memberRecords = new HashMap<UUID, FactionMemberRecord>();
+	public NBTTagList invitations = new NBTTagList();
 	public final Map<UUID, FactionApplication> applicationsByUuid = new HashMap<UUID, FactionApplication>();
 	/** Legacy import staging only. Never consulted by UUID permission methods. */
 	@Deprecated public String leader;
@@ -976,6 +977,7 @@ public class Clowder {
 			return false;
 
 		EntityPlayer player = world.getPlayerEntityByName(name);
+		if(getClowderFromPlayer(player) != null) return false;
 		UUID uuid = PlayerIdentityService.uuid(player);
 		String profileName = PlayerIdentityService.profileName(player);
 		if(uuid == null || profileName.isEmpty()) return false;
@@ -983,11 +985,18 @@ public class Clowder {
 		memberRecords.put(uuid, new FactionMemberRecord(uuid, profileName, time(), FactionRole.MEMBER));
 		legacyInverseMap.put(profileName, this);
 		recalculateIMap();
+		clearInvitations(player);
 
 		ClowderData.getData(world).markDirty();
 
 		return true;
 	}
+
+    public static void clearInvitations(EntityPlayer player) {
+        boolean changed = false;
+        for (Clowder faction : clowders) changed |= FactionInvitations.remove(faction.invitations, PlayerIdentityService.uuid(player), PlayerIdentityService.profileName(player), PlayerIdentityService.usesNames());
+        if (changed) ClowderData.getData(player.worldObj).markDirty();
+    }
 
 	public boolean removeMember(World world, String name) {
 
@@ -1272,6 +1281,10 @@ public class Clowder {
 					new FactionMemberRecord(source.playerUuid, source.lastKnownName, source.joinedAt, role));
 		}
 
+        for (FactionMemberRecord member : memberRecords.values())
+            for (Clowder faction : clowders)
+                FactionInvitations.remove(faction.invitations, member.playerUuid, member.lastKnownName, PlayerIdentityService.usesNames());
+
 		// Cancel any active war/fabrication to avoid weird state carryover
 		//this.pussy(world);
 		//not used crap from shitty labjac code
@@ -1394,6 +1407,7 @@ public class Clowder {
 		this.members.clear();
 		this.memberRecords.clear();
 		this.applicationsByUuid.clear();
+        this.invitations = new NBTTagList();
 		this.allies.clear();
 
 		cleanEnemyRelationReferences(world);
@@ -1797,6 +1811,7 @@ public class Clowder {
 			identityApplications.appendTag(entry);
 		}
 		nbt.setTag(i + "_identityApplications", identityApplications);
+        nbt.setTag(i + "_identityInvitations", invitations.copy());
 		syncAllyNames();
 		nbt.setString(i + "_uuid", this.uuid);
 		nbt.setString(i + "_name", this.name);
@@ -2135,6 +2150,8 @@ public class Clowder {
 				if (MainRegistry.logger != null) MainRegistry.logger.warn("Skipping malformed UUID faction member in " + c.name + ": " + member.getString("uuid"));
 			}
 		}
+        c.invitations = (NBTTagList)nbt.getTagList(i + "_identityInvitations", 10).copy();
+        FactionInvitations.validate(c.invitations, c.uuid);
 		NBTTagList identityApplications = nbt.getTagList(i + "_identityApplications", 10);
 		for (int j = 0; j < identityApplications.tagCount(); j++) {
 			NBTTagCompound entry = identityApplications.getCompoundTagAt(j);
@@ -2518,6 +2535,7 @@ public class Clowder {
 
 		clowders.add(c);
 		inverseMap.put(leaderUuid, c);
+        clearInvitations(player);
 
 		ClowderData.getData(player.worldObj).markDirty();
 		return true;

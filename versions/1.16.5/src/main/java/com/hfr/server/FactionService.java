@@ -71,6 +71,7 @@ public final class FactionService {
             if (name.isEmpty() || !names.add(name)) throw new IllegalArgumentException("Missing/duplicate faction name");
             String uuid = record.getString("uuid");
             if (!uuid.isEmpty() && !factions.add(UUID.fromString(uuid).toString())) throw new IllegalArgumentException("Duplicate faction UUID");
+            FactionInvitations.validate(list(record, "identityInvitations"), uuid);
             ListNBT members = list(record, "identityMembers"); int owners = 0;
             if (!members.isEmpty() && uuid.isEmpty()) throw new IllegalArgumentException("Resolved faction membership requires a stable faction UUID");
             for (int j = 0; j < members.size(); j++) {
@@ -179,6 +180,36 @@ public final class FactionService {
     private boolean applicationMatches(CompoundNBT application, ServerPlayerEntity player) {
         return UUID.fromString(application.getString("uuid")).equals(player.getUUID()) || (usesNames(server) && application.getString("lastKnownName").equalsIgnoreCase(player.getGameProfile().getName()));
     }
+    public String invitation(ServerPlayerEntity player, String name, boolean revoke) {
+        int index = require(player, 2); CompoundNBT record = record(state, index);
+        int rank = member(list(record, "identityMembers").getCompound(memberIndex(record, player))).role.getPermissionLevel();
+        ServerPlayerEntity target = server.getPlayerList().getPlayerByName(name);
+        ListNBT invitations = list(record, "identityInvitations");
+        if (revoke) FactionInvitations.revoke(invitations, record.getString("uuid"), target == null ? null : target.getUUID(), target == null ? name : target.getGameProfile().getName(), usesNames(server), rank);
+        else {
+            if (target == null) throw new IllegalArgumentException("The player must be online.");
+            FactionInvitations.add(invitations, record.getString("uuid"), target.getUUID(), target.getGameProfile().getName(), usesNames(server), rank, factionIndex(target) >= 0);
+        }
+        record.put("identityInvitations", invitations); update(index, record);
+        if (target != null) target.sendMessage(new StringTextComponent(revoke ? "Your invitation to " + record.getString("name") + " was revoked." : invitationMessage(record)), Util.NIL_UUID);
+        return (revoke ? "Revoked invitation for " : "Invited ") + name + (revoke ? "." : " to " + record.getString("name") + ".");
+    }
+    private static String invitationMessage(CompoundNBT record) {
+        return "You are invited to " + record.getString("name") + ". Accept with /c join " + record.getString("name") + ".";
+    }
+    public List<String> invitationNames(ServerPlayerEntity player) {
+        return FactionInvitations.names(list(record(state, require(player, 2)), "identityInvitations"));
+    }
+    public String join(ServerPlayerEntity player, String name) {
+        int index = index(name); CompoundNBT record = record(state, index);
+        FactionInvitations.requireJoin(list(record, "identityInvitations"), record.getString("uuid"), player.getUUID(), player.getGameProfile().getName(), usesNames(server), factionIndex(player) >= 0);
+        ListNBT members = list(record, "identityMembers");
+        if (members.isEmpty()) throw new IllegalArgumentException("Resolve the faction's leader identity before joining it.");
+        members.add(newMember(player, FactionRole.MEMBER)); record.put("identityMembers", members);
+        update(index, record); clearApplications(player);
+        notifyFaction(index, player.getGameProfile().getName() + " joined the faction.");
+        return "Joined " + record.getString("name") + ".";
+    }
     public String apply(ServerPlayerEntity player, String name) {
         if (factionIndex(player) >= 0) throw new IllegalArgumentException("You are already in a faction.");
         int index = index(name); CompoundNBT record = record(state, index); ListNBT applications = list(record, "identityApplications");
@@ -203,7 +234,9 @@ public final class FactionService {
         for (int i = 0; i < state.getInt("clowderCount"); i++) {
             CompoundNBT record = record(state, i); ListNBT applications = list(record, "identityApplications"); boolean changed = false;
             for (int j = applications.size() - 1; j >= 0; j--) if (applicationMatches(applications.getCompound(j), player)) { applications.remove(j); changed = true; }
-            if (changed) { record.put("identityApplications", applications); update(i, record); }
+            ListNBT invitations = list(record, "identityInvitations");
+            boolean removed = FactionInvitations.remove(invitations, player.getUUID(), player.getGameProfile().getName(), usesNames(server));
+            if (changed || removed) { record.put("identityApplications", applications); record.put("identityInvitations", invitations); update(i, record); }
         }
     }
     public String remove(ServerPlayerEntity player, String name, boolean leave) {
@@ -254,6 +287,11 @@ public final class FactionService {
             if (changed) { record.put("identityApplications", applications); update(i, record); }
         }
         if (index >= 0) clearApplications(player);
+        else for (int i = 0; i < state.getInt("clowderCount"); i++) {
+            CompoundNBT record = record(state, i);
+            if (FactionInvitations.has(list(record, "identityInvitations"), record.getString("uuid"), player.getUUID(), player.getGameProfile().getName(), usesNames(server)))
+                player.sendMessage(new StringTextComponent(invitationMessage(record)), Util.NIL_UUID);
+        }
     }
     private void notifyFaction(int index, String text) {
         CompoundNBT record = record(state, index);

@@ -24,6 +24,8 @@ Faction officers/leaders can review and accept applicants:
 /c deny <player>
 ```
 
+Officers and leaders can also send `/c invite <player>` while the target is online. The target accepts with `/c join <faction name>`. Revoke an invitation with `/c uninvite <player>`, including while the target is offline. Invitations survive faction renames and server restarts, and joining a faction clears all pending invitations.
+
 ## 2. Claim your first city
 
 Stand where you want the city center and run:
