@@ -47,6 +47,8 @@ public final class XFConfig {
 	public static String earthBundledCacheDirectory = "";
 	public static String earthLocalMapDirectory = "";
 	public static String earthSourceDirectory = "";
+	public static String earthGeographicSourceDirectory = "", earthGeographicDataDirectory = "";
+	public static int earthGeoMaxFeatureBytes = 4194304, earthGeoMaxVertices = 32768, earthGeoOpenRegionFiles = 16, earthGeoMaxRegionsPerFeature = 4096;
 	public static int earthRasterTileCache = 8;
 	public static boolean earthPregenVegetation = false;
 	public static boolean earthRequireVerifiedHashes = true;
@@ -218,6 +220,12 @@ public final class XFConfig {
 		earthBundledCacheDirectory = string(config, CAT_EARTH_WORLD, "earthBundledCacheDirectory", "", "Blank uses .minecraft/xenofactions/earthmaps/cache.");
 		earthLocalMapDirectory = string(config, CAT_EARTH_WORLD, "earthLocalMapDirectory", "", "Blank uses .minecraft/xenofactions/earthmaps.");
 		earthSourceDirectory = string(config, CAT_EARTH_WORLD, "earthSourceDirectory", "", "External raster source root. Blank uses .minecraft/xenofactions/earthmaps/sources; source images are never loaded from the jar.");
+		earthGeographicSourceDirectory = string(config, CAT_EARTH_WORLD, "earthGeographicSourceDirectory", "", "Local OSM export root containing <dataset-id>/source.json and features.geojsonseq. Blank uses xenofactions/earthmaps/geographic-sources; no downloads.");
+		earthGeographicDataDirectory = string(config, CAT_EARTH_WORLD, "earthGeographicDataDirectory", "", "External derived geographic data root, namespaced per save path. Blank uses <save>/data/xfearth-geography. Output inside Git workspaces is refused.");
+		earthGeoMaxFeatureBytes = integer(config, CAT_EARTH_WORLD, "earthGeoMaxFeatureBytes", 4194304, 1024, 4194304, "Maximum bytes per imported geographic feature; oversize records are reported and skipped.");
+		earthGeoMaxVertices = integer(config, CAT_EARTH_WORLD, "earthGeoMaxVertices", 32768, 4, 32768, "Maximum input/output vertices per feature, independent of total extract size.");
+		earthGeoOpenRegionFiles = integer(config, CAT_EARTH_WORLD, "earthGeoOpenRegionFiles", 16, 1, 32, "Maximum open derived region index writers.");
+		earthGeoMaxRegionsPerFeature = integer(config, CAT_EARTH_WORLD, "earthGeoMaxRegionsPerFeature", 4096, 1, 4096, "Maximum region index references per feature; larger features are reported and skipped.");
 		earthRasterTileCache = integer(config, CAT_EARTH_WORLD, "earthRasterTileCache", 8, 1, 32, "Maximum 512x512 decoded raster tiles retained across all Earth source images.");
 		earthPregenVegetation = bool(config, CAT_EARTH_WORLD, "earthPregenVegetation", false, "Reserved decoration switch. The earth2000 clean generator currently requires this to remain false.");
 		earthRequireVerifiedHashes = bool(config, CAT_EARTH_WORLD, "earthRequireVerifiedHashes", true, "Require manifest and archive hashes.");

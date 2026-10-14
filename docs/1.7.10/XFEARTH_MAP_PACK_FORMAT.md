@@ -92,6 +92,15 @@ Later geographic stages must reuse:
 - `XFEarthMapData`, `EarthMapImages` and `EarthMapTileCache` for the existing
   offline imagery and optional JourneyMap import. MapData delegates coordinate
   calculations to the profile; neither integration chooses another Earth grid.
+- Stage 5's pure `XFEarthGeoImporter.importDataset` reuses this profile for
+  projection and clipping. `XFEarthGeoDataset.open` validates
+  the full profile-bound identity; `readRegion` streams conservative candidates,
+  and `XFEarthGeoGeometry.area` preserves the derived even-odd hole/multipart
+  representation. Format/projection/classification versions are 1. Always retain
+  source/license attribution and treat source-only coverage as unverified.
+  Derived datasets are separate external world data, not default `.xfmap` payloads.
+  See [Stage 5](XFEARTH_WORLD_TYPE.md#offline-geographic-data-stage-5) for limits
+  and [import setup](XFEARTH_INSTALLATION.md#local-geographic-imports-stage-5).
 - The existing dimension-aware `ClowderTerritory` / `CoordPair` /
   `TerritoryMeta` claim grid and city-origin metadata for claim nodes. Preserve
   its existing coordinate lookup and claim NBT semantics; do not introduce a

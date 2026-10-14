@@ -32,6 +32,90 @@ This staged workflow deliberately avoids trying to create 903,168 chunks during 
 
 For existing map packs, `earthmap` remains a guard around an **already pregenerated** Minecraft 1.7.10 Anvil world. A WorldPainter `.world` project is not a Minecraft save. Existing exported chunks continue to be loaded by Minecraft's Anvil loader; the provider only handles absent chunks and prevents vanilla terrain appearing around or inside the map.
 
+## Local geographic imports (Stage 5)
+
+The Forge 1.7.10 importer accepts a **local Osmium GeoJSON sequence**, not a PBF,
+OSM XML file or GeoJSON FeatureCollection. Prepare a regional extract outside
+Minecraft; no source acquisition occurs in the mod. OSM's editing API policy
+directs bulk consumers toward extracts rather than repeated editing-API queries.
+Retain OpenStreetMap attribution and the ODbL notice when distributing derived
+data. See [OSM copyright](https://www.openstreetmap.org/copyright) and the
+[API policy](https://operations.osmfoundation.org/policies/api/).
+
+For an already acquired regional PBF, an external
+[osmium-tool](https://docs.osmcode.org/osmium/latest/osmium-export.html) export is:
+
+```sh
+osmium export regional.osm.pbf -f geojsonseq -i sparse_file_array -a type,id,version,timestamp,changeset,way_nodes -u type_id -e -o features.geojsonseq 2> export-errors.log
+```
+
+This command is preparation guidance, not a tool bundled or executed by XF.
+The file-backed node index reduces the exporter's node-cache RAM requirement;
+its relation processing still has independent memory requirements. Inspect the
+export log: Osmium can omit invalid geometry and relations it cannot export.
+Record those limitations in the source metadata. Do not substitute a full-history
+extract. Reserved `@` tag names can collide with exporter attributes; XF cannot
+recover tags or features omitted upstream. RFC 8142 record separators or one
+complete feature per line are accepted, using WGS84 longitude/latitude pairs.
+
+Place these two files in
+`xenofactions/earthmaps/geographic-sources/<dataset-id>/` under the game/server
+directory, or under the configured `earthGeographicSourceDirectory`:
+
+- `features.geojsonseq`, including `@type`, `@id` and `@timestamp` properties
+  from the original OSM object. Feature export IDs alone are insufficient.
+- `source.json`, with the following schema. Replace every angle-bracket value
+  with the actual provenance; the example does not describe an existing dataset.
+
+```json
+{
+  "formatVersion": 1,
+  "datasetId": "regional-snapshot",
+  "source": "OpenStreetMap",
+  "sourceFormat": "osmium-geojsonseq",
+  "snapshotTimestamp": "<actual ISO-8601 UTC snapshot timestamp>",
+  "sourceUrl": "<actual HTTPS regional extract provenance URL>",
+  "attribution": "© OpenStreetMap contributors",
+  "license": "ODbL-1.0",
+  "licenseUrl": "https://opendatacommons.org/licenses/odbl/1-0/",
+  "exporter": "osmium-tool <actual installed version>"
+}
+```
+
+`datasetId` must match its folder and contain 1..64 lowercase letters, digits,
+underscores or hyphens, starting with a letter or digit. Optional `extractSha256`
+records the actual 64-hex-digit PBF checksum; XF verifies the input sequence's own
+SHA-256 separately. Additional
+metadata, such as extract coverage and upstream export errors, is retained.
+Provenance URLs are recorded without fetching them. Preserve the full attribution
+text required by the extract provider, including the OSM contributor notice.
+
+Run as a level-4 operator in an adopted Earth overworld:
+
+```text
+/xc earth geo import regional-snapshot
+/xc earth geo status
+/xc earth geo cancel
+/xc earth geo info regional-snapshot
+```
+
+With `earthGeographicDataDirectory` blank, output is
+`<save>/data/xfearth-geography/<dataset-id>/`. A configured external root uses
+`<root>/<SHA-256 of canonical save path>/<dataset-id>/` to isolate saves; moving
+a save changes that namespace. Output anywhere inside a Git workspace is refused,
+including ignored development saves. Configure an external root for development.
+Import never overwrites an existing destination. Incomplete directories retain
+their `.importing-<UUID>` suffix and failure details; there is no resume or automatic
+cleanup. Cancellation also occurs on owning-world unload or server stop.
+
+Keep `dataset.json` and its source/license/attribution metadata with any distributed
+derived files. `geo info` exposes that attribution and snapshot identity. Later
+consumers must display source credit and interpret empty regions as **unknown
+coverage**, not confirmed absence. Imports place no blocks and create no claims.
+They operate on ordinary 256-block Earth worlds; the extended-height gate remains
+closed. Supported geometry, limits and reader APIs are documented in
+[the Stage 5 architecture](XFEARTH_WORLD_TYPE.md#offline-geographic-data-stage-5).
+
 ## Smoke-map adoption
 
 1. Run the WorldPainter smoke profile and export it as a Minecraft 1.7.10 Anvil save.

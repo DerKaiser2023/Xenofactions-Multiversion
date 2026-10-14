@@ -613,6 +613,113 @@ launch, dedicated-server launch or in-game behavior was observed. Ordinary Earth
 warp/border/market/selection behavior, vehicle safety, save/reopen and the entire
 extended-height stack still require runtime validation.
 
+## Offline geographic data (Stage 5)
+
+`com.hfr.world.earth.geo` is the reusable Forge 1.7.10 data pipeline. It uses the
+existing validated `XFEarthProfile.blockX/blockZ` projection, independent of the
+height activation gate. The command wrapper snapshots profile, paths and limits
+on the owning server thread. Its single worker hashes/parses local files, projects
+geometry and writes detached data; it never reads or mutates Minecraft world,
+chunk, entity or claim state. No network requests run during import or generation.
+The Map item, `YOU ARE HERE` marker and existing claim-node system are unchanged.
+
+The supported source is an attributed local OpenStreetMap Osmium export, prepared
+as described in [installation](XFEARTH_INSTALLATION.md#local-geographic-imports-stage-5).
+Google Maps content is excluded; its
+[standard terms](https://cloud.google.com/maps-platform/terms) restrict exporting
+and deriving geographic content. [MapChart subdivisions](https://www.mapchart.net/world-subdivisions.html)
+is a first-level administrative reference, not this pipeline's road/building source.
+
+Classification retains all supplied tags while indexing `highway` lines/areas,
+`landuse` polygons, `building`/`building:part` footprints, `boundary=administrative`
+lines/areas and business candidates from `shop`, `office`, `craft`, selected
+`amenity` and accommodation `tourism` tags. No administrative hierarchy or business
+operating status is inferred. Node business points remain source points; area
+business locations are explicitly marked as derived interior points. Features can
+have multiple categories. Original object type, exact integer ID, timestamp,
+properties, exporter attributes and non-geometry Feature members are retained.
+The derived format stores clipped projected geometry, not the original source
+geometry; the input checksum and source provenance identify that original export.
+
+Two-dimensional Point, MultiPoint, LineString, MultiLineString, Polygon,
+MultiPolygon and nested GeometryCollection are supported. Polygon holes are
+subtracted before clipping. Derived `Area` parts contain even-odd rings, allowing
+holes and disconnected exteriors; consumers must use the fill rule, not assume
+the first ring is an exterior and all others holes. `XFEarthGeoGeometry.area(part)`
+reconstructs this representation without Minecraft references. Java 8 headless
+`java.awt.geom.Area` supplies the clipping path; no additional GIS library is added.
+Ring checks reject unclosed/degenerate rings, outside/overlapping holes and common
+self-crossing or area-changing normalization. They are not a complete robust GIS
+topology validator.
+
+Longitude paths unwrap across the antimeridian using the **full longitude period**
+from the profile, then periodic copies clip to its actual cropped extent. For
+earth2000, that period is 21,600 blocks while the raster width is 21,504; using the
+cropped width would misalign edge fragments. Lines/areas that cross edges split;
+max-exclusive clipping avoids assigning boundary points to outside chunks.
+Negative continuous positions are floored to blocks before chunk/region division.
+The geographic profile remains authoritative; this index does not replace the
+legacy claim coordinate rules.
+
+Each immutable dataset has `dataset.json`, length-prefixed UTF-8 records in
+`features.dat`, and `regions/r.<x>.<z>.xgi` candidate indices. Format, projection and
+classification versions are all **1**. SHA-256 identity binds the actual sequence
+bytes, canonical source metadata and full validated/defaulted profile snapshot.
+The manifest retains attribution, license URL, snapshot, source metadata and import
+counters. Region headers contain magic/version/coordinates and the 32-byte dataset
+identity (48 bytes total); entries contain an 8-byte record offset and 4-byte length.
+One feature is stored once and indexed conservatively by its projected bounding
+box in 512-block Minecraft regions. Readers must filter exact geometry and avoid
+duplicates when scanning multiple regions.
+
+`XFEarthGeoDataset.open(directory, profile)` validates identity/version/profile,
+completion and source attribution before reading. `readRegion(x,z,visitor)` reads
+one candidate at a time and validates index identity, record lengths and offsets.
+`availability` distinguishes missing, available source-only and incompatible/damaged
+datasets. The manifest's `SOURCE_CONTENT_ONLY_UNVERIFIED` coverage always applies:
+an empty index or successful import cannot prove that the real world has no feature
+there. Checksums identify inputs; they do not provide cryptographic integrity for
+every derived payload or a full disk-corruption audit.
+
+| Bound | Default / supported maximum |
+| --- | --- |
+| Input feature bytes (`earthGeoMaxFeatureBytes`) | 4 MiB |
+| Input/output vertices (`earthGeoMaxVertices`) | 32,768 per feature |
+| Open region writers (`earthGeoOpenRegionFiles`) | 16 / 32 |
+| Region references (`earthGeoMaxRegionsPerFeature`) | 4,096 per feature |
+| JSON / GeometryCollection nesting | 32 / 8 |
+| Derived record bytes | 8 MiB |
+
+Parsing streams records with bounded per-feature memory and an LRU of index
+writers, without retaining a planet-sized node/feature table. Oversized/malformed
+records and unsupported geometry are logged to `issues.jsonl` and skipped without
+aborting unrelated records. Native PBF/XML, FeatureCollections, 3D coordinates,
+full-winding globe rings, excessive fan-out and unavailable exporter relation
+types are unsupported. Upstream omissions remain unknown. Storage I/O failure
+aborts publication rather than marking partial output complete. Input is hashed
+before and during parsing to reject changes between passes.
+
+Output is external to Git workspaces. Publication moves the completed partial
+directory without replacement after all writers close. Cancellation is cooperative
+between records/projection steps and interlocked with final publication; Java's
+individual geometry operations cannot be interrupted internally. This does not
+promise crash-atomic multi-file durability, resume or cleanup. No dataset selection
+or automatic block placement is introduced; later stages choose explicit datasets
+and reuse this reader/projection boundary.
+
+**Verification:** source trace covers record limits, per-feature recovery,
+projection/antimeridian handling, index offsets, dataset identity and worker/unload
+ownership. Mathematical checks use the actual two bundled profiles and earth2000,
+forward/inverse geographic reference points, negative fractional region positions,
+the cropped/full longitude-period difference and 48/12-byte index layout. Offline
+Forge 1.7.10 `compileJava` succeeded with the existing Java 8 target. No local
+extract was available, so no import execution, Java geometry/disk round-trip,
+packaging, remapping, runtime launch or in-game observation is claimed. A real
+regional export is still required to validate holes/multipart fragments, source
+tags/provenance, cancellation and persisted reader behavior. Stage 4 engine
+isolation/generator/gameplay blockers still prevent extended-height activation;
+they do not block this ordinary-height data pipeline.
+
 ## Manual runtime plan
 
 With real exports available, run `runClient`, create each variant, verify the

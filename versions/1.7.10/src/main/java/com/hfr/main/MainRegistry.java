@@ -698,6 +698,7 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStopping(FMLServerStoppingEvent event) {
+		com.hfr.world.earth.geo.XFEarthGeoImportJob.shutdown();
 		com.hfr.world.earth.pregen.XFEarthPregenerator.shutdown();
 		com.hfr.world.earth.XFEarthProfileLoader.clear();
 		com.hfr.world.earth.network.XFEarthHeightSync.clear();
