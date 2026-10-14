@@ -79,6 +79,7 @@ import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import cpw.mods.fml.common.event.FMLServerStoppingEvent;
 import cpw.mods.fml.common.network.NetworkRegistry;
 import cpw.mods.fml.common.registry.EntityRegistry;
 import cpw.mods.fml.common.registry.GameRegistry;
@@ -645,6 +646,7 @@ public class MainRegistry
 	@Mod.EventHandler
 	public void serverStarting(FMLServerStartingEvent event) {
 		com.hfr.clowder.PlayerIdentityService.initialize(MinecraftServer.getServer());
+		com.hfr.clowder.flag.CustomFlagService.startServerSession(MinecraftServer.getServer());
 		// Main faction system commands
 		event.registerServerCommand(new CommandClowder());
 		event.registerServerCommand(new CommandClowderChat());
@@ -677,6 +679,11 @@ public class MainRegistry
 		//and now we just pray that the market data does not cope over serverside
 
 		//I'm flying too high
+	}
+
+	@Mod.EventHandler
+	public void serverStopping(FMLServerStoppingEvent event) {
+		com.hfr.clowder.flag.CustomFlagService.shutdown();
 	}
 
 	//only one thing

@@ -316,10 +316,10 @@ public final class XFConfig {
 		rebuildHostSet();
 		customFlagMaxWidth = integer(config, CAT_CUSTOM_FLAGS, "maxImageWidth", customFlagMaxWidth, 1, 4096, "Maximum imported image width in pixels.");
 		customFlagMaxHeight = integer(config, CAT_CUSTOM_FLAGS, "maxImageHeight", customFlagMaxHeight, 1, 4096, "Maximum imported image height in pixels.");
-		customFlagMaxFileSizeBytes = integer(config, CAT_CUSTOM_FLAGS, "maxFileSizeBytes", customFlagMaxFileSizeBytes, 1024, 8 * 1024 * 1024, "Maximum downloaded image size in bytes.");
+		customFlagMaxFileSizeBytes = integer(config, CAT_CUSTOM_FLAGS, "maxFileSizeBytes", customFlagMaxFileSizeBytes, 1024, 8 * 1024 * 1024, "Maximum downloaded image and sanitized PNG size in bytes.");
 		customFlagTimeoutMs = integer(config, CAT_CUSTOM_FLAGS, "downloadTimeoutMs", customFlagTimeoutMs, 500, 60000, "HTTP connect/read timeout for flag imports.");
 		customFlagMaxRedirects = integer(config, CAT_CUSTOM_FLAGS, "maxRedirects", customFlagMaxRedirects, 0, 10, "Maximum HTTPS redirects while importing a flag.");
-		customFlagRateLimitMs = seconds(config, CAT_CUSTOM_FLAGS, "importRateLimitSeconds", 60D, 0D, 3600D, "Per-player per-faction flag import rate limit.");
+		customFlagRateLimitMs = seconds(config, CAT_CUSTOM_FLAGS, "importRateLimitSeconds", 60D, 0D, 3600D, "Per-faction cooldown after a custom flag is successfully installed. Failed imports do not start or reset it; one import may be active per faction.");
 		customFlagReloadMissingClearsMetadata = bool(config, CAT_CUSTOM_FLAGS, "reloadMissingFileClearsMetadata", customFlagReloadMissingClearsMetadata, "When /c flag reload finds no cached file, clear stale metadata.");
 
 		wallArtAllowedHosts = stringList(config, CAT_WALL_ART, "allowedImageHosts", wallArtAllowedHosts, "Exact HTTPS hosts allowed for Wall Art pages and images.");

@@ -85,10 +85,12 @@ public class FactionFlagTextureManager {
 	public static void handleBytes(String factionName, String hash, byte[] png) {
 		if(factionName == null || hash == null || png == null || png.length == 0)
 			return;
+		// Delayed bytes for a replaced/cleared flag cannot override the latest metadata.
+		if(!hash.equals(HASHES.get(factionName)))
+			return;
 		try {
 			if(!hash.equals(sha256(png)))
 				return;
-			HASHES.put(factionName, hash);
 			BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
 			if(image == null)
 				return;

@@ -652,6 +652,7 @@ public class CommonEventHandler {
 	public void onWallArtRootUnload(WorldEvent.Unload event) {
 		if(event.world != null && !event.world.isRemote) EarthBoundaryManager.clearWorld(event.world);
 		if(event.world != null && !event.world.isRemote && event.world.provider.dimensionId == 0) {
+			CustomFlagService.shutdown();
 			WallArtService.shutdown();
 			PLAYERS_PREVIOUSLY_EXEMPT.clear();
 		}

@@ -131,3 +131,10 @@
 - Add `/c join <faction>` to accept invitations alongside the existing application workflow. Save invitations under the owning faction UUID in existing faction NBT, preserving faction renames and configured player identity semantics.
 - Clear invitations only after successful membership changes, including application acceptance, faction creation, forced joins and merges; remove disbanded factions’ invitations. Keep legacy TDM membership restrictions.
 - Include commands in native help, completion, the legacy command catalog and durable command documentation.
+
+2026-10-14 07:19 — Start custom flag cooldowns after successful installation
+
+- Start the 1.7.10 faction UUID import cooldown only after server-thread acceptance and atomic image installation. Keep active imports separate, allow retries after failures without a rejection cooldown, retain earlier success cooldowns, and report remaining cooldown seconds.
+- Recheck current player authority and faction existence before applying prepared images. Cancel superseded imports on successful built-in selection, clear or reload; release active state on completion/submission failure/cancellation and discard callbacks on server stop or overworld unload.
+- Preserve the previous file/hash when installation or clear fails. Read requested flag bytes on the server thread, verify their hash, and handle client flag packets on the client thread to reject delayed bytes against current metadata without racing texture installation. Bound the sanitized PNG by the configured byte limit as well. Preserve HTTPS/host/image/timeout restrictions, config keys, faction saves, commands, Java 8 and pinned build tooling; shared and 1.16.5 sources remain unchanged.
+- Update existing flag configuration documentation. The 1.7.10 compile task succeeded; no remap, packaging or game runtime was performed. Dedicated-server retry, concurrent/superseded request, authority loss, failed replacement, client synchronization and same-process restart checks remain required.

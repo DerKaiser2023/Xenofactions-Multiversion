@@ -15,14 +15,20 @@ import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Iterator;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -42,20 +48,36 @@ import cpw.mods.fml.common.Loader;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
-import net.minecraft.world.World;
 
 public class CustomFlagService {
 
 	public static final int FLAG_SIZE = 64;
-	private static final int MAX_DIMENSION = 1024;
-	private static final int MAX_DOWNLOAD = 1024 * 1024;
-	private static final int TIMEOUT_MS = 5000;
-	private static final int MAX_REDIRECTS = 3;
-	private static final long RATE_LIMIT_MS = 60000L;
-	private static final String[] ALLOWED_HOSTS = new String[] { "postimages.org", "i.postimg.cc" };
-	private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
 	private static final Queue<Runnable> MAIN_THREAD_CALLBACKS = new LinkedList<Runnable>();
-	private static final Map<String, Long> RATE_LIMITS = new HashMap<String, Long>();
+	private static volatile ServerSession session;
+
+	// Session maps and flag installation are owned by the server thread. Workers only prepare images.
+	public static void startServerSession(MinecraftServer server) {
+		shutdown();
+		synchronized(MAIN_THREAD_CALLBACKS) {
+			session = new ServerSession(server);
+		}
+	}
+
+	public static void shutdown() {
+		ServerSession previous;
+		synchronized(MAIN_THREAD_CALLBACKS) {
+			previous = session;
+			session = null;
+			MAIN_THREAD_CALLBACKS.clear();
+		}
+		if(previous != null) {
+			for(ImportRequest request : previous.activeImports.values())
+				request.cancel();
+			previous.activeImports.clear();
+			previous.cooldowns.clear();
+			previous.executor.shutdownNow();
+		}
+	}
 
 	public static File getServerFlagDir() {
 		return new File(Loader.instance().getConfigDir(), "xenofactions/flags");
@@ -83,79 +105,155 @@ public class CustomFlagService {
 	}
 
 	public static void importUrl(final EntityPlayerMP player, final Clowder clowder, final String urlText) {
-		final String key = getFactionFileKey(clowder) + ":" + player.getDisplayName();
-		long now = System.currentTimeMillis();
 		if(!XFConfig.enableCustomFactionFlags) {
 			player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Custom faction flags are disabled on this server."));
 			return;
 		}
-		Long next = RATE_LIMITS.get(key);
-		if(next != null && next.longValue() > now) {
-			player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Please wait before importing another faction flag."));
+		final ServerSession owner = session;
+		if(owner == null || owner.server != MinecraftServer.getServer())
+			return;
+		if(clowder.uuid == null || clowder.uuid.length() == 0 || Clowder.getClowderFromUUID(clowder.uuid) != clowder
+				|| Clowder.getClowderFromPlayer(player) != clowder || clowder.getPermLevel(player) <= 2) {
+			player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "You lack the permissions to change this faction's flag!"));
 			return;
 		}
-		RATE_LIMITS.put(key, Long.valueOf(now + XFConfig.customFlagRateLimitMs));
-		player.addChatMessage(new ChatComponentText(CommandClowder.INFO + "Importing faction flag from HTTPS. The server will validate and cache it first."));
-
-		EXECUTOR.submit(new Runnable() {
-			@Override
-			public void run() {
-				ImportResult result;
-				try {
-					result = importAndSave(clowder, urlText);
-				} catch(FlagImportException e) {
-					MainRegistry.logger.warn("Rejected faction flag for " + clowder.name + ": " + e.getMessage());
-					result = new ImportResult(e.getMessage(), null, null);
-				} catch(Exception e) {
-					MainRegistry.logger.warn("Failed to import faction flag for " + clowder.name + ": " + e.getMessage());
-					result = new ImportResult("failed to decode image", null, null);
-				}
-				final ImportResult finalResult = result;
-				enqueueMainThread(new Runnable() {
-					@Override
-					public void run() {
-						EntityPlayerMP livePlayer = MinecraftServer.getServer().getConfigurationManager().func_152612_a(player.getDisplayName());
-						Clowder liveClowder = Clowder.getClowderFromUUID(clowder.uuid);
-						if(liveClowder == null)
-							return;
-						if(finalResult.success()) {
-							liveClowder.customFlagHash = finalResult.hash;
-							World world = livePlayer != null ? livePlayer.worldObj : MinecraftServer.getServer().worldServers[0];
-							ClowderData.getData(world).markDirty();
-							broadcastMetadata(liveClowder);
-							if(livePlayer != null)
-								livePlayer.addChatMessage(new ChatComponentText(CommandClowder.INFO + "Custom faction flag imported."));
-						} else if(livePlayer != null) {
-							livePlayer.addChatMessage(new ChatComponentText(CommandClowder.ERROR + finalResult.message));
-						}
+		final String key = clowder.uuid;
+		long now = System.currentTimeMillis();
+		Long next = owner.cooldowns.get(key);
+		if(next != null && next.longValue() > now) {
+			long seconds = (next.longValue() - now + 999L) / 1000L;
+			player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Please wait " + seconds + " seconds before importing another faction flag."));
+			return;
+		}
+		if(owner.activeImports.containsKey(key)) {
+			player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "A faction flag import is already in progress."));
+			return;
+		}
+		final ImportRequest request = new ImportRequest(owner, key, player.getUniqueID(), clowder);
+		owner.activeImports.put(key, request);
+		try {
+			request.future = owner.executor.submit(new Runnable() {
+				@Override
+				public void run() {
+					ImportResult result = new ImportResult("Failed to import faction flag.", null, null);
+					try {
+						if(!request.cancelled)
+							result = prepareImage(urlText);
+					} catch(FlagImportException e) {
+						MainRegistry.logger.warn("Rejected faction flag for " + key + ": " + e.getMessage());
+						result = new ImportResult(e.getMessage(), null, null);
+					} catch(Exception e) {
+						MainRegistry.logger.warn("Failed to import faction flag for " + key + ": " + e.getMessage());
+					} finally {
+						final ImportResult completed = result;
+						enqueueMainThread(owner, new Runnable() {
+							@Override
+							public void run() { completeImport(request, completed); }
+						});
 					}
-				});
+				}
+			});
+		} catch(RuntimeException e) {
+			owner.activeImports.remove(key);
+			request.cancel();
+			player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Could not start faction flag import. Please retry."));
+			MainRegistry.logger.warn("Could not submit faction flag import", e);
+			return;
+		}
+		player.addChatMessage(new ChatComponentText(CommandClowder.INFO + "Importing faction flag from HTTPS. The server will validate and cache it first."));
+	}
+
+	private static void completeImport(ImportRequest request, ImportResult result) {
+		ServerSession owner = request.owner;
+		try {
+			if(owner != session || owner.server != MinecraftServer.getServer() || request.cancelled
+					|| owner.activeImports.get(request.factionId) != request)
+				return;
+			EntityPlayerMP player = findPlayer(owner, request.playerId);
+			if(player == null)
+				return;
+			ClowderData data = ClowderData.getData(player.worldObj);
+			Clowder clowder = Clowder.getClowderFromUUID(request.factionId);
+			if(clowder != request.faction || Clowder.getClowderFromPlayer(player) != clowder || clowder.getPermLevel(player) <= 2) {
+				player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Flag import discarded: faction or flag-change authority changed."));
+				return;
 			}
-		});
+			if(!result.success()) {
+				player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + result.message));
+				return;
+			}
+			if(!XFConfig.enableCustomFactionFlags) {
+				player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Custom faction flags are disabled on this server."));
+				return;
+			}
+			try {
+				installImage(clowder, result.bytes);
+			} catch(Exception e) {
+				player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Failed to save custom faction flag. The previous flag was preserved."));
+				MainRegistry.logger.warn("Could not install faction flag for " + request.factionId, e);
+				return;
+			}
+			clowder.customFlagHash = result.hash;
+			data.markDirty();
+			owner.cooldowns.put(request.factionId, Long.valueOf(System.currentTimeMillis() + XFConfig.customFlagRateLimitMs));
+			broadcastMetadata(clowder);
+			player.addChatMessage(new ChatComponentText(CommandClowder.INFO + "Custom faction flag imported."));
+		} finally {
+			// A cancelled/old callback must never release a newer request's slot.
+			if(owner.activeImports.get(request.factionId) == request)
+				owner.activeImports.remove(request.factionId);
+		}
+	}
+
+	private static EntityPlayerMP findPlayer(ServerSession owner, UUID playerId) {
+		for(Object value : owner.server.getConfigurationManager().playerEntityList) {
+			EntityPlayerMP player = (EntityPlayerMP)value;
+			if(playerId.equals(player.getUniqueID()))
+				return player;
+		}
+		return null;
+	}
+
+	public static void cancelImport(Clowder clowder) {
+		ServerSession owner = session;
+		if(owner != null) {
+			ImportRequest request = owner.activeImports.remove(clowder.uuid);
+			if(request != null)
+				request.cancel();
+		}
 	}
 
 	public static void clearFlag(EntityPlayerMP player, Clowder clowder) {
+		ClowderData data = ClowderData.getData(player.worldObj);
 		File file = getFlagFile(clowder);
-		if(file.exists() && !file.delete())
+		if(file.exists() && !file.delete()) {
 			MainRegistry.logger.warn("Could not delete custom faction flag " + file.getName());
+			player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Could not clear custom faction flag. The previous flag was preserved."));
+			return;
+		}
+		cancelImport(clowder);
 		clowder.customFlagHash = "";
-		clowder.save(player.worldObj);
+		data.markDirty();
 		broadcastMetadata(clowder);
 		player.addChatMessage(new ChatComponentText(CommandClowder.INFO + "Custom faction flag cleared."));
 	}
 
 	public static void reloadFlag(EntityPlayerMP player, Clowder clowder) {
 		try {
+			ClowderData data = ClowderData.getData(player.worldObj);
 			File file = getFlagFile(clowder);
+			String hash = clowder.customFlagHash;
 
 			if(!file.exists()) {
 				if(XFConfig.customFlagReloadMissingClearsMetadata)
-					clowder.customFlagHash = "";
+					hash = "";
 			} else {
-				clowder.customFlagHash = sha256(readFile(file));
+				hash = sha256(readFile(file));
 			}
 
-			clowder.save(player.worldObj);
+			cancelImport(clowder);
+			clowder.customFlagHash = hash;
+			data.markDirty();
 			broadcastMetadata(clowder);
 
 			player.addChatMessage(new ChatComponentText(CommandClowder.INFO + "Custom faction flag metadata reloaded."));
@@ -170,49 +268,87 @@ public class CustomFlagService {
 		PacketDispatcher.wrapper.sendToAll(new FactionFlagMetadataPacket(clowder.name, clowder.customFlagHash));
 	}
 
+	public static void requestFlagBytes(final EntityPlayerMP player, final String factionName, final String hash) {
+		final ServerSession owner = session;
+		if(owner == null)
+			return;
+		enqueueMainThread(owner, new Runnable() {
+			@Override
+			public void run() {
+				if(owner.server != MinecraftServer.getServer() || !owner.server.getConfigurationManager().playerEntityList.contains(player))
+					return;
+				Clowder clowder = Clowder.getClowderFromName(factionName);
+				if(clowder != null && hash != null && hash.length() > 0 && hash.equals(clowder.customFlagHash))
+					sendFlagBytes(player, clowder);
+			}
+		});
+	}
+
 	public static void sendFlagBytes(EntityPlayerMP player, Clowder clowder) {
 		if(clowder == null || clowder.customFlagHash == null || clowder.customFlagHash.length() == 0)
 			return;
 		try {
 			File file = getFlagFile(clowder);
-			if(file.exists())
-				PacketDispatcher.wrapper.sendTo(new FactionFlagBytesPacket(clowder.name, clowder.customFlagHash, readFile(file)), player);
-		} catch(IOException e) {
+			if(file.exists()) {
+				byte[] bytes = readFile(file);
+				if(clowder.customFlagHash.equals(sha256(bytes)))
+					PacketDispatcher.wrapper.sendTo(new FactionFlagBytesPacket(clowder.name, clowder.customFlagHash, bytes), player);
+			}
+		} catch(Exception e) {
 			MainRegistry.logger.warn("Could not send faction flag bytes for " + clowder.name + ": " + e.getMessage());
 		}
 	}
 
-	private static void enqueueMainThread(Runnable runnable) {
+	private static void enqueueMainThread(final ServerSession owner, final Runnable runnable) {
 		synchronized(MAIN_THREAD_CALLBACKS) {
-			MAIN_THREAD_CALLBACKS.add(runnable);
+			if(owner == session) {
+				MAIN_THREAD_CALLBACKS.add(new Runnable() {
+					@Override
+					public void run() {
+						if(owner == session)
+							runnable.run();
+					}
+				});
+			}
 		}
 	}
 
-	private static ImportResult importAndSave(Clowder clowder, String urlText) throws Exception {
+	private static ImportResult prepareImage(String urlText) throws Exception {
 		URL url = validateUrl(urlText);
 		byte[] downloaded = download(url, 0);
 		BufferedImage input = decodeValidatedImage(downloaded);
 		BufferedImage output = resizeToFlag(input);
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		ImageIO.write(output, "png", out);
+		if(!ImageIO.write(output, "png", out))
+			throw new FlagImportException("failed to encode image");
 		byte[] png = out.toByteArray();
+		if(png.length > XFConfig.customFlagMaxFileSizeBytes)
+			throw new FlagImportException("image too large");
 		String hash = sha256(png);
-		File dir = getServerFlagDir();
-		if(!dir.exists())
-			dir.mkdirs();
-		File finalFile = getFlagFile(clowder);
-		File tmp = new File(dir, finalFile.getName() + ".tmp");
-		FileOutputStream fos = new FileOutputStream(tmp);
-		try {
-			fos.write(png);
-		} finally {
-			fos.close();
-		}
-		if(finalFile.exists() && !finalFile.delete())
-			throw new IOException("could not replace old flag");
-		if(!tmp.renameTo(finalFile))
-			throw new IOException("could not move temporary flag into place");
 		return new ImportResult(null, hash, png);
+	}
+
+	private static void installImage(Clowder clowder, byte[] png) throws IOException {
+		Path dir = getServerFlagDir().toPath();
+		Files.createDirectories(dir);
+		Path tmp = Files.createTempFile(dir, getFactionFileKey(clowder) + ".", ".tmp");
+		try {
+			FileOutputStream fos = new FileOutputStream(tmp.toFile());
+			try {
+				fos.write(png);
+				fos.getFD().sync();
+			} finally {
+				fos.close();
+			}
+			// No delete/rename fallback: unsupported atomic replacement must preserve the old file.
+			Files.move(tmp, getFlagFile(clowder).toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+		} finally {
+			try {
+				Files.deleteIfExists(tmp);
+			} catch(Exception e) {
+				MainRegistry.logger.warn("Could not clean faction flag staging file " + tmp, e);
+			}
+		}
 	}
 
 	private static URL validateUrl(String urlText) throws Exception {
@@ -391,11 +527,46 @@ public class CustomFlagService {
 	}
 
 	private static class ImportResult {
-		String message;
-		String hash;
-		byte[] bytes;
+		final String message;
+		final String hash;
+		final byte[] bytes;
 		ImportResult(String message, String hash, byte[] bytes) { this.message = message; this.hash = hash; this.bytes = bytes; }
 		boolean success() { return hash != null && hash.length() > 0; }
+	}
+
+	private static class ServerSession {
+		final MinecraftServer server;
+		final Map<String, Long> cooldowns = new HashMap<String, Long>();
+		final Map<String, ImportRequest> activeImports = new HashMap<String, ImportRequest>();
+		final ExecutorService executor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+			@Override
+			public Thread newThread(Runnable runnable) {
+				Thread thread = new Thread(runnable, "Xenofactions flag importer");
+				thread.setDaemon(true);
+				return thread;
+			}
+		});
+		ServerSession(MinecraftServer server) { this.server = server; }
+	}
+
+	private static class ImportRequest {
+		final ServerSession owner;
+		final String factionId;
+		final UUID playerId;
+		final Clowder faction;
+		volatile boolean cancelled;
+		Future<?> future;
+		ImportRequest(ServerSession owner, String factionId, UUID playerId, Clowder faction) {
+			this.owner = owner;
+			this.factionId = factionId;
+			this.playerId = playerId;
+			this.faction = faction;
+		}
+		void cancel() {
+			cancelled = true;
+			if(future != null)
+				future.cancel(true);
+		}
 	}
 
 	private static class FlagImportException extends IOException {

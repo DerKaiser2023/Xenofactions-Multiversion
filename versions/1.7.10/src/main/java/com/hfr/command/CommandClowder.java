@@ -1265,6 +1265,7 @@ private void cmdCreate(ICommandSender sender, String name) {
 
 				if(f != ClowderFlag.NONE) {
 
+					CustomFlagService.cancelImport(clowder);
 					clowder.flag = f;
 					sender.addChatMessage(new ChatComponentText(INFO + "Changed flag to " + flag + "!"));
 					PacketDispatcher.wrapper.sendTo(new ClowderFlagPacket(clowder, ""), (EntityPlayerMP) player);

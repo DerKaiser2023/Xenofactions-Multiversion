@@ -14,6 +14,8 @@ import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
@@ -102,8 +104,19 @@ public class ClowderFlagPacket implements IMessage {
 	public static class Handler implements IMessageHandler<ClowderFlagPacket, IMessage> {
 		
 		@Override
-		public IMessage onMessage(ClowderFlagPacket m, MessageContext ctx) {
-			
+		@SideOnly(Side.CLIENT)
+		public IMessage onMessage(final ClowderFlagPacket m, MessageContext ctx) {
+			Minecraft.getMinecraft().func_152344_a(new Runnable() {
+				@Override
+				public void run() { applyFlag(m); }
+			});
+			return null;
+		}
+
+		@SideOnly(Side.CLIENT)
+		private void applyFlag(ClowderFlagPacket m) {
+			if(Minecraft.getMinecraft().thePlayer == null)
+				return;
 			if(m.flag > 0) {
 				if(m.customFlagHash != null && m.customFlagHash.length() > 0 && m.customFlagName != null && m.customFlagName.length() > 0) {
 					FactionFlagTextureManager.handleMetadata(m.customFlagName, m.customFlagHash);
@@ -121,7 +134,6 @@ public class ClowderFlagPacket implements IMessage {
 			
 			Minecraft.getMinecraft().thePlayer.playSound("hfr:item.doot", 0.5F, 1.0F);
 			
-			return null;
 		}
 	}
 

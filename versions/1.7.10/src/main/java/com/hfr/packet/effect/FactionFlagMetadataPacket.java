@@ -1,7 +1,6 @@
 package com.hfr.packet.effect;
 
 import com.hfr.client.flag.FactionFlagTextureManager;
-import com.hfr.clowder.Clowder;
 import com.hfr.clowder.flag.CustomFlagService;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
@@ -11,6 +10,7 @@ import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 public class FactionFlagMetadataPacket implements IMessage {
@@ -40,8 +40,11 @@ public class FactionFlagMetadataPacket implements IMessage {
 	public static class ClientHandler implements IMessageHandler<FactionFlagMetadataPacket, IMessage> {
 		@Override
 		@SideOnly(Side.CLIENT)
-		public IMessage onMessage(FactionFlagMetadataPacket m, MessageContext ctx) {
-			FactionFlagTextureManager.handleMetadata(m.factionName, m.hash);
+		public IMessage onMessage(final FactionFlagMetadataPacket m, MessageContext ctx) {
+			Minecraft.getMinecraft().func_152344_a(new Runnable() {
+				@Override
+				public void run() { FactionFlagTextureManager.handleMetadata(m.factionName, m.hash); }
+			});
 			return null;
 		}
 	}
@@ -50,9 +53,8 @@ public class FactionFlagMetadataPacket implements IMessage {
 		@Override
 		public IMessage onMessage(FactionFlagMetadataPacket m, MessageContext ctx) {
 			EntityPlayerMP player = ctx.getServerHandler().playerEntity;
-			Clowder clowder = Clowder.getClowderFromName(m.factionName);
-			if(player != null && m.hash != null && m.hash.length() > 0 && clowder != null && clowder.customFlagHash != null && clowder.customFlagHash.equals(m.hash))
-				CustomFlagService.sendFlagBytes(player, clowder);
+			if(player != null)
+				CustomFlagService.requestFlagBytes(player, m.factionName, m.hash);
 			return null;
 		}
 	}

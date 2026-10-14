@@ -9,6 +9,7 @@ import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
 
 public class FactionFlagBytesPacket implements IMessage {
 
@@ -49,8 +50,11 @@ public class FactionFlagBytesPacket implements IMessage {
 	public static class Handler implements IMessageHandler<FactionFlagBytesPacket, IMessage> {
 		@Override
 		@SideOnly(Side.CLIENT)
-		public IMessage onMessage(FactionFlagBytesPacket m, MessageContext ctx) {
-			FactionFlagTextureManager.handleBytes(m.factionName, m.hash, m.png);
+		public IMessage onMessage(final FactionFlagBytesPacket m, MessageContext ctx) {
+			Minecraft.getMinecraft().func_152344_a(new Runnable() {
+				@Override
+				public void run() { FactionFlagTextureManager.handleBytes(m.factionName, m.hash, m.png); }
+			});
 			return null;
 		}
 	}

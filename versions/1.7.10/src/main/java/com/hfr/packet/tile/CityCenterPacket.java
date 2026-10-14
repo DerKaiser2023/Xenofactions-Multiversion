@@ -57,7 +57,16 @@ public class CityCenterPacket implements IMessage {
 
 		@Override
 		@SideOnly(Side.CLIENT)
-		public IMessage onMessage(CityCenterPacket m, MessageContext ctx) {
+		public IMessage onMessage(final CityCenterPacket m, MessageContext ctx) {
+			Minecraft.getMinecraft().func_152344_a(new Runnable() {
+				@Override
+				public void run() { applyMetadata(m); }
+			});
+			return null;
+		}
+
+		@SideOnly(Side.CLIENT)
+		private void applyMetadata(CityCenterPacket m) {
 			try {
 				TileEntity te = Minecraft.getMinecraft().theWorld.getTileEntity(m.x, m.y, m.z);
 				if(te instanceof TileEntityFlag) {
@@ -69,7 +78,6 @@ public class CityCenterPacket implements IMessage {
 						FactionFlagTextureManager.handleMetadata(flag.ownerName, flag.customFlagHash);
 				}
 			} catch(Exception e) { }
-			return null;
 		}
 	}
 }

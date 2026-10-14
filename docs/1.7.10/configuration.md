@@ -154,11 +154,26 @@ Category: `XENOFACTIONS_08_CUSTOM_FLAGS`
 | `allowedImageHosts` | `postimages.org`, `i.postimg.cc` | Hosts allowed for imported faction flag images. |
 | `maxImageWidth` | `1024` | Maximum image width. |
 | `maxImageHeight` | `1024` | Maximum image height. |
-| `maxFileSizeBytes` | `1048576` | Maximum download size. |
+| `maxFileSizeBytes` | `1048576` | Maximum downloaded image and sanitized PNG size. |
 | `downloadTimeoutMs` | `5000` | HTTP timeout. |
 | `maxRedirects` | `3` | Maximum HTTPS redirects. |
-| `importRateLimitSeconds` | `60` | Per-player/faction import rate limit. |
+| `importRateLimitSeconds` | `60` | Faction-wide cooldown after the server successfully installs an imported image. Failed imports do not start or reset it. |
 | `reloadMissingFileClearsMetadata` | `true` | Clear stale metadata if reload cannot find cached image. |
+
+The import cooldown uses the faction UUID, so renaming the faction or changing the
+requesting player does not bypass it. Refused imports show the remaining seconds.
+Only one import may be active per faction; this in-progress state is separate from
+the cooldown. Invalid URLs, unsupported hosts/images, download failures and save
+failures release the active import without adding a rejection cooldown, allowing
+an immediate retry unless a previous successful import's cooldown still applies.
+Cooldowns and active requests are session-only and clear on server shutdown.
+
+Before installation, the server rechecks the faction and the requesting player's
+current flag-change authority. A successful built-in selection, `clear` or `reload`
+cancels an older pending import without resetting a success cooldown. Installation
+uses atomic replacement in the flag directory; if the filesystem cannot perform
+it, the import fails and preserves the previous image and hash. Hash/client
+metadata changes only after installation. Server unload discards pending results.
 
 ## Wall Art
 
