@@ -49,6 +49,10 @@ public final class XFConfig {
 	public static String earthSourceDirectory = "";
 	public static String earthGeographicSourceDirectory = "", earthGeographicDataDirectory = "";
 	public static int earthGeoMaxFeatureBytes = 4194304, earthGeoMaxVertices = 32768, earthGeoOpenRegionFiles = 16, earthGeoMaxRegionsPerFeature = 4096;
+	public static String earthRoadDatasetDirectory = "";
+	public static boolean earthRoadExistingImports = false;
+	public static int earthRoadMaxCut=1, earthRoadMaxFill=1, earthRoadMaxSlope=1, earthRoadMaxWidth=7, earthRoadCoarseScale=1000;
+	public static int earthRoadStepsPerTick=1024, earthRoadTickMillis=2, earthRoadMaxImportChunks=16;
 	public static int earthRasterTileCache = 8;
 	public static boolean earthPregenVegetation = false;
 	public static boolean earthRequireVerifiedHashes = true;
@@ -226,6 +230,16 @@ public final class XFConfig {
 		earthGeoMaxVertices = integer(config, CAT_EARTH_WORLD, "earthGeoMaxVertices", 32768, 4, 32768, "Maximum input/output vertices per feature, independent of total extract size.");
 		earthGeoOpenRegionFiles = integer(config, CAT_EARTH_WORLD, "earthGeoOpenRegionFiles", 16, 1, 32, "Maximum open derived region index writers.");
 		earthGeoMaxRegionsPerFeature = integer(config, CAT_EARTH_WORLD, "earthGeoMaxRegionsPerFeature", 4096, 1, 4096, "Maximum region index references per feature; larger features are reported and skipped.");
+		earthRoadDatasetDirectory = string(config, CAT_EARTH_WORLD, "earthRoadDatasetDirectory", "", "Completed external Stage 5 dataset used for new Earth raster terrain, road previews and Map roads. Blank disables roads; exact profile must match.");
+		earthRoadExistingImports = bool(config, CAT_EARTH_WORLD, "earthRoadExistingImports", false, "Allow level-4 operators to apply a reviewed road preview after acknowledging a current manual world backup. No backup is automatically verified.");
+		earthRoadMaxCut = integer(config, CAT_EARTH_WORLD, "earthRoadMaxCut", 1, 0, 4, "Maximum surface road terrain cut in blocks.");
+		earthRoadMaxFill = integer(config, CAT_EARTH_WORLD, "earthRoadMaxFill", 1, 0, 4, "Maximum surface road terrain fill in blocks.");
+		earthRoadMaxSlope = integer(config, CAT_EARTH_WORLD, "earthRoadMaxSlope", 1, 0, 2, "Maximum neighbouring road grade difference; excessive slopes are skipped, not connected artificially.");
+		earthRoadMaxWidth = integer(config, CAT_EARTH_WORLD, "earthRoadMaxWidth", 7, 1, 7, "Maximum odd road width in blocks; minimum visual widths exaggerate major roads at coarse scales.");
+		earthRoadCoarseScale = integer(config, CAT_EARTH_WORLD, "earthRoadCoarseScale", 1000, 250, 10000, "At this nominal horizontal scale keep secondary and larger roads; at four times this scale keep trunk/motorway only.");
+		earthRoadStepsPerTick = integer(config, CAT_EARTH_WORLD, "earthRoadStepsPerTick", 1024, 16, 4096, "Shared Earth road read/placement steps per server tick.");
+		earthRoadTickMillis = integer(config, CAT_EARTH_WORLD, "earthRoadTickMillis", 2, 1, 10, "Shared road queue time budget checked between bounded operations; not a hard limit on Minecraft callbacks.");
+		earthRoadMaxImportChunks = integer(config, CAT_EARTH_WORLD, "earthRoadMaxImportChunks", 16, 1, 64, "Maximum already loaded Earth chunks in one existing-world road preview; never force-load them.");
 		earthRasterTileCache = integer(config, CAT_EARTH_WORLD, "earthRasterTileCache", 8, 1, 32, "Maximum 512x512 decoded raster tiles retained across all Earth source images.");
 		earthPregenVegetation = bool(config, CAT_EARTH_WORLD, "earthPregenVegetation", false, "Reserved decoration switch. The earth2000 clean generator currently requires this to remain false.");
 		earthRequireVerifiedHashes = bool(config, CAT_EARTH_WORLD, "earthRequireVerifiedHashes", true, "Require manifest and archive hashes.");

@@ -6,6 +6,7 @@ import java.util.List;
 public final class XFEarthPregenState {
  public int formatVersion=1,totalRegions,totalChunks,completedChunks;
  public String profile,sourceManifestHash,generatorVersion,currentRegion,completionState;
+ public String roadIdentity;
  public long startTime,lastUpdateTime;
  public List<String> completedRegions=new ArrayList<String>();
 }

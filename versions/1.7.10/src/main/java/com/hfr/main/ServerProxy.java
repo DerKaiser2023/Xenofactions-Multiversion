@@ -26,6 +26,7 @@ public class ServerProxy
 	public void receiveClaimOverlay(int dimension, int generation, int part, int parts, List<Claim> claims) { }
 	public void openWallArtGui(TileEntityWallImage tile) { }
 	public void openEarthMap() { }
+	public void receiveEarthRoads(int token,int dimension,int part,int parts,double[] coordinates,byte[] styles,String notice) { }
 	public void receiveEarthMap(int request, int dimension, String profile, String identity, String error) { }
 	public void receiveEarthHeight(com.hfr.world.earth.network.XFEarthHeightPacket packet, net.minecraft.network.INetHandler handler) { }
 	public com.hfr.world.earth.XFEarthProfile getEarthHeightProfile(World world) { return null; }

@@ -31,6 +31,8 @@ public final class GuiXFEarthMap extends GuiScreen {
     private double zoom = 1, centerX = .5, centerZ = .5;
     private int lastX, lastY;
     private boolean dragging;
+    private int roadRequest,roadTicks;private String roadView="",roadNotice="";
+    private double[][] roadParts;private byte[][] roadStyles;
 
     @Override public void initGui() {
         buttonList.clear();
@@ -45,6 +47,7 @@ public final class GuiXFEarthMap extends GuiScreen {
     }
     private void requestProfile() {
         requestedWorld = mc.theWorld; data = null; images = null; dragging = false;
+        roadView="";roadNotice="";roadParts=null;roadStyles=null;
         message = "gui.hfr.earthmap.loading"; zoom = 1; centerX = centerZ = .5;
         if (mc.thePlayer == null || requestedWorld == null) { message = "gui.hfr.earthmap.unavailable"; return; }
         dimension = requestedWorld.provider.dimensionId; request = ++nextRequest;
@@ -68,6 +71,25 @@ public final class GuiXFEarthMap extends GuiScreen {
             try { images = EarthMapImages.load(data); message = ""; }
             catch (Exception failure) { images = null; message = "gui.hfr.earthmap.images_missing"; }
         }
+        if(data!=null&&images!=null&&++roadTicks%40==0)requestRoads();
+    }
+    private void requestRoads(){
+        int x0=Math.max(data.profile.getBounds().minimumX,(int)Math.floor(data.profile.getBounds().minimumX+(left()-originX())/mapWidth()*data.profile.getWidth()));
+        int z0=Math.max(data.profile.getBounds().minimumZ,(int)Math.floor(data.profile.getBounds().minimumZ+(top()-originZ())/mapHeight()*data.profile.getHeight()));
+        int x1=Math.min(data.profile.getBounds().maximumX,(int)Math.floor(data.profile.getBounds().minimumX+(left()+viewWidth()-originX())/mapWidth()*data.profile.getWidth()));
+        int z1=Math.min(data.profile.getBounds().maximumZ,(int)Math.floor(data.profile.getBounds().minimumZ+(top()+viewHeight()-originZ())/mapHeight()*data.profile.getHeight()));
+        String view=x0+":"+z0+":"+x1+":"+z1;if(view.equals(roadView))return;roadView=view;roadParts=null;roadStyles=null;roadRequest=++nextRequest;
+        if(x1<x0||z1<z0)return;
+        long regions=((long)com.hfr.world.earth.geo.XFEarthGeoImporter.region(x1)-com.hfr.world.earth.geo.XFEarthGeoImporter.region(x0)+1)
+            *((long)com.hfr.world.earth.geo.XFEarthGeoImporter.region(z1)-com.hfr.world.earth.geo.XFEarthGeoImporter.region(z0)+1);
+        if(regions>16){roadNotice="Source roads: zoom in to view the bounded layer";return;}roadNotice="Loading source roads…";
+        PacketDispatcher.wrapper.sendToServer(new com.hfr.packet.client.EarthRoadRequestPacket(roadRequest,dimension,x0,z0,x1,z1));
+    }
+    public void receiveRoads(int token,int dimension,int part,int parts,double[] coords,byte[] styles,String notice){
+        if(token!=roadRequest||dimension!=this.dimension||requestedWorld!=mc.theWorld||data==null)return;
+        if(roadParts==null){roadParts=new double[parts][];roadStyles=new byte[parts][];}if(roadParts.length!=parts)return;
+        roadParts[part]=coords;roadStyles[part]=styles;roadNotice=notice;
+        if(notice.contains("busy"))roadView="";
     }
     @Override public boolean doesGuiPauseGame() { return false; }
     private int left() { return 10; }
@@ -183,6 +205,16 @@ public final class GuiXFEarthMap extends GuiScreen {
             }
             if (loading) drawString(fontRendererObj, I18n.format(EarthMapTileCache.hasFailure()
                     ? "gui.hfr.earthmap.images_missing" : "gui.hfr.earthmap.loading"), left() + 4, top() + 4, 0xffffff);
+            if(roadParts!=null){
+                GL11.glPushAttrib(GL11.GL_ENABLE_BIT|GL11.GL_LINE_BIT|GL11.GL_CURRENT_BIT);GL11.glDisable(GL11.GL_TEXTURE_2D);GL11.glLineWidth(2);
+                try{GL11.glBegin(GL11.GL_LINES);
+                    for(int part=0;part<roadParts.length;part++)if(roadParts[part]!=null)for(int i=0;i<roadStyles[part].length;i++){
+                        int style=roadStyles[part][i]&255;GL11.glColor3f(style>=20?.5F:1F,style==21?.5F:.8F,style>=20?1F:.25F);
+                        double[] c=roadParts[part];GL11.glVertex2d(ox+data.mapX(c[i*4])*w,oz+data.mapZ(c[i*4+1])*h);GL11.glVertex2d(ox+data.mapX(c[i*4+2])*w,oz+data.mapZ(c[i*4+3])*h);
+                    }GL11.glEnd();
+                }finally{GL11.glPopAttrib();}
+            }
+            if(!roadNotice.isEmpty())drawString(fontRendererObj,fontRendererObj.trimStringToWidth(roadNotice,viewWidth()-8),left()+4,top()+viewHeight()-12,0xffffff);
             if (mc.thePlayer != null) {
                 double actualX = ox + data.mapX(mc.thePlayer.posX) * w, actualZ = oz + data.mapZ(mc.thePlayer.posZ) * h;
                 int px = (int)clamp(actualX, left() + 5, left() + viewWidth() - 6);

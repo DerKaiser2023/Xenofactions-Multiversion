@@ -101,6 +101,13 @@ Later geographic stages must reuse:
   Derived datasets are separate external world data, not default `.xfmap` payloads.
   See [Stage 5](XFEARTH_WORLD_TYPE.md#offline-geographic-data-stage-5) for limits
   and [import setup](XFEARTH_INSTALLATION.md#local-geographic-imports-stage-5).
+- Stage 6's `XFEarthRoadSource` / `XFEarthRoadPlanner` share selected geometry,
+  scale/width policy and grade rules across native raster preparation, previews
+  and the Map source layer. `XFEarthWorkQueue` owns budgeted server-tick placement.
+  Version-1 `XFEarthRoads` chunk stamps preserve pristine baselines and
+  pending/completion identity; older exports without them remain protected.
+  See [road routes](XFEARTH_WORLD_TYPE.md#road-routes-stage-6) and
+  [manual backup/import commands](XFEARTH_INSTALLATION.md#road-generation-and-bounded-imports-stage-6).
 - The existing dimension-aware `ClowderTerritory` / `CoordPair` /
   `TerritoryMeta` claim grid and city-origin metadata for claim nodes. Preserve
   its existing coordinate lookup and claim NBT semantics; do not introduce a

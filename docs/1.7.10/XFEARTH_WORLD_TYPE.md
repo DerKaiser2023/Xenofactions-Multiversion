@@ -720,6 +720,112 @@ tags/provenance, cancellation and persisted reader behavior. Stage 4 engine
 isolation/generator/gameplay blockers still prevent extended-height activation;
 they do not block this ordinary-height data pipeline.
 
+## Road routes (Stage 6)
+
+`XFEarthRoadSource` reads the Stage 5 profile-bound region index, keeping source
+lines and filtering highway categories at the active scale. It caches four region
+lists, each capped at 8,192 selected roads / 32,768 segments; unrelated features
+stream past without filling the selected-road limit. Queries also cap segments.
+Limits fail explicitly rather than silently truncating terrain generation.
+Road polygons have no inferred centerline. `width` accepts plain metre values
+(optionally suffixed `m`); unknown units use category defaults. See OSM's
+[highway definitions](https://wiki.openstreetmap.org/wiki/Highways) and
+[width convention](https://wiki.openstreetmap.org/wiki/Key:width).
+
+Global unit-square/segment intersections preserve corner contacts and source
+vertices. An 18-by-18 route footprint includes adjacent chunk cells; highway rank
+then source key determines priority, independent of traversal/random seeds.
+No endpoints are snapped together or missing source gaps interpolated. Coarse
+rasterization can merge unrelated streets into the same Minecraft cells; exact
+OSM node topology and lane simulation are not represented.
+
+`XFEarthRoadPlanner` uses the same deterministic 3-by-3 median grade rule for
+raster samples and existing-terrain snapshots. A 24-by-24 sample halo covers
+neighbourhoods across chunk seams. Targets clamp to cut/fill limits and active
+profile Y bounds; excessive neighbouring road grades, water/ice, claims, missing
+terrain and obstructions produce gaps. Palettes reuse XF asphalt and vanilla
+gravel. Source selection and defaults are in
+[Stage 6 setup](XFEARTH_INSTALLATION.md#road-generation-and-bounded-imports-stage-6).
+
+Bridges, tunnels and unresolved nonzero layers are separate from surface roads.
+OSM [bridge](https://wiki.openstreetmap.org/wiki/Key:bridge) and
+[tunnel](https://wiki.openstreetmap.org/wiki/Key:tunnel) tags alone do not supply
+trusted Minecraft deck/tunnel elevations or approaches. Their placement is deferred
+and their routes retained on the source Map layer. Fords are not carved through
+water. Tunnel portals, grade-separated junctions, road areas, turn/barrier
+restrictions, furniture and exact lanes remain unsupported. Protection takes
+precedence over forcing continuity.
+
+**Generation order:** the only native new Earth path remains the raster
+pregenerator. Its worker prepares base columns and independent road plans, then
+ServerTick applies detached column edits through `XFEarthWorkQueue`. Existing
+owning-thread chunk construction, light setup and Anvil serialization follow.
+The live provider's empty population method/strict missing-chunk guard remain;
+pack installation/load never adds roads retroactively. Dataset/policy identity
+persists in pregeneration state and installation metadata, rejecting changed-source
+resume. Region completion still owns native pregeneration replay.
+
+New native chunks receive version-1 `XFEarthRoads` NBT through the exact Forge
+1614 `ChunkDataEvent.Save` path, even with roads disabled. Baselines hash block
+LSB/Add/metadata arrays plus biomes; absent sections normalize to zeros, lighting
+is excluded. Forge ChunkIOProvider's server-thread stage-2 load event restores
+the stamp after tile entities load. Loaders that omit this event fail closed
+without trusted state. Road-generated chunks also record completion identity.
+Player place/break events mark edits; current fingerprint changes catch other
+mutations. Old exports receive no assumed baseline or automatic migration.
+
+**Existing terrain:** one in-world level-4 job previews an already-loaded rectangle,
+maximum 64 chunks (default 16) / 65,536 changed blocks. The server incrementally
+copies native arrays, reads terrain and resolves protection with the original
+dimension-aware `ClowderTerritory.getMetaFromIntCoords` semantics. Workers consume
+only detached snapshots/files. Chunks without matching pristine baselines, prior
+edits, pending/completed roads or any tile entity are skipped. A natural-block
+allowlist is an additional safeguard, not proof of natural generation.
+
+Read-only preview supplies exclusions/counts and pageable actual changes.
+`inspect` precedes backup acknowledgement. A five-minute token, operator UUID,
+World instance, dataset/policy and acknowledgement bind the job. Application is
+off by default and rechecks permission/session, loaded chunk identity, fingerprint,
+tile entities, claims and expected block/metadata. No chunks are force-loaded.
+External modifications can cause skips; this is not a cross-mod editing transaction
+against APIs bypassing events and changing surrounding terrain during processing.
+
+The user-authorized backup contract is manual: `roads backup <token>` records an
+operator statement that a current backup exists; it neither creates nor verifies
+one. Pending tokens are included in normal chunk saves from the first edit;
+completion is recorded only after the chunk finishes. Cancellation/failure/unload
+does not undo placed blocks, and interrupted pending chunks cannot silently replay.
+Normal Anvil saving is not atomic whole-job durability. Manual backup/restore is
+required. Completed or edited chunks are not overwritten by later datasets.
+
+`XFEarthWorkQueue` shares one step/time budget between native road edits, existing
+preview/application and Map publication. Each placement changes one block; array
+copies/claim checks are bounded steps. Minecraft callbacks/saves are not hard
+real-time operations. Shutdown/unload cancels jobs and clears work; stamps remain
+available for Forge's final save and are cleared after it. Workers never
+access Minecraft worlds. Throughput has not been measured.
+
+**Map:** appended packet IDs preserve existing profile messages/IDs. World/profile
+resolution and input capture run on the server, one bounded worker reads source
+geometry, and server-tick publication rechecks the original session. Up to 16
+regions / 4,096 clipped segments use eight packets of 512 segments maximum. The
+client-thread GUI rejects stale view tokens and draws lines before `YOU ARE HERE`:
+surface roads gold, deferred bridges blue and tunnels purple. Attribution/coverage
+notices identify source geometry, not placed-block success; wide/truncated views
+are explicit. Matching updated XF client/server builds are required. Optional
+JourneyMap/Angelica paths are unchanged and not claimed to display this layer.
+
+**Verification:** inspect prior stages, exact Forge 1614 Anvil/ChunkIO events,
+native height/block queries, asphalt, queue lifecycle, detached worker paths,
+permission/token checks and pending/completion transitions. Arithmetic checks cover
+scale ranks/widths, positive/negative seam halos and the 16,914-byte maximum packet
+payload before its notice. Offline `compileJava` succeeded. No real geographic
+extract is available: actual intersections/seams, water exclusions, saved markers,
+repeat processing, Map networking/rendering, backup acknowledgement, cancellation
+and build protections need runtime checks. No test infrastructure, packaging,
+remapping or runtime/in-game observations are claimed. Stage 4's extended-height
+blockers remain independent.
+
 ## Manual runtime plan
 
 With real exports available, run `runClient`, create each variant, verify the

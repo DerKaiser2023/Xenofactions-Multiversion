@@ -18,7 +18,7 @@ import com.hfr.packet.effect.AdminEditorClosePacket;
 /** Registered regardless of whether the TDM match mode is enabled. */
 public final class AdminEditorLifecycle {
     @SubscribeEvent public void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.START) TDMServerTaskQueue.runScheduledTasks();
+        if (event.phase == TickEvent.Phase.START) { TDMServerTaskQueue.runScheduledTasks(); com.hfr.world.earth.roads.XFEarthWorkQueue.tick(); }
     }
     @SubscribeEvent public void onPlayerTick(TickEvent.PlayerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || event.player.worldObj.isRemote) return;
@@ -34,6 +34,7 @@ public final class AdminEditorLifecycle {
         }
     }
     @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if(event.player instanceof EntityPlayerMP) com.hfr.world.earth.roads.XFEarthRoadMap.logout((EntityPlayerMP)event.player);
         com.hfr.shop.XShopService.logout(event.player);
         com.hfr.shop.PlayerTraderService.logout(event.player);
         TDMMapOverlaySync.clear(event.player);
@@ -77,6 +78,7 @@ public final class AdminEditorLifecycle {
     }
     @SubscribeEvent public void onWorldUnload(WorldEvent.Unload event) {
         if (event.world != null && !event.world.isRemote && event.world.provider.dimensionId == 0) {
+            com.hfr.world.earth.roads.XFEarthRoadMap.clear();
             TDMAdminKitEdit.cancelAll(); AdminSelectionManager.clearAll(); AdminEditorSession.clearAll(); TDMServerTaskQueue.clear(); TDMMapOverlaySync.clearAll();
         }
     }

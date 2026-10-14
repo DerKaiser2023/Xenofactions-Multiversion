@@ -22,6 +22,12 @@ public final class XFEarthColumnData {
     private NBTTagCompound column;
     private boolean opacityChanged;
     public XFEarthProfile getProfile(){return profile;}
+    /** Detached block/metadata/biome baseline; excludes mutable lighting and section allocation. */
+    public String blockFingerprint(){
+        java.security.MessageDigest digest=com.hfr.world.earth.roads.XFEarthRoadState.digest();
+        for(ExtendedBlockStorage section:sections)com.hfr.world.earth.roads.XFEarthRoadState.section(digest,section);
+        digest.update(column.getCompoundTag("Level").getByteArray("Biomes"));return com.hfr.world.earth.roads.XFEarthRoadState.finish(digest);
+    }
 
     public XFEarthColumnData(XFEarthProfile profile, int x, int z) {
         if(profile.getBounds()==null)throw new IllegalArgumentException("A validated Earth profile is required");

@@ -91,6 +91,8 @@ public class PacketDispatcher {
         wrapper.registerMessage(EarthMapSnapshotPacket.Handler.class, EarthMapSnapshotPacket.class, i++, Side.CLIENT);
         wrapper.registerMessage(com.hfr.world.earth.network.XFEarthHeightPacket.Handler.class, com.hfr.world.earth.network.XFEarthHeightPacket.class, i++, Side.CLIENT);
         wrapper.registerMessage(com.hfr.world.earth.network.XFEarthHeightAck.Handler.class, com.hfr.world.earth.network.XFEarthHeightAck.class, i++, Side.SERVER);
+        wrapper.registerMessage(com.hfr.packet.client.EarthRoadRequestPacket.Handler.class, com.hfr.packet.client.EarthRoadRequestPacket.class, i++, Side.SERVER);
+        wrapper.registerMessage(com.hfr.packet.effect.EarthRoadSnapshotPacket.Handler.class, com.hfr.packet.effect.EarthRoadSnapshotPacket.class, i++, Side.CLIENT);
 
 	}
 	

@@ -38,6 +38,16 @@ public final class XFEarthTerrainConverter {
   /** Uses World/Forge block callbacks and must run on the owning server thread. */
   public Chunk create(World world){return column.createAnvilChunk(world);}
  }
+ /** Pure raster query for the shared road grade function, including adjacent chunk samples. */
+ public int roadHeight(int x,int z)throws IOException{
+  if(!profile.containsMapPosition(x+.5,z+.5))return -1;int px=x-profile.getBounds().minimumX,pz=z-profile.getBounds().minimumZ;
+  int surface=profile.surfaceY(rasters.sample("HeightMap20k.png",px,pz));
+  return roadWet(x,z)?Math.max(surface,profile.getSeaLevel()):surface;
+ }
+ public boolean roadWet(int x,int z)throws IOException{
+  if(!profile.containsMapPosition(x+.5,z+.5))return true;int px=x-profile.getBounds().minimumX,pz=z-profile.getBounds().minimumZ;
+  return profile.surfaceY(rasters.sample("HeightMap20k.png",px,pz))<profile.getSeaLevel()||water(rasters.rgb("WaterMap20k.png",px,pz));
+ }
  private static boolean water(int rgb){return rgb!=0;}
  private static int biome(int rgb){
   int gray=rgb&255;if(((rgb>>16)&255)==gray&&((rgb>>8)&255)==gray&&BiomeGenBase.getBiome(gray)!=null)return gray;

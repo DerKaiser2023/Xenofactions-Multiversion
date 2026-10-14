@@ -77,6 +77,14 @@ GUI requests require a server-issued player session and fresh catalog revision. 
 
 ## Backups
 
+Existing Earth road imports use this manual process. After creating a current
+world/config backup, an in-world level-4 operator previews and inspects a bounded
+job, then acknowledges that backup with `/xc earth roads backup <job-token>` before
+application. XF records the statement but does not create or verify a backup.
+Application is disabled by default and acknowledgement belongs to the operator,
+world and reviewed job. Cancelling does not undo placed blocks. See
+[Earth road import instructions](XFEARTH_INSTALLATION.md#road-generation-and-bounded-imports-stage-6).
+
 Back up the world and config directory before:
 
 - Updating Xenofactions.

@@ -116,6 +116,92 @@ They operate on ordinary 256-block Earth worlds; the extended-height gate remain
 closed. Supported geometry, limits and reader APIs are documented in
 [the Stage 5 architecture](XFEARTH_WORLD_TYPE.md#offline-geographic-data-stage-5).
 
+## Road generation and bounded imports (Stage 6)
+
+Set `earthRoadDatasetDirectory` in `XENOFACTIONS_18_EARTH_WORLD` to the complete
+external Stage 5 dataset directory containing `dataset.json`, `features.dat` and
+`regions/`. Blank disables roads. The full profile identity must match the target
+Earth world; the native earth2000 pregenerator requires an earth2000 dataset.
+Keep the dataset and its full source attribution with distributions of derived
+road terrain. The existing Map item uses the same selected source and filtering
+policy for its road layer, with OSM/ODbL credit and unverified-coverage notice.
+
+For **new** terrain, select the dataset before `/xc earth pregen start earth2000`.
+Road planning follows raster surface/water preparation, and budgeted road edits
+precede chunk construction, lighting and Anvil serialization. This project has
+no live Earth terrain generator: its in-game provider only guards pregenerated
+chunks. Roads are therefore automatic in new raster pregeneration, not retroactive
+population on chunk load or `.xfmap` installation. A partial pregeneration rejects
+a changed road dataset/policy. No existing world is regenerated for this feature.
+
+At the default 1:2000 scale, only motorway, trunk, primary and secondary routes
+(including links) are used. Below 1:1000, tertiary routes are also included; below
+1:250, supported local streets/tracks/paths are included. At 1:4000 or coarser only
+motorway/trunk remain. `earthRoadCoarseScale` changes the 1:1000 threshold and its
+four-times threshold. Major routes have a minimum visual width of three blocks,
+other routes one; `width` in metres supplies a nominal scale-based estimate,
+capped by `earthRoadMaxWidth` (default 7, rounded down to odd). These widths are
+exaggerated at coarse scales, not exact street-scale replicas. Asphalt uses XF's
+existing speed block; unpaved/track/path surfaces use vanilla gravel. Roads with
+area geometry alone have no inferred centerline.
+
+Surface roads skip water/ice, obstructed columns and excessive slopes. Bridge,
+tunnel and unresolved nonzero-layer source segments are retained on the Map layer
+but **not built**: this source has no trusted deck/tunnel elevation or approaches.
+No missing connection or crossing is fabricated. Defaults limit cuts/fills to one
+block and neighbouring grade changes to one; configure `earthRoadMaxCut`,
+`earthRoadMaxFill` (0..4) and `earthRoadMaxSlope` (0..2). Terrain/protection gaps and
+coarse projection overlaps remain possible. See the
+[Stage 6 architecture and limits](XFEARTH_WORLD_TYPE.md#road-routes-stage-6).
+
+Existing-world application is disabled by default (`earthRoadExistingImports=false`).
+An in-world level-4 operator can preview without enabling application or acknowledging
+a backup. Preview uses chunk coordinates, at most `earthRoadMaxImportChunks`
+(default 16, maximum 64), and only already loaded chunks:
+
+```text
+/xc earth roads preview <minChunkX> <minChunkZ> <maxChunkX> <maxChunkZ>
+/xc earth roads status
+/xc earth roads inspect <job-token>
+/xc earth roads inspect <job-token> <changed-block-offset>
+```
+
+`inspect` lists chunk exclusions/counts and pages through the actual planned block
+changes, twelve at a time. The token expires five minutes after preview completion.
+Historical chunks without XF's native pristine baseline, edited chunks, completed
+or interrupted road chunks and chunks containing tile entities are skipped. There
+is no force/override option. All claimed/protected territory uses the existing
+dimension-aware claim lookup; expected blocks and baseline identity are rechecked
+before placement. This conservative policy may produce an entirely skipped preview
+on older exports, including current bundled packs.
+
+Use the existing **manual world/config backup process** before applying. Prefer a
+stopped-server backup, then start the server and create the preview. No backup
+command or dependency is added, and XF cannot verify that the backup exists or is
+current. After enabling `earthRoadExistingImports`, inspecting the preview and
+confirming that the manual backup is current, the same operator uses:
+
+```text
+/xc earth roads backup <job-token>
+/xc earth roads apply <job-token>
+/xc earth roads cancel
+```
+
+`backup` is an explicit operator statement, logged and bound to this operator,
+world and preview job. Application requires that acknowledgement, matching dataset
+and policy, the current token and continuing operator/world/session permission.
+Restart, world unload or cancellation invalidates it. Cancellation **does not undo
+blocks already placed**; restore the manual backup if rollback is required.
+Incomplete chunks retain pending markers and cannot silently replay.
+
+New-terrain road edits and existing-world reads/placement share
+`earthRoadStepsPerTick` (default 1,024) and `earthRoadTickMillis` (default 2 ms).
+Time is checked between bounded steps; a Minecraft block/light callback can exceed
+that time. No import force-loads its rectangle. Map requests stream a bounded source
+viewport (at most 16 regions / 4,096 segments); zoom in to view roads on larger maps.
+The Map source layer does not certify placement success, complete source coverage
+or functioning bridge/tunnel crossings.
+
 ## Smoke-map adoption
 
 1. Run the WorldPainter smoke profile and export it as a Minecraft 1.7.10 Anvil save.
