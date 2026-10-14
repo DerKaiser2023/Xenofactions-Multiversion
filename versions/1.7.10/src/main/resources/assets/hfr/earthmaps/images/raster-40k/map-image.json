@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "id": "raster-40k",
+  "levels": [
+    {
+      "height": 256,
+      "width": 512
+    },
+    {
+      "height": 512,
+      "width": 1024
+    },
+    {
+      "height": 1024,
+      "width": 2048
+    }
+  ],
+  "orientation": "x-east-z-south",
+  "sourceFile": "globecover40k.png",
+  "sourceHeight": 21504,
+  "sourceSha256": "88997cd157ad62c69bbfe0b66edcf33052c6f78dc5903cd332a454fae4831ce2",
+  "sourceWidth": 43008,
+  "tileSize": 256
+}

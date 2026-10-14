@@ -426,6 +426,7 @@ public class EventHandlerClient {
 	
 	@SubscribeEvent
 	public void onClientDisconnect(ClientDisconnectionFromServerEvent event) {
+		com.hfr.client.earth.EarthMapTileCache.requestClear();
 		resetTDMClientState();
 		GUIAdminEditor.clearSelectionPreview();
 		com.hfr.client.journeymap.ClientTDMMapOverlay.clear();
@@ -437,6 +438,7 @@ public class EventHandlerClient {
 
 	@SubscribeEvent
 	public void onClientWorldUnload(WorldEvent.Unload event) {
+		if(event.world != null && event.world.isRemote) com.hfr.client.earth.EarthMapTileCache.requestClear();
 		if(event.world!=null&&event.world.isRemote) { resetTDMClientState(); GUIAdminEditor.clearSelectionPreview(); com.hfr.client.journeymap.ClientTDMMapOverlay.clear(); }
 	}
 

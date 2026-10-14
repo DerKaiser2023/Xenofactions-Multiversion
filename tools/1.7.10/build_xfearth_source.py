@@ -45,14 +45,56 @@ def build(images, output):
     }
     (output / "xenoearth-source.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
+def build_map_tiles(raster, output, map_id):
+    """Offline-only display pyramid, preserving the terrain raster's exact extent."""
+    from PIL import Image
+    import re
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", map_id):
+        raise ValueError("invalid map image ID")
+    if output.exists() and any(output.iterdir()):
+        raise ValueError("output must be absent or empty: {}".format(output))
+    # These are trusted, explicitly selected local terrain inputs, not gameplay downloads.
+    Image.MAX_IMAGE_PIXELS = None
+    with Image.open(raster) as source:
+        width, height = source.size
+        if width <= 0 or height <= 0:
+            raise ValueError("empty terrain raster")
+        output.mkdir(parents=True, exist_ok=True)
+        levels = []
+        for level, longest in enumerate((512, 1024, 2048)):
+            ratio = min(1.0, longest / max(width, height))
+            w, h = max(1, round(width * ratio)), max(1, round(height * ratio))
+            image = source.resize((w, h), Image.Resampling.NEAREST).convert("RGB")
+            folder = output / str(level)
+            folder.mkdir()
+            for z in range((h + 255) // 256):
+                for x in range((w + 255) // 256):
+                    image.crop((x * 256, z * 256, min(w, (x + 1) * 256), min(h, (z + 1) * 256))).save(folder / ("{}-{}.png".format(x, z)))
+            levels.append({"width": w, "height": h})
+            image.close()
+        manifest = {"formatVersion": 1, "id": map_id, "sourceFile": raster.name,
+                    "sourceSha256": digest(raster), "sourceWidth": width, "sourceHeight": height,
+                    "orientation": "x-east-z-south", "tileSize": 256, "levels": levels}
+        (output / "map-image.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--profile", choices=("earth2000",), required=True)
+    parser.add_argument("--profile", choices=("earth2000",))
     parser.add_argument("--images", type=Path, default=Path("images"))
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--map-tiles-only", action="store_true")
+    parser.add_argument("--map-raster", type=Path)
+    parser.add_argument("--map-id")
     args = parser.parse_args()
     try:
-        build(args.images, args.output)
+        if args.map_tiles_only:
+            if not args.map_raster or not args.map_id:
+                parser.error("--map-tiles-only requires --map-raster and --map-id")
+            build_map_tiles(args.map_raster, args.output, args.map_id)
+        else:
+            if not args.profile:
+                parser.error("--profile is required for a terrain source package")
+            build(args.images, args.output)
     except ValueError as error:
         parser.error(str(error))
 

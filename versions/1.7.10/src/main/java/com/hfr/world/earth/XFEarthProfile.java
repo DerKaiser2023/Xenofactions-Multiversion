@@ -7,6 +7,7 @@ public final class XFEarthProfile {
     int minimumX, maximumX, minimumZ, maximumZ;
     int minimumSurfaceY, maximumSurfaceY, seaLevel;
     String projection, populationMode; boolean caves, ores, lava, structures, vegetation;
+    String mapImageId;
     private transient XFEarthBounds bounds;
     public void validate(String allowedVersion) {
         if(formatVersion!=1) bad("unsupported formatVersion: "+formatVersion);
@@ -23,4 +24,6 @@ public final class XFEarthProfile {
     private static void bad(String message){throw new IllegalArgumentException("Invalid XenoEarth profile: "+message);}
     public String getProfile(){return profile;} public int getEffectiveScale(){return effectiveScale;} public int getWidth(){return width;} public int getHeight(){return height;}
     public int getSeaLevel(){return seaLevel;} public XFEarthBounds getBounds(){return bounds;}
+    public String getProjection(){return projection;} public int getSourceScale(){return sourceScale;} public int getResize(){return resize;}
+    public String getMapImageId(){return mapImageId;}
 }

@@ -7,6 +7,13 @@ pack/version, Minecraft `1.7.10`, scale, chunk-aligned dimensions, population
 mode, required content mod IDs, installed size, and every payload file's path,
 size, and SHA-256. The profile is authoritative and must agree with it.
 
+The Map item consumes that active profile separately from terrain loading.
+Standard sourceScale/resize profiles use bundled display tiles; a custom raster
+may specify optional `mapImageId` and distribute its final-grid tiles as a client
+resource pack. Tiles are not world-region payloads and are not fetched during
+gameplay. See [Map item and offline imagery](XFEARTH_WORLD_TYPE.md#map-item-forge-1710)
+for projection, image preparation and lifecycle details.
+
 The verifier rejects traversal, absolute/drive/UNC paths, NULs, duplicate
 normalized paths, executable extensions, disallowed save/player/log data,
 overlong paths, excessive entries, files over 8 GiB, and extraction over 128 GiB.

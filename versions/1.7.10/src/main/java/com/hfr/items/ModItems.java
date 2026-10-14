@@ -56,6 +56,7 @@ public class ModItems {
 	public static Item mace;
 	public static Item hatchet;
 	public static Item clowder_map;
+	public static Item earth_map;
 
 	public static Item debug;
 	
@@ -99,6 +100,7 @@ public class ModItems {
 		mace = new ItemMace().setUnlocalizedName("mace").setMaxStackSize(1).setCreativeTab(MainRegistry.tab).setTextureName(RefStrings.MODID + ":mace");
 		hatchet = new ItemHatchet().setUnlocalizedName("hatchet").setMaxStackSize(1).setFull3D().setCreativeTab(MainRegistry.tab).setTextureName(RefStrings.MODID + ":hatchet");
 		clowder_map = new ItemMap().setUnlocalizedName("clowder_map").setMaxStackSize(1).setCreativeTab(MainRegistry.tab).setTextureName(RefStrings.MODID + ":clowder_map");
+		earth_map = new ItemEarthMap().setUnlocalizedName("earth_map").setMaxStackSize(1).setCreativeTab(MainRegistry.tab).setTextureName(RefStrings.MODID + ":clowder_map");
 		
 		debug = new ItemDebug().setUnlocalizedName("debug").setMaxStackSize(1).setCreativeTab(MainRegistry.tab).setTextureName(RefStrings.MODID + ":debug");
 	}
@@ -134,6 +136,7 @@ public class ModItems {
 		GameRegistry.registerItem(mace, mace.getUnlocalizedName());
 		GameRegistry.registerItem(hatchet, hatchet.getUnlocalizedName());
 		GameRegistry.registerItem(clowder_map, clowder_map.getUnlocalizedName());
+		GameRegistry.registerItem(earth_map, "earth_map");
 
 		GameRegistry.registerItem(mult_stoneage, mult_stoneage.getUnlocalizedName());
 		GameRegistry.registerItem(mult_roman, mult_roman.getUnlocalizedName());

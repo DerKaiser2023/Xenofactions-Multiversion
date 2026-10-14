@@ -25,6 +25,8 @@ public class ServerProxy
 	public void effectNT(NBTTagCompound nbt) { }
 	public void receiveClaimOverlay(int dimension, int generation, int part, int parts, List<Claim> claims) { }
 	public void openWallArtGui(TileEntityWallImage tile) { }
+	public void openEarthMap() { }
+	public void receiveEarthMap(int request, int dimension, String profile, String identity, String error) { }
 	public void acceptWallArtChunk(String hash, int index, int total, int fullLength, byte[] bytes) { }
 
 	public void spawnEFX(double posX, double posY, double posZ, float pow) { }

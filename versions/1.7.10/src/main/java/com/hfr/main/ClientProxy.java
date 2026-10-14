@@ -51,6 +51,15 @@ import cpw.mods.fml.relauncher.ReflectionHelper;
 
 public class ClientProxy extends ServerProxy
 {
+	@Override public void openEarthMap() { Minecraft.getMinecraft().displayGuiScreen(new com.hfr.client.earth.GuiXFEarthMap()); }
+	@Override public void receiveEarthMap(final int request, final int dimension, final String profile, final String identity, final String error) {
+		final Minecraft mc = Minecraft.getMinecraft();
+		final World receivingWorld = mc.theWorld;
+		mc.func_152344_a(new Runnable() { @Override public void run() {
+			if (receivingWorld != null && mc.theWorld == receivingWorld && mc.currentScreen instanceof com.hfr.client.earth.GuiXFEarthMap)
+				((com.hfr.client.earth.GuiXFEarthMap)mc.currentScreen).receive(request, dimension, profile, identity, error);
+		} });
+	}
 	@Override public void openWallArtGui(TileEntityWallImage tile) { Minecraft.getMinecraft().displayGuiScreen(new com.hfr.inventory.gui.GuiWallArt(tile)); }
 	@Override public void acceptWallArtChunk(String hash, int index, int total, int fullLength, byte[] bytes) { com.hfr.client.wallart.WallArtTextureCache.accept(hash,index,total,fullLength,bytes); }
 	@Override
@@ -74,6 +83,7 @@ public class ClientProxy extends ServerProxy
 	{
 		net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new com.hfr.client.earth.XFEarthCreateWorldHandler());
 		new EventHandlerClient().register();
+		com.hfr.client.earth.EarthMapTileCache.registerReloadListener();
 		com.hfr.client.journeymap.XFJourneyMapIntegration.register();
 		
 		RenderingRegistry.addNewArmourRendererPrefix("5");

@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "id": "raster-20k",
+  "levels": [
+    {
+      "height": 256,
+      "width": 512
+    },
+    {
+      "height": 512,
+      "width": 1024
+    },
+    {
+      "height": 1024,
+      "width": 2048
+    }
+  ],
+  "orientation": "x-east-z-south",
+  "sourceFile": "globecover20k.png",
+  "sourceHeight": 10752,
+  "sourceSha256": "4bab8922711b9e7c2beb14af4346d4065a8bc72cc3db0015521469e903f47dea",
+  "sourceWidth": 21504,
+  "tileSize": 256
+}
