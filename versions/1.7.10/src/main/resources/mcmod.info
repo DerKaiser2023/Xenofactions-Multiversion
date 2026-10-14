@@ -16,10 +16,12 @@
     "screenshots": [],
     "useDependencyInformation": true,
     "requiredMods": [
-      "Forge@[10.13.4.1614,)"
+      "Forge@[10.13.4.1614,)",
+      "unimixins@[0.3.1,)"
     ],
     "dependencies": [
-      "Forge@[10.13.4.1614,)"
+      "Forge@[10.13.4.1614,)",
+      "unimixins@[0.3.1,)"
     ]
   }
 ]

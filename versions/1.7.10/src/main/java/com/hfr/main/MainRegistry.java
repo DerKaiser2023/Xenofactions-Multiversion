@@ -87,7 +87,7 @@ import cpw.mods.fml.common.registry.GameRegistry;
 
 import static com.hfr.clowder.Clowder.initializeDiplomacy;
 
-@Mod(modid = RefStrings.MODID, name = RefStrings.NAME, version = RefStrings.VERSION, guiFactory = RefStrings.GUI_FACTORY, dependencies = "after:guideapi")
+@Mod(modid = RefStrings.MODID, name = RefStrings.NAME, version = RefStrings.VERSION, guiFactory = RefStrings.GUI_FACTORY, dependencies = "required-after:unimixins@[0.3.1,);after:guideapi")
 public class MainRegistry
 {
 	// Packet layouts changed with the maintained content set; mixed builds cannot connect.

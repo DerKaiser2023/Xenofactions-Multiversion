@@ -360,10 +360,10 @@ need the owning world's native opacity index in later integration.
 existing SaveFormatOld/AnvilSaveConverter before server-side conversion,
 SaveHandler construction and world construction. Singleplayer's client creates
 a SaveHandler even earlier, inside `Minecraft.launchIntegratedServer`; the XF
-coremod inserts the same preflight at that method's head before session.lock or
-level writes. It targets only that exact Minecraft class/method/descriptor,
-recognizes MCP and remapped SRG names and fails closed if the target cannot be
-identified. Dedicated servers load no client classes through the guard.
+early client Mixin injects the same preflight at that method's head before
+session.lock or level writes. Its exact selector requires one injection and
+uses Mixin's generated Minecraft refmap. Preflight failures propagate unchanged.
+Dedicated servers do not select this client Mixin.
 Preflight validates the profile, identity and native height metadata and rejects
 extended Earth gameplay. On ordinary Earth load the dimension-0 identity is
 registered for normal WorldSavedData persistence. Nether/End and existing chunk
@@ -374,12 +374,13 @@ from lookup through native NBT, RegionLib storage and reload, and checks the
 candidate's native reader schema (including tile entity creation and light
 identity handling). Offline `compileJava` succeeded. Native file round-trip,
 close/reopen, interrupted writes, process restart, real tile entities and both
-server preflight paths and production coremod loading/remapping still require
-runtime validation. The driver promises
+server preflight paths on real Earth saves still require runtime validation.
+Mixin startup/remapping validation is recorded in Stage 3 below. The driver promises
 flush but not multi-entry atomicity; interrupted preparation can leave a partial
 column, which is retained and rejected rather than repaired or overwritten.
 The non-shadow-paging driver does not claim crash recovery equivalent to the
-candidate's shadow-paging option. No packaging or game runtime was performed.
+candidate's shadow-paging option. Storage preparation itself has not been
+validated through an actual native save round-trip.
 Stages 3 and 4 must complete network/render/gameplay integration and address the
 candidate's global initialization before gameplay can be enabled. Deadhour,
 Angelica and JourneyMap compatibility remain unverified.
@@ -399,12 +400,36 @@ and address the candidate's global world initialization before enabling them.
 gate. It accepts only server dimension 0, the validated Stage 2 native storage
 identity/layout, the exact selected components, the native CubeProviderServer,
 and matching native min/max bounds (0/512, with maximum exclusive). Ordinary
-profiles do not bind a height session. The optional coremod transformer targets
-only three pinned CubicChunks classes; it supplies no world engine patches.
-Its exact method counts and descriptors fail closed if the native implementation
-changes. The production release artifact confirms Java 8 classes, SRG player
-add/remove methods, `NetworkChannel.sendToPlayer`, and the two description sends
-in `WorldSyncStateMachine.flush` / its `sendCubeData` lambda.
+profiles do not bind a height session. Three optional compatibility Mixins target
+only the pinned CubicChunks classes; they supply no world engine patches.
+`CubicPlayerManager.addPlayer` injects at cancellable HEAD, `removePlayer` at
+both RETURN sites, and `NetworkChannel.sendToPlayer` at cancellable HEAD.
+Two separate redirects intercept the single description send in `flush()` and
+the single send in `lambda$sendCubeData$3(ChunkPosition, TileEntity)`, the actual
+compiled tile callback of `sendCubeData(Cube)` in v0.1.23-alpha-pre. This release
+does not have `flush(EntityPlayerMP)` or `sendCubeData(EntityPlayerMP, CubeWatcher)`.
+All adapters delegate directly to `XFEarthHeightSync`; session/protocol ownership
+and native handling outside managed Earth sessions are unchanged.
+
+GTNHGradle's `usesMixins=true` supplies UniMixins and the annotation processor.
+`XFMixinLoader` implements GTNHMixins' `IEarlyMixinLoader` and registers
+`mixins.hfr.early.json`; it registers no ASM transformers. FML adds the pinned
+CubicChunks coremod JAR to LaunchClassLoader before early selection, and its
+bootstrap does not load these hook targets. The loader selects compatibility
+Mixins only when `com.cardinalstar.cubicchunks.asm.coremod.CubicChunksCoreMod`
+appears in GTNHMixins' loaded-coremod set. No optional classes are resolved by
+the loader. The client preflight is selected independently through the config's
+client list. `mixins.hfr.json` is the empty GTNHGradle manifest config; both
+configs share the generated `mixins.hfr.refmap.json`.
+
+The config is required. HEAD and redirect sites require/allow exactly one match;
+removal requires/allows exactly two to cover the early and final returns.
+Changed/missing installed targets fail visibly. CubicChunks is a pinned,
+non-transitive compile-only official dev artifact, not a runtime or published
+dependency. PlayerManager overrides retain normal inherited Minecraft remapping.
+NetworkChannel and sync-machine selectors use `remap=false`, while both nested
+vanilla `NetHandlerPlayServer.sendPacket` targets explicitly use `remap=true`.
+There is no XF instruction scanning, opcode replacement or MCP/SRG name probing.
 
 Before subscribing a player, the bridge sends protocol 1, dimension 0, a new
 session ID, and the complete validated shared profile. The client checks native
@@ -450,10 +475,11 @@ empty. Negative Y is rejected by the shared selected 0..511 profile.
 
 **Exact evaluation client/server requirements:** matching XF builds with this
 bridge; `cubicchunks-v0.1.23-alpha-pre.jar` on both peers; GTNHLib 0.11.51 and
-RegionLib v0.1.0-GTNH; an early `IEarlyMixinLoader` provider (the selected source
-uses UniMixins), Mixin >=0.8.5-GTNH and MixinExtras >=0.5.0, as required by the
-pinned upstream dependency/bootstrap source. Their bootstrap distribution has
-not been launched here. Alternate ChunkAPI/EndlessIDs codecs remain rejected.
+RegionLib v0.1.0-GTNH; UniMixins >=0.3.1 (including GTNHMixins),
+Mixin >=0.8.5-GTNH and MixinExtras >=0.5.0, as required by the
+pinned upstream dependency/bootstrap source. Production startup with the exact
+stack has an upstream GTNHLib remapping blocker described below.
+Alternate ChunkAPI/EndlessIDs codecs remain rejected.
 Ordinary XF worlds retain their existing packet/render paths without these
 optional height components; an active height coremod is still rejected for
 ordinary Earth because it globally replaces providers. XF does not retag,
@@ -476,17 +502,35 @@ session). Later geographic stages must continue using `XFEarthProfile` conversio
 the existing Map snapshots/data and the same claim grid. The Map item and
 `YOU ARE HERE` marker are unchanged.
 
-**Validation and blockers:** offline `compileJava` succeeded with Java 8 output.
-Inspection traced native storage section coordinates through the released
-packet table, initial/update/unload and tile send paths into native client cube
-allocation, height/light reads and render invalidation. Release signatures and
-description call sites were checked in memory, without installing or writing a
-mod jar. No packaging, reobfuscation/remap, runtime launch, transformer execution,
-dedicated-server launch or in-game rendering was performed. Native save/reopen,
-handshake rejection, top/bottom lighting, upper tiles/updates, respawn/dimension
-ordering, shader interactions and production coremod verification remain runtime
-checks. Native global initialization, provider/generator integration, gameplay
-limits and the Stage 2 storage/crash-recovery risks remain blockers to activation.
+**Injection rewrite validation (2026-10-14):** 1.7.10 compilation,
+reobfuscation, Java 8 class verification and the existing release archive verifier
+passed. Both Mixin configs and the generated refmap are present in the release
+JAR; no XF-owned transformers or ASM/remapper feature imports remain.
+Root/common build checks passed (common tests are NO-SOURCE), and the aggregate
+multiversion task graph was checked; a full two-target `buildAll` was not run.
+Without CubicChunks, development and release clients reached the menu, and
+development and release dedicated servers reached `Done` without client Mixin
+application. The development Minecraft export puts preflight before FML startup
+and save-handler access.
+
+With the pinned CubicChunks/GTNHLib/RegionLib dev stack, client startup and
+Mixin's built-in audit succeeded. Exported runtime classes confirm cancellable
+HEAD hooks, both removal returns and the two independent description redirects.
+With the production XF and upstream release JARs, debugger-directed loading of
+all three native targets applied the same exact required injections; exported
+classes confirm SRG player methods and both redirects. This validates XF's
+production remapping, not full pinned-stack startup: GTNHLib 0.11.51 then fails
+its own `MixinTileEntityFlowerPot` injection because its released refmap lacks
+`readFromNBT`'s SRG mapping. The pinned development stack also logs an upstream
+`CompatHandler` missing-event-bus-Mixin error. These dependencies were not patched
+or upgraded. Temporary launch settings isolated server saves and corrected the
+existing `runObfClient` game-directory mismatch; project launch tooling is unchanged.
+
+Ordinary Earth creation/reopen, rejected-save preflight and actual handshake,
+subscription, timeout, tile-ordering, respawn/dimension and rendering behavior
+still need in-game checks. No extended-world gate was bypassed for validation.
+Native global initialization, provider/generator integration, gameplay limits
+and the Stage 2 storage/crash-recovery risks remain blockers to activation.
 
 ## Gameplay bounds and activation blockers (Stage 4)
 

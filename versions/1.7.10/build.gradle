@@ -9,10 +9,19 @@ apply from: '../../build-logic/shared.gradle'
 repositories {
     maven { url = 'https://maven.blamejared.com' }
     maven { url = 'https://nexus.gtnewhorizons.com/repository/public/' }
+    // Official pinned dev artifact: compile-time Mixin targets only, never a runtime dependency.
+    ivy {
+        name = 'PinnedCubicChunks'
+        url = 'https://github.com/GTNewHorizons/CubicChunks1710/releases/download'
+        patternLayout { artifact '[revision]/[artifact]-[revision]-[classifier].[ext]' }
+        metadataSources { artifact() }
+        content { includeModule 'com.cardinalstar', 'cubicchunks' }
+    }
 }
 dependencies {
     compileOnly 'info.journeymap:journeymap-api-forge:1.7.10-2.0.0'
     compileOnly 'com.github.GTNewHorizons:NotEnoughItems:2.8.114-GTNH:dev'
+    compileOnly('com.cardinalstar:cubicchunks:v0.1.23-alpha-pre:dev') { transitive = false }
 }
 
 // FML 1.7.10's --mods feeds both coremod and normal mod discovery. Keep these

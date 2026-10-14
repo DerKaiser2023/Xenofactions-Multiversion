@@ -1,5 +1,12 @@
 # XenoFactions Earth installation
 
+Install UniMixins 0.3.1 or newer alongside Xenofactions on both client and server,
+including ordinary 256-height Earth installations. GTNHMixins supplies the early
+save-preflight Mixin and selects the pinned CubicChunks adapters only when its
+coremod is installed. CubicChunks remains optional and extended-height gameplay
+remains disabled; installing it still causes ordinary Earth startup to reject
+its global provider replacement. See the [injection architecture](XFEARTH_WORLD_TYPE.md#extended-networking-and-rendering-bridge-stage-3).
+
 ## Native external-raster earth2000 generation
 
 XenoFactions can now generate the clean 1:2000 overworld without WorldPainter. The five source PNGs remain external: they are neither copied into `src/main/resources` nor included in the normal JAR. Put an exported source package at `xenofactions/earthmaps/sources/earth2000/` under the server root, or set `earthSourceDirectory` to another source-root directory. The package must contain `HeightMap20k.png`, `BiomeMap20k.png`, `WaterMap20k.png`, `Ice20k.png`, `globecover20k.png`, and `xenoearth-source.json`.

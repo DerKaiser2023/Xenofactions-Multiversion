@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8.5-GTNH",
+  "package": "com.hfr.mixin",
+  "refmap": "mixins.hfr.refmap.json",
+  "target": "@env(DEFAULT)",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [],
+  "client": ["earth.MixinMinecraft"],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

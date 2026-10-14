@@ -11,7 +11,7 @@ Xenofactions is a Forge factions-and-warfare mod for cities, territory, diplomac
 
 **The 1.16.5 core faction gameplay port is available for testing.** Matches, kits, XShop/faction market terminals, Earth terrain, custom image flags/wall art, production machines and optional integrations remain pending. Use a separate test save until the new city/protection/war/economy gameplay has passed multiplayer acceptance. Imported saved match flags never start a match.
 
-Install the matching production JAR on both client and server. Core builds require no installed optional mods. The 1.7.10 JourneyMap, Dynmap, Guide-API, NEI, HBM and MCHeli integrations remain optional; equivalent 1.16.5 integrations are pending.
+Install the matching production JAR on both client and server. The 1.7.10 build requires UniMixins 0.3.1 or newer on both sides for its GTNHMixins early hooks. CubicChunks, JourneyMap, Dynmap, Guide-API, NEI, HBM and MCHeli remain optional; equivalent 1.16.5 integrations are pending. The 1.16.5 runtime requirements are unchanged.
 
 ## Installation and usage
 
