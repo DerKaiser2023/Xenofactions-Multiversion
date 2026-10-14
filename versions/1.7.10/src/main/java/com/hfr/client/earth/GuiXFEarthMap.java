@@ -21,7 +21,8 @@ import org.lwjgl.opengl.GL11;
 @SideOnly(Side.CLIENT)
 public final class GuiXFEarthMap extends GuiScreen {
     private static int nextRequest;
-    private final IntBuffer scissor = BufferUtils.createIntBuffer(4);
+    // LWJGL 2 requires 16 remaining integers even though GL_SCISSOR_BOX returns four.
+    private final IntBuffer scissor = BufferUtils.createIntBuffer(16);
     private XFEarthMapData data;
     private EarthMapImages images;
     private World requestedWorld;
@@ -149,11 +150,12 @@ public final class GuiXFEarthMap extends GuiScreen {
     }
     private void drawMap() {
         boolean wasScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        // Native writes do not advance the position; restore the four values with indexed reads.
         scissor.clear(); GL11.glGetInteger(GL11.GL_SCISSOR_BOX, scissor);
         int scale = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight).getScaleFactor();
-        GL11.glEnable(GL11.GL_SCISSOR_TEST);
-        GL11.glScissor(left() * scale, mc.displayHeight - (top() + viewHeight()) * scale, viewWidth() * scale, viewHeight() * scale);
         try {
+            GL11.glEnable(GL11.GL_SCISSOR_TEST);
+            GL11.glScissor(left() * scale, mc.displayHeight - (top() + viewHeight()) * scale, viewWidth() * scale, viewHeight() * scale);
             double w = mapWidth(), h = mapHeight(), ox = originX(), oz = originZ();
             int level = 0;
             for (int i = 1; i < images.levels.length; i++) {
@@ -198,7 +200,8 @@ public final class GuiXFEarthMap extends GuiScreen {
             }
         } finally {
             GL11.glScissor(scissor.get(0), scissor.get(1), scissor.get(2), scissor.get(3));
-            if (!wasScissor) GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            if (wasScissor) GL11.glEnable(GL11.GL_SCISSOR_TEST);
+            else GL11.glDisable(GL11.GL_SCISSOR_TEST);
             GL11.glColor4f(1, 1, 1, 1);
         }
     }
