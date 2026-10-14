@@ -1,7 +1,6 @@
 package com.hfr.world.earth.map;
 
 import com.google.gson.Gson;
-import com.hfr.world.earth.XFEarthBounds;
 import com.hfr.world.earth.XFEarthProfile;
 
 /** Shared map description and projection for the item and JourneyMap preload. No client types. */
@@ -30,26 +29,20 @@ public final class XFEarthMapData {
     }
 
     // Generator: raster pixel (0,0) becomes (minimumX,minimumZ). No rotation or flip.
-    public double mapX(double x) { return (x - profile.getBounds().minimumX) / profile.getWidth(); }
-    public double mapZ(double z) { return (z - profile.getBounds().minimumZ) / profile.getHeight(); }
+    public double mapX(double x) { return profile.mapX(x); }
+    public double mapZ(double z) { return profile.mapZ(z); }
     public boolean contains(double x, double z) {
-        XFEarthBounds b = profile.getBounds();
-        // Inclusive block IDs cover the continuous extent through max+1.
-        return finite(x) && finite(z) && x >= b.minimumX && x < (double)b.maximumX + 1
-                && z >= b.minimumZ && z < (double)b.maximumZ + 1;
+        return profile.containsMapPosition(x,z);
     }
     public boolean hasGeographicConversion() {
-        return "equirectangular".equals(profile.getProjection()) && profile.getEffectiveScale() > 0;
+        return profile.hasGeographicConversion();
     }
     // The source calculator uses 120000 / effectiveScale blocks per degree.
     // Cropped rasters cover 358.4 x 179.2 degrees, not 360 x 180.
     public double longitude(double x) {
-        return (x - profile.getBounds().minimumX - profile.getWidth() / 2.0)
-                * profile.getEffectiveScale() / 120000.0;
+        return profile.longitude(x);
     }
     public double latitude(double z) {
-        return -(z - profile.getBounds().minimumZ - profile.getHeight() / 2.0)
-                * profile.getEffectiveScale() / 120000.0;
+        return profile.latitude(z);
     }
-    private static boolean finite(double value) { return !Double.isNaN(value) && !Double.isInfinite(value); }
 }

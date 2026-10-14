@@ -685,6 +685,8 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStopping(FMLServerStoppingEvent event) {
+		com.hfr.world.earth.pregen.XFEarthPregenerator.shutdown();
+		com.hfr.world.earth.XFEarthProfileLoader.clear();
 		com.hfr.clowder.flag.CustomFlagService.shutdown();
 		XFDynmapIntegration.resetServerSession();
 	}

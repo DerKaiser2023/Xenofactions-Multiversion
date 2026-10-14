@@ -1,23 +1,25 @@
 package com.hfr.world.earth.pregen;
 
 import java.io.IOException;
+import com.hfr.world.earth.XFEarthProfile;
 import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.chunk.Chunk;
 
-/** Pure Minecraft 1.7.10 terrain conversion; intentionally performs no population pass. */
+/** Raster preparation is independent of worlds; chunk construction is server-thread only. */
 public final class XFEarthTerrainConverter {
  public static final String VERSION="1";
- private static final int SEA=62;
  private final XFEarthRasterSet rasters;
- public XFEarthTerrainConverter(XFEarthRasterSet rasters){this.rasters=rasters;}
- public Chunk create(World world,int chunkX,int chunkZ)throws IOException{
-  Block[] blocks=new Block[16*16*256];byte[] metadata=new byte[blocks.length],biomes=new byte[256];
+ private final XFEarthProfile profile;
+ public XFEarthTerrainConverter(XFEarthRasterSet rasters,XFEarthProfile profile){this.rasters=rasters;this.profile=profile;}
+ public PreparedChunk prepare(int chunkX,int chunkZ)throws IOException{
+  final int SEA=profile.getSeaLevel();
+  Block[] blocks=new Block[16*16*profile.getBlockHeight()];byte[] metadata=new byte[blocks.length],biomes=new byte[256];
   for(int lz=0;lz<16;lz++)for(int lx=0;lx<16;lx++){
-   int wx=chunkX*16+lx,wz=chunkZ*16+lz,px=wx+10752,pz=wz+5376;
-   int raw=rasters.sample("HeightMap20k.png",px,pz),surface=height(raw);
+   int wx=chunkX*16+lx,wz=chunkZ*16+lz,px=wx-profile.getBounds().minimumX,pz=wz-profile.getBounds().minimumZ;
+   int raw=rasters.sample("HeightMap20k.png",px,pz),surface=profile.surfaceY(raw);
    int biome=biome(rasters.rgb("BiomeMap20k.png",px,pz));boolean river=water(rasters.rgb("WaterMap20k.png",px,pz));boolean ice=water(rasters.rgb("Ice20k.png",px,pz));
    boolean ocean=surface<SEA&&!river;Block top=surface(rasters.rgb("globecover20k.png",px,pz),biome,ocean);Block filler=filler(top,ocean);
    set(blocks,lx,lz,0,Blocks.bedrock);for(int y=1;y<=surface;y++)set(blocks,lx,lz,y,y==surface?top:(y>=surface-3?filler:Blocks.stone));
@@ -25,11 +27,15 @@ public final class XFEarthTerrainConverter {
    if(ocean)biome=surface<SEA-18?BiomeGenBase.deepOcean.biomeID:(ice?BiomeGenBase.frozenOcean.biomeID:BiomeGenBase.ocean.biomeID);else if(river)biome=ice?BiomeGenBase.frozenRiver.biomeID:BiomeGenBase.river.biomeID;
    biomes[lz*16+lx]=(byte)biome;
   }
-  Chunk chunk=new Chunk(world,blocks,metadata,chunkX,chunkZ);chunk.setBiomeArray(biomes);chunk.generateSkylightMap();chunk.isTerrainPopulated=true;chunk.isLightPopulated=true;chunk.isModified=true;return chunk;
+  return new PreparedChunk(chunkX,chunkZ,blocks,metadata,biomes);
  }
- /** The source is unsigned 16-bit full-range elevation, with sea level encoded at 62/255. */
- static int height(int sample){int y=(int)Math.round((sample&0xffff)*255.0/65535.0);return Math.max(1,Math.min(254,y));}
- private static void set(Block[] a,int x,int z,int y,Block b){a[(x*16+z)*256+y]=b;}
+ public static final class PreparedChunk {
+  private final int x,z;private final Block[] blocks;private final byte[] metadata,biomes;
+  private PreparedChunk(int x,int z,Block[] blocks,byte[] metadata,byte[] biomes){this.x=x;this.z=z;this.blocks=blocks;this.metadata=metadata;this.biomes=biomes;}
+  /** Uses World/Forge block callbacks and must run on the owning server thread. */
+  public Chunk create(World world){Chunk chunk=new Chunk(world,blocks,metadata,x,z);chunk.setBiomeArray(biomes);chunk.generateSkylightMap();chunk.isTerrainPopulated=true;chunk.isLightPopulated=true;chunk.isModified=true;return chunk;}
+ }
+ private void set(Block[] a,int x,int z,int y,Block b){a[(x*16+z)*profile.getBlockHeight()+y-profile.getMinimumY()]=b;}
  private static boolean water(int rgb){return rgb!=0;}
  private static int biome(int rgb){
   int gray=rgb&255;if(((rgb>>16)&255)==gray&&((rgb>>8)&255)==gray&&BiomeGenBase.getBiome(gray)!=null)return gray;

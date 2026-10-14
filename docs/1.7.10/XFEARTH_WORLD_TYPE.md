@@ -115,7 +115,8 @@ imagery displays a clear unavailable message instead of substituting unrelated
 geography. Geographic conversion assumes the profile's centered source origin;
 another geographic projection needs its own supported converter.
 
-The common `XFEarthMapData` owns bounds/projection conversion. The client
+The common `XFEarthProfile` owns bounds/projection conversion, and
+`XFEarthMapData` delegates to it. The client
 `EarthMapImages` and `EarthMapTileCache` provide reusable image metadata and tiles;
 the JourneyMap preload uses the same metadata and projection, independently of
 the item GUI. The item does not depend on JourneyMap.
@@ -204,6 +205,86 @@ thread ownership; in-game visibility, LOD refresh, player alignment, terrain
 replacement, reconnect/reload cancellation, changed profiles/images, and
 multiplayer identity collisions still require runtime checks. Support for other
 JourneyMap builds has not been established.
+
+## Height implementation findings (Stage 1)
+
+**Active support remains vanilla Anvil, Y=0..255.** The shared profile and all
+later geographic features work at that height. Changing a configuration value
+or `WorldProvider.getActualHeight()` cannot add real blocks above it. No save
+migration, height coremod installation, or new chunk format is implemented here.
+The [shared profile contract](XFEARTH_MAP_PACK_FORMAT.md#shared-earth-profile-stage-1-forge-1710)
+defines the fields and interfaces that subsequent stages must reuse.
+
+The inspected engine is the project's existing RFG-patched Minecraft source at
+`versions/1.7.10/build/rfg/minecraft-src/java`, using Forge **10.13.4.1614**,
+MCP stable **12**, and Java **8**. Its relevant limitations are:
+
+| Path | Confirmed limitation / required integration |
+| --- | --- |
+| `World`, `WorldProvider`, `Chunk`, `ChunkCache` | World reads/writes and lighting reject/clamp Y outside 0..255; Chunk allocates 16 sections indexed by Y >> 4 and 16 entity slices. |
+| `AnvilChunkLoader` | Reads into 16 section slots; section `Y` is a signed byte. HeightMap is already an int array of 256 X/Z columns, but algorithms and skylight traversal still assume the old vertical domain. |
+| `S21PacketChunkData`, `S26PacketMapChunkBulk` | Sixteen-section masks and fixed section iteration; increasing the section array alone cannot synchronize tall chunks. |
+| `S23PacketBlockChange`, `S22PacketMultiBlockChange`, `C07PacketPlayerDigging`, `C08PacketPlayerBlockPlacement` | Byte Y or packed eight-bit Y truncates positions above 255; both packet readers/writers and interaction handlers must agree. |
+| `PlayerManager`, `NetHandlerPlayServer`, `NetHandlerPlayClient`, `RenderGlobal` | Chunk subscriptions, build-limit checks, client fill/render invalidation and a 16-section vertical renderer require a coordinated replacement. |
+| XF Earth generator/provider/install | Native terrain buffers, bedrock fallback and `.mca` pregeneration remain Anvil; Earth adoption requires `region/`. A cube generator/storage adapter and pack/install/verification changes are needed for a separate new-world format. |
+
+XF's `usesMixins=false` build and inspected sources contain no existing height
+transformer or integration. The existing `devmods/` launch path can load external
+normal/coremods; it does not establish their compatibility. Server-border
+wrapping stays dimension-0-only, with PROFILE/CONFIG/OFF adoption, safety margin,
+inclusive endpoint span and exemption behavior preserved. Map coordinates follow
+actual player positions. Nether, End and claim persistence remain unchanged.
+
+The selected **evaluation candidate** is
+[GTNH CubicChunks1710 v0.1.23-alpha-pre](https://github.com/GTNewHorizons/CubicChunks1710/releases/tag/v0.1.23-alpha-pre),
+pinned source `e362225ec67d32d7251331f6deb7096fd8e089a8`.
+Its build targets the same Forge 1614/MCP stable 12 and Java 8. It is an
+existing engine replacement, not merely a height setting: `CubeIO` and
+`RegionCubeStorage` store columns/cubes under `region2d/` and `region3d/`;
+`PacketEncoderWorldHeight` synchronizes signed int bounds; cube/block/heightmap
+packets, world/interaction mixins, lighting and `MixinRenderGlobal` cover the
+major engine paths above. `ICubicWorldType` exposes the custom generator and
+generation range boundary needed by Earth.
+
+The initial target for **future integration testing** is 512 blocks,
+Y=0..511 (32 cubes vertically). Its exclusive upper bound is 512, consistent
+with the candidate's multiple-of-16 limits and signed supported range. This is
+source-supported by the candidate, **not enabled or verified support in XF**.
+The active profile implementation stays `vanilla-anvil` until the gate is met.
+
+For an isolated evaluation, both server and every client need the matching
+`cubicchunks-v0.1.23-alpha-pre.jar`, **GTNHLib 0.11.51** and
+**RegionLib v0.1.0-GTNH**, as declared in the
+[pinned dependencies](https://github.com/GTNewHorizons/CubicChunks1710/blob/v0.1.23-alpha-pre/dependencies.gradle).
+The early coremod implements GTNH's `IEarlyMixinLoader`; a compatible
+UniMixins/GTNH mixin bootstrap supplying at least **0.8.5-GTNH** and
+**MixinExtras 0.5.0** is also required by the pinned mixin configuration. Its
+exact distribution and transitive runtime libraries still need verification in
+a real Java 8 installation. Do not substitute a 1.12 CubicChunks jar, the dev
+jar, or assume the repository's development launcher supplies these components.
+The older [Tall Worlds releases](https://www.cuchazinteractive.com/minecraft/tall-worlds/versions.html)
+target Minecraft 1.8.3/M3L and are not an alternative for Forge 1.7.10.
+
+**Remaining height blockers before enabling anything:** upstream explicitly
+labels current builds buggy, reports compatibility testing incomplete, and lists
+world conversions as TODO. XF's Anvil-only Earth generation/installation has no
+cube adapter. Storage/reopen, matching client/server packets, renderers,
+lighting, tile entities, placement/digging, entity ticking, spawn/border safe-Y
+searches, claims at tall Y, optional map renderers and dedicated-server lifecycle
+must be validated together on new disposable worlds. The candidate excludes
+Angelica from its vanilla RenderGlobal mixin, so an alternate renderer cannot
+be assumed covered. Its optional JourneyMap mixins target native classes;
+compatibility with the inspected XF JourneyMap 6.0.7 importer or the wider
+Deadhour modpack has not been established. No proven compatible height stack is
+selected for production; these blockers do not prevent Stage 2 geography.
+
+Stage 1 source inspection checked raster shifts against the original
+MinecraftEarthMapXF generator and coordinate calculator, the bundled profiles,
+packet/thread ownership, claims and border adoption. The existing offline
+`compileJava` task succeeded. Actual map alignment, server restart/profile
+default loading, pregenerator cancellation/pause/resume and world unload still
+require in-game checks. No height-mod runtime launch, save conversion,
+reobfuscation or packaging was performed.
 
 ## Manual runtime plan
 
