@@ -233,6 +233,12 @@ JourneyMap is optional. JourneyMap 6.0.x uses its client API 2.0.0 plugin to sho
 
 Category: `XENOFACTIONS_09B_JOURNEYMAP_CLIENT`
 
+The automatic Earth day/night background preload is separate from these claim
+overlay preferences and Right Alt. It targets only the inspected Deadhour Forge
+1.7.10 JourneyMap 6.0.7 build, adds no configuration, and requires the active
+Earth overworld profile and offline imagery. See
+[Earth preload and world identity limits](XFEARTH_WORLD_TYPE.md#optional-journeymap-earth-preload).
+
 | Key | Default | Meaning |
 |---|---:|---|
 | `showMinimapClaims` | `true` | Render faction city claims on rectangular or circular minimaps. |

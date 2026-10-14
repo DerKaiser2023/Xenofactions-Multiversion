@@ -116,8 +116,9 @@ geography. Geographic conversion assumes the profile's centered source origin;
 another geographic projection needs its own supported converter.
 
 The common `XFEarthMapData` owns bounds/projection conversion. The client
-`EarthMapImages` and `EarthMapTileCache` provide reusable image metadata and tiles
-for a later JourneyMap adapter; the item does not depend on that integration.
+`EarthMapImages` and `EarthMapTileCache` provide reusable image metadata and tiles;
+the JourneyMap preload uses the same metadata and projection, independently of
+the item GUI. The item does not depend on JourneyMap.
 Cache keys include server map identity (profile plus save/install identity) and
 source image SHA-256. One bounded worker decodes only requested PNG tiles;
 uploads and GL changes run on the client thread. The cache caps RGBA texture
@@ -133,6 +134,76 @@ they do not establish in-game accuracy. Runtime checks remain necessary for
 dedicated-server opening, movement and wrap teleports, all supported scales,
 edge/offscreen indicators, zoom/drag/centering, dimensions, resource reload and
 disconnect/reconnect texture cleanup.
+
+### Optional JourneyMap Earth preload
+
+Entering an Earth overworld automatically requests the same server-authoritative
+profile used by the Map item, even without opening the item. This preload targets
+the inspected Deadhour `journeymap-forge-1.7.10-6.0.7.jar` (reported version
+`1.7.10-6.0.7`, build `2026-09-19-18:38:56`). Other versions retain their existing
+claim overlays but do not receive an Earth preload. JourneyMap is not required
+on the server; absent clients do not register an importer or emit absence logs.
+
+The inspected API 2.0.0 can display image overlays and read map tiles, but has no
+terrain tile import operation. An overlay would cover subsequently explored
+terrain. Instead, the reflection-only adapter uses the inspected native
+`FileHandler`, `RegionCoord`, `RegionImageSet` and `ImageHolder` storage path.
+Day and night surfaces are 512-by-512 RGBA PNGs named `regionX,regionZ.png` under
+JourneyMap's own resolved world directory, `DIM<dimension>/day` and `/night`.
+Region coordinates are `floor(X/512), floor(Z/512)`, including negative positions;
+image columns increase along +X and rows along +Z. The importer never guesses
+world folder names. Biome, topographic, cave maps, waypoints and chunk caches
+are untouched. The entire Earth background appears on day/night surface maps;
+JourneyMap's existing zoom, map selection, permissions and player marker remain
+in effect. No JourneyMap configuration is changed.
+
+The highest prepared image level is sampled using the item's exact normalized
+X/Z conversion. Pixels outside the profile's inclusive block bounds remain
+transparent. Only entirely transparent 16-by-16 areas or areas still exactly
+matching this importer's ownership record can be filled/refreshed. All other
+terrain pixels are preserved, including partial regions. Background pixels use
+alpha 254; the inspected native `BaseRenderer.paintBlock` writes alpha 255.
+Consequently normal terrain updates replace the background and cease matching
+ownership even if their RGB colors happen to match. No chunk is generated,
+loaded, visited, or marked rendered/explored by the import.
+
+Completion and per-region restart journals live in
+`addon-data/hfr/earth-preload` beneath the resolved JourneyMap world directory.
+Keys include actual multiplayer endpoint (or singleplayer save), JourneyMap
+world ID/directory, dimension, authoritative Earth identity/profile, metadata,
+and SHA-256 of the actual prepared tile bytes. A resource reload or changed
+profile/imagery invalidates the affected import; still-owned backgrounds are
+updated, including removal outside reduced bounds. Login verifies imagery and
+native file presence but skips completed region conversions/writes. Journals
+allow interrupted imports to resume without replacing detailed terrain. Losing
+an ownership record makes the importer preserve those existing pixels.
+
+One cancellable worker handles PNG decoding, resampling, journals and native
+PNG persistence. It hands off at most one resource/publication operation per
+client tick and waits for it before proceeding. Cartography and disk writers
+are excluded using the inspected holder write lock; texture publication and
+listener notification run on the client thread, while JourneyMap performs its
+own GL binding. LOD invalidation/persistence run on the worker. Unbound clean
+imported image buffers are released on the client thread to avoid retaining
+planet-sized RGBA data in JourneyMap's cache. Disconnect, world/dimension/ID
+changes and resource reload cancel queued work; an already-running bounded
+file operation can finish, but no cancelled job records global completion.
+Successful imports log one completion message. Failure stops that job with a
+useful error and leaves the Map item available.
+
+**World identity limit:** without a server-supplied JourneyMap world UUID, this
+build derives its native multiplayer folder from the saved server name, not the
+address. Import records include the actual address, and a folder bound to a
+different address is rejected rather than mixing backgrounds. Such servers
+need distinct saved server names or distinct JourneyMap world IDs. The importer
+does not rename their directories, change settings, or move exploration data.
+
+The existing offline Forge 1.7.10 `compileJava` task passed. Source/bytecode
+inspection establishes storage, coordinate orientation, overwrite rules and
+thread ownership; in-game visibility, LOD refresh, player alignment, terrain
+replacement, reconnect/reload cancellation, changed profiles/images, and
+multiplayer identity collisions still require runtime checks. Support for other
+JourneyMap builds has not been established.
 
 ## Manual runtime plan
 

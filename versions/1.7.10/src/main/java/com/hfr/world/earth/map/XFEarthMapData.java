@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.hfr.world.earth.XFEarthBounds;
 import com.hfr.world.earth.XFEarthProfile;
 
-/** Shared map description and projection for the item and future map integrations. No client types. */
+/** Shared map description and projection for the item and JourneyMap preload. No client types. */
 public final class XFEarthMapData {
     public final XFEarthProfile profile;
     public final String identity;

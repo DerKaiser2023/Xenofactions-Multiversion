@@ -56,6 +56,8 @@ public class ClientProxy extends ServerProxy
 		final Minecraft mc = Minecraft.getMinecraft();
 		final World receivingWorld = mc.theWorld;
 		mc.func_152344_a(new Runnable() { @Override public void run() {
+			if (receivingWorld != null && mc.theWorld == receivingWorld)
+				com.hfr.client.journeymap.XFEarthJourneyMapImport.receive(request, dimension, profile, identity, error);
 			if (receivingWorld != null && mc.theWorld == receivingWorld && mc.currentScreen instanceof com.hfr.client.earth.GuiXFEarthMap)
 				((com.hfr.client.earth.GuiXFEarthMap)mc.currentScreen).receive(request, dimension, profile, identity, error);
 		} });
@@ -85,6 +87,7 @@ public class ClientProxy extends ServerProxy
 		new EventHandlerClient().register();
 		com.hfr.client.earth.EarthMapTileCache.registerReloadListener();
 		com.hfr.client.journeymap.XFJourneyMapIntegration.register();
+		com.hfr.client.journeymap.XFEarthJourneyMapImport.register();
 		
 		RenderingRegistry.addNewArmourRendererPrefix("5");
 
