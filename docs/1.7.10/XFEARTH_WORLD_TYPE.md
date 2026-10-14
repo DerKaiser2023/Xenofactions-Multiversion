@@ -384,6 +384,110 @@ Stages 3 and 4 must complete network/render/gameplay integration and address the
 candidate's global initialization before gameplay can be enabled. Deadhour,
 Angelica and JourneyMap compatibility remain unverified.
 
+## Extended networking and rendering bridge (Stage 3)
+
+Stage 3 connects the Stage 2 identity/profile to the **same** pinned native
+codecs and vanilla terrain renderer. Extended Earth gameplay remains disabled:
+`requireGameplayHeight()` still runs before opening the save, installing a pack,
+attaching storage or constructing gameplay chunks. No height switch, migration,
+new chunk format, bundled dependency or replacement renderer is introduced.
+These integration paths are therefore compiled but have not run against an
+extended gameplay world. Stage 4 must complete gameplay/provider integration
+and address the candidate's global world initialization before enabling them.
+
+`XFEarthHeightSync.bind(world, profile)` is wired after the existing world-load
+gate. It accepts only server dimension 0, the validated Stage 2 native storage
+identity/layout, the exact selected components, the native CubeProviderServer,
+and matching native min/max bounds (0/512, with maximum exclusive). Ordinary
+profiles do not bind a height session. The optional coremod transformer targets
+only three pinned CubicChunks classes; it supplies no world engine patches.
+Its exact method counts and descriptors fail closed if the native implementation
+changes. The production release artifact confirms Java 8 classes, SRG player
+add/remove methods, `NetworkChannel.sendToPlayer`, and the two description sends
+in `WorldSyncStateMachine.flush` / its `sendCubeData` lambda.
+
+Before subscribing a player, the bridge sends protocol 1, dimension 0, a new
+session ID, and the complete validated shared profile. The client checks native
+components, provider, bounds and renderer on ClientTick, then acknowledges.
+Only that acknowledgement resumes native `CubicPlayerManager.addPlayer` on
+ServerTick; the native sync machine retains its column -> cube -> tile
+description order. Missing or unsupported clients are rejected by the loader
+check or a 400-server-tick acknowledgement timeout. The loader check requires
+matching pinned height mods on both peers before S01/S07: this release changes
+those packets and S23 globally, even outside a managed Earth session.
+
+For managed Earth sessions, native packets are encoded by public
+`CCPacketEntry.encoder.writePacket` and decoded/applied by the same native
+`readPacket` / `process` methods. XF adds a dimension/session envelope on its
+existing Forge channel, with appended discriminators preserving older IDs. This
+avoids the pinned native channel's direct network-callback world mutation.
+Network callbacks queue detached bytes only; client world access, cube creation,
+tile application, lighting and render invalidation run on ClientTick. ACK
+callbacks likewise coalesce detached IDs until ServerTick. No worker handles a
+Minecraft world. The envelope is limited to 1 MiB, below Forge 1614's inspected
+S3F payload limit of 2,097,050 bytes (Forge uses VarShort, not vanilla's short
+length). The client queue is limited to 16 MiB and 1,024 deliveries per tick;
+overload disconnects explicitly instead of dropping sections.
+
+| Path | Selected native representation / Stage 3 handling |
+| --- | --- |
+| Initial column | Int X/Z, native biome array and HeightMap3D intervals; count/range checks retain native capacity padding. |
+| Initial cube | Int X/Y/Z cube coordinates, native Blocks/Add/Data/BlockLight/SkyLight and optional native biome data; native EBS allocation uses cubeY * 16. Cube 31 covers blocks 496..511. |
+| Block update | Native cube update list and patched S23 int Y. Bounds, cube membership, IDs and metadata are checked; vanilla byte-Y S22 is not used for upper cubes. |
+| Heightmap/light | Native interval updates, variable-length BitSet mask, full 2,048-byte skylight or two-byte local updates. Missing parent columns/cubes reject the connection rather than silently ignoring updates. Null-storage light updates also invalidate rendering. |
+| Tile description | Native description packet bytes remain in the same ordered envelope as their cube. Registered PLAY packets and Forge proxy descriptions retain their existing handlers; unregistered/oversize descriptions fail explicitly. S35's signed-short Y safely covers 0..511, preserving NBT; its loaded cube is checked before application. |
+| Unload/respawn | Native unload codecs, session retirement, connection/world checks, manager removal hooks and overworld/server cleanup. Same-dimension respawn can renew the session without replacing WorldClient. |
+
+Native `World_HeightLimit` changes `blockExists`, block/metadata/tile access and
+lighting bounds to the actual min/max range. Its Chunk/ChunkCache mixins route
+upper data and render light sampling to cubes. Native `RenderGlobal` creates a
+sliding vertical renderer window of `2 * verticalCubeLoadDistance + 1` sections,
+centred around the viewer, and updates entity visibility at its actual Y.
+Native cube updates invalidate their real 16-block render extent. XF validates
+the native renderer's `RenderDistanceCubesVertical` field and reloads its sections
+before acknowledgement. There is no fallback pretending an absent section is
+empty. Negative Y is rejected by the shared selected 0..511 profile.
+
+**Exact evaluation client/server requirements:** matching XF builds with this
+bridge; `cubicchunks-v0.1.23-alpha-pre.jar` on both peers; GTNHLib 0.11.51 and
+RegionLib v0.1.0-GTNH; an early `IEarlyMixinLoader` provider (the selected source
+uses UniMixins), Mixin >=0.8.5-GTNH and MixinExtras >=0.5.0, as required by the
+pinned upstream dependency/bootstrap source. Their bootstrap distribution has
+not been launched here. Alternate ChunkAPI/EndlessIDs codecs remain rejected.
+Ordinary XF worlds retain their existing packet/render paths without these
+optional height components; an active height coremod is still rejected for
+ordinary Earth because it globally replaces providers. XF does not retag,
+convert or activate other dimensions.
+
+**Angelica is unsupported for extended Earth.** The pinned native mixin table
+explicitly omits its RenderGlobal mixin when Angelica is present. The local
+Angelica 2.2.13 development reference uses Celeritas: its world renderer returns
+maximum build height 256, and cloned sections reject Y >=256 and index the
+ordinary section array. There is no inspected upper-cube terrain adapter.
+Stage 3 rejects Angelica before acknowledging or subscribing to extended
+chunks. Angelica is optional and unaffected on ordinary XF worlds. OptiFine,
+shader replacements, JourneyMap at extended height, custom tile description
+handlers and the Deadhour modpack have not been validated with this stack.
+
+The shared lifecycle/API is `XFEarthHeightSync.bind/unload/clear`, the existing
+profile/identity APIs, and client-thread
+`XFEarthHeightClient.getActiveProfile(world)` (null outside an accepted extended
+session). Later geographic stages must continue using `XFEarthProfile` conversion,
+the existing Map snapshots/data and the same claim grid. The Map item and
+`YOU ARE HERE` marker are unchanged.
+
+**Validation and blockers:** offline `compileJava` succeeded with Java 8 output.
+Inspection traced native storage section coordinates through the released
+packet table, initial/update/unload and tile send paths into native client cube
+allocation, height/light reads and render invalidation. Release signatures and
+description call sites were checked in memory, without installing or writing a
+mod jar. No packaging, reobfuscation/remap, runtime launch, transformer execution,
+dedicated-server launch or in-game rendering was performed. Native save/reopen,
+handshake rejection, top/bottom lighting, upper tiles/updates, respawn/dimension
+ordering, shader interactions and production coremod verification remain runtime
+checks. Native global initialization, provider/generator integration, gameplay
+limits and the Stage 2 storage/crash-recovery risks remain blockers to activation.
+
 ## Manual runtime plan
 
 With real exports available, run `runClient`, create each variant, verify the

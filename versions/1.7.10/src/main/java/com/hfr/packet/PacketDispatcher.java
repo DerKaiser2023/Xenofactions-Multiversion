@@ -89,6 +89,8 @@ public class PacketDispatcher {
         wrapper.registerMessage(com.hfr.packet.shop.PlayerTraderSnapshotPacket.Handler.class, com.hfr.packet.shop.PlayerTraderSnapshotPacket.class, i++, Side.CLIENT);
         wrapper.registerMessage(EarthMapRequestPacket.Handler.class, EarthMapRequestPacket.class, i++, Side.SERVER);
         wrapper.registerMessage(EarthMapSnapshotPacket.Handler.class, EarthMapSnapshotPacket.class, i++, Side.CLIENT);
+        wrapper.registerMessage(com.hfr.world.earth.network.XFEarthHeightPacket.Handler.class, com.hfr.world.earth.network.XFEarthHeightPacket.class, i++, Side.CLIENT);
+        wrapper.registerMessage(com.hfr.world.earth.network.XFEarthHeightAck.Handler.class, com.hfr.world.earth.network.XFEarthHeightAck.class, i++, Side.SERVER);
 
 	}
 	

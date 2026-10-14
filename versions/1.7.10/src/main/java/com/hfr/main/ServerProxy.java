@@ -27,6 +27,7 @@ public class ServerProxy
 	public void openWallArtGui(TileEntityWallImage tile) { }
 	public void openEarthMap() { }
 	public void receiveEarthMap(int request, int dimension, String profile, String identity, String error) { }
+	public void receiveEarthHeight(com.hfr.world.earth.network.XFEarthHeightPacket packet, net.minecraft.network.INetHandler handler) { }
 	public void acceptWallArtChunk(String hash, int index, int total, int fullLength, byte[] bytes) { }
 
 	public void spawnEFX(double posX, double posY, double posZ, float pow) { }

@@ -51,6 +51,9 @@ import cpw.mods.fml.relauncher.ReflectionHelper;
 
 public class ClientProxy extends ServerProxy
 {
+	@Override public void receiveEarthHeight(com.hfr.world.earth.network.XFEarthHeightPacket packet, net.minecraft.network.INetHandler handler) {
+		com.hfr.client.earth.XFEarthHeightClient.receive(packet,handler);
+	}
 	@Override public void openEarthMap() { Minecraft.getMinecraft().displayGuiScreen(new com.hfr.client.earth.GuiXFEarthMap()); }
 	@Override public void receiveEarthMap(final int request, final int dimension, final String profile, final String identity, final String error) {
 		final Minecraft mc = Minecraft.getMinecraft();
@@ -83,6 +86,7 @@ public class ClientProxy extends ServerProxy
 	@Override
 	public void registerRenderInfo()
 	{
+		com.hfr.client.earth.XFEarthHeightClient.register();
 		net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new com.hfr.client.earth.XFEarthCreateWorldHandler());
 		new EventHandlerClient().register();
 		com.hfr.client.earth.EarthMapTileCache.registerReloadListener();

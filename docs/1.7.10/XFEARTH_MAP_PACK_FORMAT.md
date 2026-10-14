@@ -77,6 +77,12 @@ Later geographic stages must reuse:
   `XFEarthColumnData` is the sparse section preparation shared with the ordinary
   generator, and `XFEarthCubicStorage` is its native storage boundary. Do not pass
   extended section data to vanilla `Chunk` constructors or Anvil loaders.
+- Stage 3's `XFEarthHeightSync.bind/unload/clear` lifecycle and client-thread
+  `XFEarthHeightClient.getActiveProfile(world)` for accepted extended sessions.
+  The format handshake reuses this complete profile and storage identity, with
+  native CubicChunks codecs and renderer; it introduces no second geographic
+  grid. The gameplay/installation gate remains closed through Stage 4. See
+  [Stage 3 requirements and blockers](XFEARTH_WORLD_TYPE.md#extended-networking-and-rendering-bridge-stage-3).
 - `XFEarthMapData`, `EarthMapImages` and `EarthMapTileCache` for the existing
   offline imagery and optional JourneyMap import. MapData delegates coordinate
   calculations to the profile; neither integration chooses another Earth grid.

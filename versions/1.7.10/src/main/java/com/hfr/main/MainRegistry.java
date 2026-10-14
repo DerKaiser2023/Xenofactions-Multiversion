@@ -93,7 +93,13 @@ public class MainRegistry
 	// Packet layouts changed with the maintained content set; mixed builds cannot connect.
 	@cpw.mods.fml.common.network.NetworkCheckHandler
 	public boolean acceptsNetworkBuild(java.util.Map<String, String> remoteVersions, cpw.mods.fml.relauncher.Side side) {
-		return RefStrings.VERSION.equals(remoteVersions.get(RefStrings.MODID));
+		if (!RefStrings.VERSION.equals(remoteVersions.get(RefStrings.MODID))) return false;
+		// The pinned coremod changes S01/S07/S23 globally, so even login requires matching native peers.
+		String remote = remoteVersions.get("cubicchunks");
+		boolean local = cpw.mods.fml.common.Loader.isModLoaded("cubicchunks");
+		if (!local) return remote == null;
+		return com.hfr.world.earth.storage.XFEarthStorageIdentity.CUBIC_VERSION.equals(remote)
+				&& remote.equals(cpw.mods.fml.common.Loader.instance().getIndexedModList().get("cubicchunks").getVersion());
 	}
 
 	@Instance(RefStrings.MODID)
@@ -336,6 +342,7 @@ public class MainRegistry
 
 		com.hfr.world.earth.XFEarthRegistry.register();
 		MinecraftForge.EVENT_BUS.register(new com.hfr.world.earth.XFEarthWorldValidationHandler());
+		FMLCommonHandler.instance().bus().register(com.hfr.world.earth.network.XFEarthHeightSync.events());
 		CraftingManager.mainRegistry();
 		proxy.registerRenderInfo();
 
@@ -693,6 +700,7 @@ public class MainRegistry
 	public void serverStopping(FMLServerStoppingEvent event) {
 		com.hfr.world.earth.pregen.XFEarthPregenerator.shutdown();
 		com.hfr.world.earth.XFEarthProfileLoader.clear();
+		com.hfr.world.earth.network.XFEarthHeightSync.clear();
 		com.hfr.clowder.flag.CustomFlagService.shutdown();
 		XFDynmapIntegration.resetServerSession();
 	}
