@@ -26,3 +26,6 @@ Thumbs.db
 .build-number.lock/
 __pycache__/
 .ci-gradle/
+# Local Forge 1.7.10 development mods; retain the empty folder in fresh clones.
+/devmods/*
+!/devmods/.gitkeep

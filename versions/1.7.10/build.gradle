@@ -14,5 +14,49 @@ dependencies {
     compileOnly 'info.journeymap:journeymap-api-forge:1.7.10-2.0.0'
     compileOnly 'com.github.GTNewHorizons:NotEnoughItems:2.8.114-GTNH:dev'
 }
+
+// FML 1.7.10's --mods feeds both coremod and normal mod discovery. Keep these
+// local JARs out of dependency configurations, the classpath and release archives.
+tasks.named('runClient') {
+    doFirst {
+        def developmentMods = fileTree(new File(repositoryRoot, 'devmods')) {
+            include '*.jar'
+        }.files.collect { it.canonicalFile }.unique().sort { it.name }
+        if (developmentMods.empty) return
+
+        def fingerprint = { File jarFile ->
+            def digest = java.security.MessageDigest.getInstance('SHA-256')
+            jarFile.withInputStream { stream ->
+                byte[] buffer = new byte[8192]
+                int count
+                while ((count = stream.read(buffer)) != -1) digest.update(buffer, 0, count)
+            }
+            digest.digest().encodeHex().toString()
+        }
+        def installedMods = classpath.files.findAll { it.isFile() && it.name.endsWith('.jar') }
+        ['mods', 'mods/1.7.10'].each { directory ->
+            installedMods.addAll(fileTree(new File(workingDir, directory)) {
+                include '*.jar', '*.zip'
+            }.files)
+        }
+        def seenHashes = installedMods.collect { fingerprint(it) } as Set
+        def seenNames = installedMods.collect { it.name } as Set
+        def modPaths = []
+        developmentMods.each { jarFile ->
+            def hash = fingerprint(jarFile)
+            if (seenHashes.contains(hash)) return
+            if (!seenNames.add(jarFile.name)) {
+                throw new GradleException("Conflicting development mod JAR name: ${jarFile.name}; remove the duplicate installation")
+            }
+            def path = workingDir.canonicalFile.toPath().relativize(jarFile.toPath()).toString()
+            if (path.contains(',')) {
+                throw new GradleException("FML --mods cannot load a development mod path containing a comma: ${path}")
+            }
+            seenHashes.add(hash)
+            modPaths.add(path)
+        }
+        if (!modPaths.empty) args '--mods', modPaths.join(',')
+    }
+}
 // Jabel compiler settings are owned by GTNH; shared sources still obey Java 8 APIs.
 jar.finalizedBy 'reobfJar'

@@ -6,16 +6,15 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.stats.Achievement;
-import net.minecraft.stats.AchievementList;
 import net.minecraftforge.common.AchievementPage;
 
 /** Acquisition achievements backed by Minecraft's player statistics. */
 public final class XFAchievements {
 
 	public static final Achievement windmill = new Achievement("achievement.hfr.windmill", "hfr.windmill",
-			-1, 3, new ItemStack(ModBlocks.machine_grainmill), AchievementList.acquireIron).registerStat();
+			-1, 3, new ItemStack(ModBlocks.machine_grainmill), null).registerStat();
 	public static final Achievement fishingNet = new Achievement("achievement.hfr.fishingNet", "hfr.fishingNet",
-			3, 3, new ItemStack(ModBlocks.machine_net), AchievementList.acquireIron).registerStat();
+			3, 3, new ItemStack(ModBlocks.machine_net), null).registerStat();
 
 	private XFAchievements() { }
 
