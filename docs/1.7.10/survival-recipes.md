@@ -51,6 +51,8 @@ The Production Line creates only level-one cogs. University output remains origi
 
 Admin XShop/debug/selection tools and generated city-cap internals remain non-craftable. Fishing Net (`WWW / RAR / BBB`: W ladder, R iron bars, A trapped chest, B fence) and Grain Mill remain supported. The survival toggle controls `XenoRecipes`, including the fortifications above, including Fishing Net, while existing component/rice/mill/banner and furnace recipes remain independent. The maintained `/c claim` continues to supply named city tokens.
 
+The Xenofactions achievement page adds **Windmill** for obtaining a Grain Mill and **Fishing Net** for obtaining a Fishing Net. Both follow vanilla **Acquire Hardware** (iron acquisition) and use their registered block items as icons. Crafting or successfully picking up the item awards only the receiving player through vanilla achievement statistics, persistence and synchronization; the iron parent must already be unlocked. Neither block is an output of the retained machines.
+
 Excluded weapons, oil/RF/nuclear chains, vehicle parts, farming contracts, obsolete buildings, masks, stock/tax items and advanced production materials have no recipes or machine outputs. See [the maintained inventory](../MIGRATION.md#maintained-content-cleanup) for exact removals and save boundaries.
 
 ## Player Trader

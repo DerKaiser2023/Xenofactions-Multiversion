@@ -33,6 +33,8 @@ import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.ItemCraftedEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.ItemPickupEvent;
 import cpw.mods.fml.common.gameevent.TickEvent.Phase;
 import cpw.mods.fml.common.gameevent.TickEvent.WorldTickEvent;
 import net.minecraft.command.ICommandSender;
@@ -79,6 +81,16 @@ import com.hfr.wallart.WallArtService;
 
 public class CommonEventHandler {
 	private static final Set<UUID> PLAYERS_PREVIOUSLY_EXEMPT = new HashSet<UUID>();
+
+	@SubscribeEvent
+	public void onItemCrafted(ItemCraftedEvent event) {
+		XFAchievements.onAcquired(event.player, event.crafting);
+	}
+
+	@SubscribeEvent
+	public void onItemPickedUp(ItemPickupEvent event) {
+		XFAchievements.onAcquired(event.player, event.pickedUp.getEntityItem());
+	}
 
 	//all the serverside crap for vehicle radars
 	@SubscribeEvent

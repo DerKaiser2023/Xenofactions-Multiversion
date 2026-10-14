@@ -203,6 +203,8 @@ server-stored PNG.
 
 Category: `XENOFACTIONS_09_DYNMAP`
 
+With integration enabled, absent Dynmap or missing optional Dynmap classes log one `Dynmap unavailable` error without a stack trace and disable marker updates for that server session. Starting another server session resets discovery and cached marker state. Installed Dynmap with an API that is still initializing continues to retry on the normal refresh interval. Other reflection or marker failures remain visible as errors.
+
 | Key | Default | Meaning |
 | --- | ---: | --- |
 | `markerSetId` | `xenofactions_cities` | Dynmap marker set ID. |

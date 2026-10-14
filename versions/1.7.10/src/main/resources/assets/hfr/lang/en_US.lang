@@ -1,5 +1,10 @@
 itemGroup.tabHFR=XenoFactions
 
+achievement.hfr.windmill=Grain Mill
+achievement.hfr.windmill.desc=Obtain a Grain Mill.
+achievement.hfr.fishingNet=Fishing Net
+achievement.hfr.fishingNet.desc=Obtain a Fishing Net.
+
 potion.hfr_emp=EMP
 
 death.attack.blast=%1$s was obliterated.

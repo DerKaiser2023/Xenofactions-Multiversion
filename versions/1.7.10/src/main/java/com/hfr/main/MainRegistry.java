@@ -330,6 +330,7 @@ public class MainRegistry
 
 		ModBlocks.mainRegistry();
 		ModItems.mainRegistry();
+		XFAchievements.register();
 		loadConfig(PreEvent);
 
 		com.hfr.world.earth.XFEarthRegistry.register();
@@ -645,6 +646,7 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStarting(FMLServerStartingEvent event) {
+		XFDynmapIntegration.resetServerSession();
 		com.hfr.clowder.PlayerIdentityService.initialize(MinecraftServer.getServer());
 		com.hfr.clowder.flag.CustomFlagService.startServerSession(MinecraftServer.getServer());
 		// Main faction system commands
@@ -684,6 +686,7 @@ public class MainRegistry
 	@Mod.EventHandler
 	public void serverStopping(FMLServerStoppingEvent event) {
 		com.hfr.clowder.flag.CustomFlagService.shutdown();
+		XFDynmapIntegration.resetServerSession();
 	}
 
 	//only one thing

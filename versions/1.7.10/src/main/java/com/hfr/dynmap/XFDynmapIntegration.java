@@ -17,6 +17,7 @@ import com.hfr.clowder.TerritoryCoordinateBounds;
 import com.hfr.main.MainRegistry;
 import com.hfr.tdm.TDMManager;
 
+import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import net.minecraft.world.World;
@@ -39,7 +40,12 @@ public class XFDynmapIntegration {
 	private static final double MARKER_Y = 64.0D;
 
 	private static boolean dirty = true;
-	private static boolean dynmapUnavailableLogged = false;
+	private static boolean dynmapAvailabilityChecked;
+	private static boolean dynmapAvailable;
+	private static Field dynmapApiField;
+	private static Class<?> markerIconClass;
+	private static Class<?> forgeWorldClass;
+	private static Class<?> dynmapWorldClass;
 	private static int tickCounter = 0;
 	private static String lastTdmSignature;
 	private static Object markerSet = null;
@@ -51,6 +57,68 @@ public class XFDynmapIntegration {
 	private static Method setFillStyleMethod = null;
 	private static Method setRangeYMethod = null;
 	private static final Map<Integer, String> worldNames = new HashMap<Integer, String>();
+
+	public static void resetServerSession() {
+		dirty = true;
+		dynmapAvailabilityChecked = false;
+		dynmapAvailable = false;
+		dynmapApiField = null;
+		markerIconClass = null;
+		forgeWorldClass = null;
+		dynmapWorldClass = null;
+		tickCounter = 0;
+		lastTdmSignature = null;
+		markerSet = null;
+		cityIcon = null;
+		createAreaMarkerMethod = null;
+		createMarkerMethod = null;
+		createPolyLineMarkerMethod = null;
+		setLineStyleMethod = null;
+		setFillStyleMethod = null;
+		setRangeYMethod = null;
+		worldNames.clear();
+	}
+
+	private static boolean isDynmapAvailable() throws ReflectiveOperationException {
+		if(dynmapAvailabilityChecked)
+			return dynmapAvailable;
+		if(!Loader.isModLoaded("dynmap")) {
+			disableDynmap();
+			return false;
+		}
+		// Discover optional types once, before any marker work. A null API below
+		// still means Dynmap is starting and must be retried, not disabled.
+		try {
+			Class<?> listenerClass = Class.forName("org.dynmap.DynmapCommonAPIListener");
+			dynmapApiField = listenerClass.getDeclaredField("dynmapapi");
+			dynmapApiField.setAccessible(true);
+			markerIconClass = Class.forName("org.dynmap.markers.MarkerIcon");
+			forgeWorldClass = Class.forName("org.dynmap.forge.ForgeWorld");
+			dynmapWorldClass = Class.forName("org.dynmap.DynmapWorld");
+		} catch(ClassNotFoundException e) {
+			disableDynmap();
+			return false;
+		} catch(NoClassDefFoundError e) {
+			if(!isMissingDynmapClass(e))
+				throw e;
+			disableDynmap();
+			return false;
+		}
+		dynmapAvailabilityChecked = true;
+		dynmapAvailable = true;
+		return true;
+	}
+
+	private static boolean isMissingDynmapClass(NoClassDefFoundError error) {
+		String missingClass = error.getMessage();
+		return missingClass != null && (missingClass.startsWith("org/dynmap/") || missingClass.startsWith("org.dynmap."));
+	}
+
+	private static void disableDynmap() {
+		dynmapAvailabilityChecked = true;
+		dynmapAvailable = false;
+		MainRegistry.logger.error("Dynmap unavailable; marker updates disabled for this server session.");
+	}
 
 	public static void markDirty() {
 		dirty = true;
@@ -71,6 +139,14 @@ public class XFDynmapIntegration {
 	public void onServerTick(TickEvent.ServerTickEvent event) {
 		if(event.phase != TickEvent.Phase.END)
 			return;
+		if(!XFConfig.enableDynmapIntegration)
+			return;
+		try {
+			if(!isDynmapAvailable())
+				return;
+		} catch(ReflectiveOperationException e) {
+			throw new IllegalStateException("Could not discover Dynmap API", e);
+		}
 
 		tickCounter++;
 		if(tickCounter < XFConfig.dynmapUpdateIntervalTicks)
@@ -123,13 +199,8 @@ public class XFDynmapIntegration {
 			markerSet = citySet;
 			lastTdmSignature = tdmSignature();
 			dirty = false;
-		} catch(Throwable t) {
-			markerSet = null;
-			if(!dynmapUnavailableLogged) {
-				dynmapUnavailableLogged = true;
-				if(MainRegistry.logger != null)
-					MainRegistry.logger.warn("Dynmap marker integration is not available yet; faction city markers will retry later.", t);
-			}
+		} catch(ReflectiveOperationException e) {
+			throw new IllegalStateException("Could not update Dynmap markers", e);
 		}
 	}
 
@@ -152,28 +223,35 @@ public class XFDynmapIntegration {
 			.append(':').append(a.x2).append(':').append(a.y2).append(':').append(a.z2);
 	}
 
-	private static Object getMarkerApi() throws Exception {
-		Class listenerClass = Class.forName("org.dynmap.DynmapCommonAPIListener");
-		Field apiField = listenerClass.getDeclaredField("dynmapapi");
-		apiField.setAccessible(true);
-		Object dynmapApi = apiField.get(null);
-		if(dynmapApi == null)
+	private static Object getMarkerApi() throws ReflectiveOperationException {
+		if(!isDynmapAvailable())
 			return null;
+		try {
+			Object dynmapApi = dynmapApiField.get(null);
+			if(dynmapApi == null)
+				return null;
 
-		Method markerApiInitialized = dynmapApi.getClass().getMethod("markerAPIInitialized");
-		Object initialized = markerApiInitialized.invoke(dynmapApi);
-		if(initialized instanceof Boolean && !((Boolean)initialized).booleanValue())
+			Method markerApiInitialized = dynmapApi.getClass().getMethod("markerAPIInitialized");
+			Object initialized = markerApiInitialized.invoke(dynmapApi);
+			if(initialized instanceof Boolean && !((Boolean)initialized).booleanValue())
+				return null;
+
+			Method getMarkerApi = dynmapApi.getClass().getMethod("getMarkerAPI");
+			return getMarkerApi.invoke(dynmapApi);
+		} catch(NoClassDefFoundError e) {
+			// Reflecting on the concrete API can resolve additional optional types.
+			if(!isMissingDynmapClass(e))
+				throw e;
+			disableDynmap();
 			return null;
-
-		Method getMarkerApi = dynmapApi.getClass().getMethod("getMarkerAPI");
-		return getMarkerApi.invoke(dynmapApi);
+		}
 	}
 
-	private static Object getOrCreateMarkerSet(Object markerApi) throws Exception {
+	private static Object getOrCreateMarkerSet(Object markerApi) throws ReflectiveOperationException {
 		return getOrCreateMarkerSet(markerApi, XFConfig.dynmapMarkerSetId, XFConfig.dynmapMarkerSetLabel, false);
 	}
 
-	private static Object getOrCreateMarkerSet(Object markerApi, String id, String label, boolean hidden) throws Exception {
+	private static Object getOrCreateMarkerSet(Object markerApi, String id, String label, boolean hidden) throws ReflectiveOperationException {
 		Method getMarkerSet = markerApi.getClass().getMethod("getMarkerSet", String.class);
 		Object set = getMarkerSet.invoke(markerApi, id);
 		if(set == null) {
@@ -188,14 +266,13 @@ public class XFDynmapIntegration {
 		return set;
 	}
 
-	private static Object getMarkerIcon(Object markerApi, String iconId) throws Exception {
+	private static Object getMarkerIcon(Object markerApi, String iconId) throws ReflectiveOperationException {
 		Method getMarkerIcon = markerApi.getClass().getMethod("getMarkerIcon", String.class);
 		return getMarkerIcon.invoke(markerApi, iconId);
 	}
 
-	private static void cacheMarkerMethods() throws Exception {
+	private static void cacheMarkerMethods() throws ReflectiveOperationException {
 		Class markerSetClass = markerSet.getClass();
-		Class markerIconClass = Class.forName("org.dynmap.markers.MarkerIcon");
 		createAreaMarkerMethod = markerSetClass.getMethod("createAreaMarker", String.class, String.class, boolean.class, String.class, double[].class, double[].class, boolean.class);
 		createAreaMarkerMethod.setAccessible(true);
 		createMarkerMethod = markerSetClass.getMethod("createMarker", String.class, String.class, boolean.class, String.class, double.class, double.class, double.class, markerIconClass, boolean.class);
@@ -204,14 +281,14 @@ public class XFDynmapIntegration {
 		createPolyLineMarkerMethod.setAccessible(true);
 	}
 
-	private static void clearMarkerSet(Object set, String... prefixes) throws Exception {
+	private static void clearMarkerSet(Object set, String... prefixes) throws ReflectiveOperationException {
 		deleteAll(set, "getAreaMarkers", prefixes);
 		deleteAll(set, "getMarkers", prefixes);
 		deleteAll(set, "getPolyLineMarkers", prefixes);
 		deleteAll(set, "getCircleMarkers", prefixes);
 	}
 
-	private static void deleteAll(Object set, String getterName, String[] prefixes) throws Exception {
+	private static void deleteAll(Object set, String getterName, String[] prefixes) throws ReflectiveOperationException {
 		Method getter = set.getClass().getMethod(getterName);
 		getter.setAccessible(true);
 		Set markers = new HashSet((Set)getter.invoke(set));
@@ -228,7 +305,7 @@ public class XFDynmapIntegration {
 		}
 	}
 
-	private static void createCityMarkers(World world, String worldName) throws Exception {
+	private static void createCityMarkers(World world, String worldName) throws ReflectiveOperationException {
 		HashMap<String, CitySummary> cities = new HashMap();
 		for(Map.Entry<CoordPair, TerritoryMeta> entry : ClowderTerritory.territories.entrySet()) {
 			TerritoryMeta meta = entry.getValue();
@@ -283,7 +360,7 @@ public class XFDynmapIntegration {
 		}
 	}
 
-	private static void createZoneMarkers() throws Exception {
+	private static void createZoneMarkers() throws ReflectiveOperationException {
 		for(Map.Entry<CoordPair, TerritoryMeta> entry : ClowderTerritory.territories.entrySet()) {
 			CoordPair coord = entry.getKey(); TerritoryMeta meta = entry.getValue();
 			if(coord == null || meta == null || meta.owner == null) continue;
@@ -301,7 +378,7 @@ public class XFDynmapIntegration {
 		}
 	}
 
-	private static void createFactionClaimMarkers() throws Exception {
+	private static void createFactionClaimMarkers() throws ReflectiveOperationException {
 		for(Map.Entry<CoordPair, TerritoryMeta> entry : ClowderTerritory.territories.entrySet()) {
 			CoordPair coord = entry.getKey(); TerritoryMeta meta = entry.getValue();
 			if(coord == null || meta == null || meta.owner == null || meta.owner.zone != Zone.FACTION
@@ -318,7 +395,7 @@ public class XFDynmapIntegration {
 		}
 	}
 
-	private static void createTdmMarkers(Object markerApi) throws Exception {
+	private static void createTdmMarkers(Object markerApi) throws ReflectiveOperationException {
 		World world = DimensionManager.getWorld(0);
 		if(world == null || !TDMManager.isEnabled(world)) return;
 		TDMManager.TDMMap map = TDMManager.getSelectedMapData(world);
@@ -343,7 +420,7 @@ public class XFDynmapIntegration {
 		}
 	}
 
-	private static void mapArea(String id, String label, TDMManager.Bombsite bounds, int color, double opacity) throws Exception {
+	private static void mapArea(String id, String label, TDMManager.Bombsite bounds, int color, double opacity) throws ReflectiveOperationException {
 		if(!bounds.isComplete()) return;
 		String worldName = getWorldName(bounds.dimension);
 		if(worldName == null || worldName.isEmpty()) return;
@@ -353,7 +430,7 @@ public class XFDynmapIntegration {
 	}
 
 	private static void area(String id, String label, String worldName, double x1, double z1, double x2, double z2,
-			int color, double opacity, double y1, double y2) throws Exception {
+			int color, double opacity, double y1, double y2) throws ReflectiveOperationException {
 		Object marker = createAreaMarkerMethod.invoke(markerSet, id, label, Boolean.TRUE, worldName,
 				new double[] { x1, x2 }, new double[] { z1, z2 }, Boolean.FALSE);
 		if(marker == null) return;
@@ -365,7 +442,7 @@ public class XFDynmapIntegration {
 		range.invoke(marker, Double.valueOf(y1), Double.valueOf(y2));
 	}
 
-	private static void createCityBorders(String worldName, CitySummary city) throws Exception {
+	private static void createCityBorders(String worldName, CitySummary city) throws ReflectiveOperationException {
 		int edge = 0;
 		for(String claim : city.claims) {
 			String[] parts = claim.split(",", 2);
@@ -384,7 +461,7 @@ public class XFDynmapIntegration {
 		}
 	}
 
-	private static void createBorderEdge(String worldName, CitySummary city, int edge, double x1, double z1, double x2, double z2) throws Exception {
+	private static void createBorderEdge(String worldName, CitySummary city, int edge, double x1, double z1, double x2, double z2) throws ReflectiveOperationException {
 		String markerId = "xf_border_" + sanitizeId(safeCityId(city.meta)) + "_" + edge;
 		double[] x = new double[] { x1, x2 };
 		double[] y = new double[] { 64.0D, 64.0D };
@@ -397,7 +474,7 @@ public class XFDynmapIntegration {
 		}
 	}
 
-	private static void createCityCenterMarker(String worldName, CitySummary city) throws Exception {
+	private static void createCityCenterMarker(String worldName, CitySummary city) throws ReflectiveOperationException {
 		TerritoryMeta meta = city.meta;
 		String markerId = "xf_city_" + sanitizeId(safeCityId(meta));
 		String label = buildCityLabel(meta, city.owner, city.claimCount);
@@ -405,7 +482,7 @@ public class XFDynmapIntegration {
 		createMarkerMethod.invoke(markerSet, markerId, label, Boolean.TRUE, worldName, meta.flagX + 0.5D, y, meta.flagZ + 0.5D, cityIcon, Boolean.FALSE);
 	}
 
-	private static String getWorldName(int dimension) throws Exception {
+	private static String getWorldName(int dimension) throws ReflectiveOperationException {
 		Integer key = Integer.valueOf(dimension);
 		if(worldNames.containsKey(key)) return worldNames.get(key);
 		String name = resolveWorldName(dimension);
@@ -413,7 +490,7 @@ public class XFDynmapIntegration {
 		return name;
 	}
 
-	private static String resolveWorldName(int dimension) throws Exception {
+	private static String resolveWorldName(int dimension) throws ReflectiveOperationException {
 		String configured = XFConfig.dynmapWorldNameForDimension(dimension);
 		if(configured == null || configured.isEmpty()) return configured;
 
@@ -426,7 +503,6 @@ public class XFDynmapIntegration {
 		if("auto".equals(configured) || stock) {
 			World world = DimensionManager.getWorld(dimension);
 			if(world == null) return null;
-			Class forgeWorldClass = Class.forName("org.dynmap.forge.ForgeWorld");
 			Method getWorldName = forgeWorldClass.getMethod("getWorldName", World.class);
 			name = (String)getWorldName.invoke(null, world);
 		}
@@ -434,7 +510,6 @@ public class XFDynmapIntegration {
 		// GTNH 0.3.47's JSON writer compares getWorld() to the normalized world
 		// filename. Newer versions compare getNormalizedWorld(). Supply the canonical
 		// name so both versions publish the same geometry, including names with /[].
-		Class dynmapWorldClass = Class.forName("org.dynmap.DynmapWorld");
 		Method normalize = dynmapWorldClass.getMethod("normalizeWorldName", String.class);
 		return (String)normalize.invoke(null, name);
 	}
@@ -492,7 +567,11 @@ public class XFDynmapIntegration {
 			Method method = target.getClass().getMethod(methodName, parameterTypes);
 			method.setAccessible(true);
 			method.invoke(target, args);
-		} catch(Throwable ignored) { }
+		} catch(NoSuchMethodException ignored) {
+			// Optional presentation setters differ between Dynmap versions.
+		} catch(ReflectiveOperationException e) {
+			throw new IllegalStateException("Could not invoke Dynmap method " + methodName, e);
+		}
 	}
 
 	private static class CitySummary {
