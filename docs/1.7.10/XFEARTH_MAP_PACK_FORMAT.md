@@ -127,6 +127,22 @@ Later geographic stages must reuse:
   and the grant gate; `ClaimTerrainClassifier` processes detached surface data.
   Geographic polygons/biomes cannot substitute for actual loaded terrain. See
   [terrain eligibility](XFEARTH_WORLD_TYPE.md#terrain-claim-eligibility-stage-9).
+- Stage 10's `XFEarthMapLayers` is the shared point/line/even-odd-area overview
+  vocabulary. `XFEarthGeoMapSource.read` queries the same derived dataset and
+  road/feature identities; `XFEarthRoadMap` snapshots generation stamps and
+  publishes fresh public `ClaimOverlayData.nodeSnapshot` geometry after
+  `maySeeClaim` checks. Administrative source IDs never replace territorial
+  identities. Claim packets contain public geometry/name/color/zone/eligibility,
+  not faction/city UUIDs or private faction/player state. Geographic packets are
+  version 2; matching client/server builds are required. Stage 5 dataset and
+  Stage 8 claim persistence versions remain unchanged.
+  `EarthMapLayerCache` assembles bounded frames on the client thread and normalizes
+  contours through `XFEarthMapData.mapX/mapZ`; GUI and optional JourneyMap adapters
+  reuse these frames. Worker caches hold detached data only; live-world snapshots
+  and publication use the owning server thread. Frame caches include world,
+  profile, dataset, wire version, viewport, zoom LOD and layer mask and release GL
+  resources through existing map/world cleanup. See
+  [overview limits and lifecycle](XFEARTH_WORLD_TYPE.md#geographic-overview-stage-10).
 
 Geographic features can proceed on ordinary 256-block worlds. See
 [height implementation findings](XFEARTH_WORLD_TYPE.md#height-implementation-findings-stage-1)

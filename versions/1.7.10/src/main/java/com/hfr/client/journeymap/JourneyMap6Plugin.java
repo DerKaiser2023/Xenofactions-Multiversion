@@ -41,6 +41,7 @@ public final class JourneyMap6Plugin implements IClientPlugin {
     private String lastMap;
     private int lastDimension = Integer.MIN_VALUE;
     private boolean loggedFailure;
+    private com.hfr.client.earth.EarthMapLayerCache.Frame lastGeography;
 
     @Override public String getModId() { return RefStrings.MODID; }
 
@@ -66,11 +67,13 @@ public final class JourneyMap6Plugin implements IClientPlugin {
         Snapshot claims = ClientClaimOverlayCache.get(dimension);
         NBTTagCompound map = ClientTDMMapOverlay.snapshot();
         String mapKey = ClientTDMMapOverlay.visible() ? map.toString() : "";
-        if (dimension == lastDimension && claims == lastClaims && mapKey.equals(lastMap)) return;
+        com.hfr.client.earth.EarthMapLayerCache.Frame geography=com.hfr.client.earth.EarthMapLayerCache.current();
+        if (dimension == lastDimension && claims == lastClaims && mapKey.equals(lastMap)&&geography==lastGeography) return;
         clear();
-        lastDimension = dimension; lastClaims = claims; lastMap = mapKey;
+        lastDimension = dimension; lastClaims = claims; lastMap = mapKey;lastGeography=geography;
         try {
             if (claims != null) addClaims(claims, dimension);
+            if(geography!=null&&geography.dimension==dimension)addGeography(geography,dimension);
             if (ClientTDMMapOverlay.visible()) {
                 NBTTagCompound publicMap = map.getCompoundTag("public");
                 NBTTagCompound preview = map.getCompoundTag("preview");
@@ -95,7 +98,26 @@ public final class JourneyMap6Plugin implements IClientPlugin {
     private void clear() {
         // Reconcile by owner and type: shapes can survive while the player temporarily rejects overlays.
         if (api != null) api.removeAll(getModId(), DisplayType.Polygon);
-        lastClaims = null; lastMap = null; lastDimension = Integer.MIN_VALUE;
+        lastClaims = null; lastMap = null; lastDimension = Integer.MIN_VALUE;lastGeography=null;
+    }
+
+    /** API 2.0.0 supports polygons, not polylines: lines/points use thin symbolic stroked areas. */
+    private void addGeography(com.hfr.client.earth.EarthMapLayerCache.Frame frame,int dimension)throws Exception{
+        int shown=0;
+        for(com.hfr.world.earth.map.XFEarthMapLayers.Feature feature:frame.features){
+            if(!feature.enabled(frame.mask))continue;
+            java.awt.geom.Path2D.Double path=new java.awt.geom.Path2D.Double(java.awt.geom.Path2D.WIND_EVEN_ODD);
+            for(double[] contour:feature.paths){path.moveTo(contour[0],contour[1]);for(int i=2;i<contour.length;i+=2)path.lineTo(contour[i],contour[i+1]);if(feature.type==2)path.closePath();}
+            Area area=feature.type==2?new Area(path):feature.type==0?new Area(new java.awt.geom.Rectangle2D.Double(feature.paths[0][0]-1,feature.paths[0][1]-1,2,2)):new Area(new java.awt.BasicStroke(1F).createStrokedShape(path));
+            int color=com.hfr.world.earth.map.XFEarthMapLayers.displayColor(feature,feature.layer==5&&(frame.mask&64)!=0);
+            for(MapPolygonWithHoles polygon:PolygonHelper.createPolygonFromArea(area,64)){
+                if(++shown>128)return;
+                ShapeProperties properties=style(color,feature.layer==5&&(frame.mask&32)!=0?.12F:0F,.9F,2F);if(feature.layer==5)properties.setFillColor(feature.color);
+                PolygonOverlay overlay=new PolygonOverlay(getModId(),dimension,properties,polygon);
+                String label=(feature.name.isEmpty()?feature.category:feature.name)+" / "+feature.category+" / "+(feature.layer==5?feature.detail:feature.state>0?"recorded generation evidence":"imported source")+" / © OSM / ODbL";
+                show(overlay,"Earth "+com.hfr.world.earth.map.XFEarthMapLayers.LABELS[feature.layer],label,false);
+            }
+        }
     }
 
     private ShapeProperties style(int color, float fill, float stroke, float width) {

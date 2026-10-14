@@ -266,9 +266,9 @@ Cancellation does not undo placed blocks.
 The existing Map source layer includes agricultural/building outlines, holes and
 business-point symbols. Brighter styles reflect recorded generated fragments in
 loaded chunks under the matching policy, not verified whole-feature completion or
-current block condition. The shared layer stays within eight packets / 4,096
-primitives; when features are present it reserves up to 2,048 primitives each for
-roads/features and reports truncation. Unknown land use, undersized/oversized or
+current block condition. Stage 10 supersedes the original primitive split with
+typed feature/vertex bounds and independent layer controls described below.
+Unknown land use, undersized/oversized or
 elevated buildings, unsupported business categories and coarse business points
 remain source information. No satellite reconstruction or exact architecture is
 claimed. See [Stage 7 implementation](XFEARTH_WORLD_TYPE.md#geographic-fields-and-structures-stage-7).
@@ -278,10 +278,10 @@ claimed. See [Stage 7 implementation](XFEARTH_WORLD_TYPE.md#geographic-fields-an
 Stage 8 claim node metadata is added automatically to the existing faction save
 on normal server binding/saving; no claim conversion command or geographic
 dataset is required. Back up the save before updating. Use matching updated XF
-client/server versions for the Map node styles. The existing source-layer control
-can show up to 128 owned/tracked node outlines with no selected dataset; cyan is
-pending/unavailable, green eligible and red insufficient surface. Pan/reopen after
-sampling for a fresh viewport. New claims require actual terrain classification;
+client/server versions for the Map node styles. The Ownership and Eligibility
+controls can show up to 64 owned/tracked nodes with no selected dataset; cyan is
+pending/unavailable, green eligible and red insufficient surface. The open Map
+refreshes its viewport every 40 client ticks. New claims require actual terrain classification;
 existing ownership is not reset. No extended-height mode is enabled.
 
 In `XENOFACTIONS_05_CLAIMS_CITIES`, Stage 9 defaults are `claimTerrainMinArea=64`,
@@ -295,6 +295,39 @@ deferred expansion following a restart. Ocean neighbors must qualify separately.
 Review [exact rules and bulk-edit limits](XFEARTH_WORLD_TYPE.md#terrain-claim-eligibility-stage-9)
 before deployment; real platforms, save/reopen and modded collision behavior still
 need runtime validation.
+
+## Geographic Map overview (Stage 10)
+
+Open the existing Map item in an adopted Earth world. Toggle Roads, Fields,
+Buildings, Businesses, Admin, Ownership and Eligibility independently; zoom in
+when the query exceeds 16 regions. Drag and mouse-wheel zoom retain the player
+marker/coordinate alignment. Click to select a feature and repeat a click to cycle
+overlaps. **Info** opens pageable source attribution, notices, legend and selection
+details. No internet access or JourneyMap installation is needed.
+
+Use matching updated XF client/server builds: geographic packet protocol is now
+version 2. Missing geographic data is marked unavailable, while public node layers
+remain functional. Missing base imagery leaves a neutral background with marker
+and available vectors. The overview shows up to 128 features / 4,096 vertices,
+including at most 64 tracked/owned nodes; dense data is simplified, omitted or
+reported truncated. Toggle fewer layers or zoom in for detail. Admin boundaries
+are informational. Ownership fills use public faction/zone colors; eligibility
+outlines are cyan pending, green eligible and red insufficient surface. Gray means
+wilderness. Brighter geographic features indicate loaded-chunk generation records,
+not a survey of current blocks or proof of whole-feature completion. Source
+buildings/businesses do not imply exact architecture or complete coverage.
+
+Optional JourneyMap adapters reuse the last accepted Xenofactions Map viewport and
+layer mask, not an independent whole-world dataset. The native API
+1.7.10-2.0.0 polygon path and legacy 5.2 reflection path are source-inspected and
+compile, but added overlay rendering has no runtime validation. Dynmap stays
+optional. The Map remains fully usable without either integration.
+
+Nothing in this display enables extended height, grants terrain eligibility from
+geography, changes claim permissions or modifies existing-world import safeguards.
+The existing manual-backup acknowledgement and reviewed preview requirements
+remain mandatory for enabled administrator block imports; opening the map performs
+no block placement. See [Stage 10 interfaces, bounds and remaining validation](XFEARTH_WORLD_TYPE.md#geographic-overview-stage-10).
 
 ## Smoke-map adoption
 

@@ -49,20 +49,22 @@ public final class XFEarthRoadSource {
         if("service".equals(value))return 7;
         return Arrays.asList("track","path","footway","cycleway","pedestrian").contains(value)?8:0;
     }
+    public int rankFor(XFEarthGeoDataset.Feature f){
+        int rank=rank(tag(f,"highway")),scale=profile.getEffectiveScale();int highest=scale>=policy.coarseScale*4L?2:scale>=policy.coarseScale?4:scale>=250?5:8;
+        return rank==0||rank>highest||"yes".equals(tag(f,"area"))||!tag(f,"construction").isEmpty()||!tag(f,"proposed").isEmpty()?0:rank;
+    }
+    public static String kindFor(XFEarthGeoDataset.Feature f){String bridge=tag(f,"bridge"),tunnel=tag(f,"tunnel"),layer=tag(f,"layer");return !bridge.isEmpty()&&!"no".equals(bridge)?"bridge":!tunnel.isEmpty()&&!"no".equals(tunnel)?"tunnel":!layer.isEmpty()&&!"0".equals(layer)?"unresolved-layer":"surface";}
     private List<Segment> region(final int rx,final int rz)throws IOException{
         String key=rx+","+rz;List<Segment> result=cache.get(key);if(result!=null)return result;
         final List<Segment> segments=new ArrayList<Segment>();final int[] count={0};
         dataset.readRegion(rx,rz,new XFEarthGeoDataset.Visitor(){public void accept(XFEarthGeoDataset.Feature f)throws IOException{
             check();
             if(!f.categories.contains("road"))return;
-            int rank=rank(tag(f,"highway"));int scale=profile.getEffectiveScale();
-            int highest=scale>=policy.coarseScale*4L?2:scale>=policy.coarseScale?4:scale>=250?5:8;
-            if(rank==0||rank>highest||"yes".equals(tag(f,"area"))||!tag(f,"construction").isEmpty()||!tag(f,"proposed").isEmpty())return;
+            int rank=rankFor(f);int scale=profile.getEffectiveScale();
+            if(rank==0)return;
             boolean hasLine=false;for(XFEarthGeoGeometry.Part part:f.geometry)hasLine|="LineString".equals(part.type);if(!hasLine)return;
             if(++count[0]>MAX_FEATURES)throw new IOException("Road region exceeds bounded selected-road limit; use a smaller/simplified extract");
-            String bridge=tag(f,"bridge"),tunnel=tag(f,"tunnel"),layer=tag(f,"layer");
-            String kind=!bridge.isEmpty()&&!"no".equals(bridge)?"bridge":!tunnel.isEmpty()&&!"no".equals(tunnel)?"tunnel":
-                !layer.isEmpty()&&!"0".equals(layer)?"unresolved-layer":"surface";
+            String kind=kindFor(f);
             double metres=rank<=2?14:rank<=4?8:rank<=6?6:3;
             try{String w=tag(f,"width").trim().replaceFirst("\\s*m$","");if(!w.isEmpty()){double n=Double.parseDouble(w);if(n>0&&n<=100&&Double.isFinite(n))metres=n;}}catch(NumberFormatException ignored){}
             int width=Math.min(policy.width,Math.max(rank<=2?3:1,(int)Math.ceil(metres/Math.max(1,scale))));
@@ -107,9 +109,12 @@ public final class XFEarthRoadSource {
     public static long key(int x,int z){return ((long)x<<32)^(z&0xffffffffL);}
     private static boolean intersects(Segment s,double x0,double z0,double x1,double z1){return clip(s,x0,z0,x1,z1)!=null;}
     public static double[] clip(Segment s,double x0,double z0,double x1,double z1){
-        double dx=s.bx-s.ax,dz=s.bz-s.az,lo=0,hi=1;double[] p={-dx,dx,-dz,dz},q={s.ax-x0,x1-s.ax,s.az-z0,z1-s.az};
+        return clip(s.ax,s.az,s.bx,s.bz,x0,z0,x1,z1);
+    }
+    public static double[] clip(double ax,double az,double bx,double bz,double x0,double z0,double x1,double z1){
+        double dx=bx-ax,dz=bz-az,lo=0,hi=1;double[] p={-dx,dx,-dz,dz},q={ax-x0,x1-ax,az-z0,z1-az};
         for(int i=0;i<4;i++){if(p[i]==0){if(q[i]<0)return null;continue;}double t=q[i]/p[i];if(p[i]<0){if(t>hi)return null;lo=Math.max(lo,t);}else{if(t<lo)return null;hi=Math.min(hi,t);}}
-        return new double[]{s.ax+lo*dx,s.az+lo*dz,s.ax+hi*dx,s.az+hi*dz};
+        return new double[]{ax+lo*dx,az+lo*dz,ax+hi*dx,az+hi*dz};
     }
     private static void check()throws InterruptedIOException{if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("Road data processing cancelled");}
 }

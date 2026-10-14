@@ -58,11 +58,13 @@ public class ClientProxy extends ServerProxy
 		com.hfr.client.earth.XFEarthHeightClient.receive(packet,handler);
 	}
 	@Override public void openEarthMap() { Minecraft.getMinecraft().displayGuiScreen(new com.hfr.client.earth.GuiXFEarthMap()); }
-	@Override public void receiveEarthRoads(final int token,final int dimension,final int part,final int parts,final double[] coordinates,final byte[] styles,final String notice) {
-		final Minecraft mc=Minecraft.getMinecraft();final World receiving=mc.theWorld;
-		mc.func_152344_a(new Runnable(){public void run(){if(receiving!=null&&mc.theWorld==receiving&&mc.currentScreen instanceof com.hfr.client.earth.GuiXFEarthMap)
-			((com.hfr.client.earth.GuiXFEarthMap)mc.currentScreen).receiveRoads(token,dimension,part,parts,coordinates,styles,notice);}});
-	}
+    @Override public void receiveEarthLayers(final com.hfr.packet.effect.EarthRoadSnapshotPacket packet){
+        final Minecraft mc=Minecraft.getMinecraft();final World receiving=mc.theWorld;
+        mc.func_152344_a(new Runnable(){public void run(){if(receiving==null||mc.theWorld!=receiving)return;
+            com.hfr.client.earth.EarthMapLayerCache.Frame frame=com.hfr.client.earth.EarthMapLayerCache.receive(packet);
+            if(frame!=null&&mc.currentScreen instanceof com.hfr.client.earth.GuiXFEarthMap)((com.hfr.client.earth.GuiXFEarthMap)mc.currentScreen).receiveLayers(frame);
+        }});
+    }
 	@Override public void receiveEarthMap(final int request, final int dimension, final String profile, final String identity, final String error) {
 		final Minecraft mc = Minecraft.getMinecraft();
 		final World receivingWorld = mc.theWorld;

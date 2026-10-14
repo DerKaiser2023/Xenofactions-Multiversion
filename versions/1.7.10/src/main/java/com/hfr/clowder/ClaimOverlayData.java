@@ -61,6 +61,10 @@ public final class ClaimOverlayData {
 		return meta != null && meta.owner != null && (meta.owner.zone == Zone.SAFEZONE
 				|| meta.owner.zone == Zone.WARZONE || (meta.owner.zone == Zone.FACTION && meta.owner.owner != null));
 	}
+    /** Existing overlays expose valid territorial ownership publicly in the viewer's current dimension. */
+    public static boolean maySeeClaim(net.minecraft.entity.player.EntityPlayerMP viewer,int dimension,TerritoryMeta meta){
+        return viewer!=null&&!viewer.isDead&&!viewer.worldObj.isRemote&&viewer.worldObj.provider.dimensionId==dimension&&visible(meta);
+    }
 
 	private static String groupId(int dimensionId, TerritoryMeta meta) {
 		if(meta.owner.zone != Zone.FACTION) return dimensionId + ":zone:" + meta.owner.zone.name();

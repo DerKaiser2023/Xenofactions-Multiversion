@@ -808,12 +808,14 @@ access Minecraft worlds. Throughput has not been measured.
 **Map:** appended packet IDs preserve existing profile messages/IDs. World/profile
 resolution and input capture run on the server, one bounded worker reads source
 geometry, and server-tick publication rechecks the original session. Up to 16
-regions / 4,096 clipped segments use eight packets of 512 segments maximum. The
+regions were limited to 4,096 clipped segments in eight packets of 512 segments.
+Stage 10 replaces that original wire/render vocabulary with typed features and
+vertex budgets; see its current limits below. The
 client-thread GUI rejects stale view tokens and draws lines before `YOU ARE HERE`:
 surface roads gold, deferred bridges blue and tunnels purple. Attribution/coverage
 notices identify source geometry, not placed-block success; wide/truncated views
 are explicit. Matching updated XF client/server builds are required. Optional
-JourneyMap/Angelica paths are unchanged and not claimed to display this layer.
+Angelica paths remain unverified. Stage 10 adds optional JourneyMap adapters below.
 
 **Verification:** inspect prior stages, exact Forge 1614 Anvil/ChunkIO events,
 native height/block queries, asphalt, queue lifecycle, detached worker paths,
@@ -889,7 +891,8 @@ regenerated or migrated when data changes. Normal chunk-save durability and manu
 backup limitations remain; cancellation does not undo changes.
 
 Map publication reuses the existing viewport/reply packets and bounded worker.
-Field/building outlines and point symbols share its 4,096-primitive cap; holes are
+Field/building outlines and point symbols originally shared a 4,096-primitive cap;
+Stage 10 replaces this with typed contours and the limits below. Holes are
 outlines, never filled over. The server snapshots bounded recorded metadata from
 loaded chunks (4,096 inspected / 128 selected / 8,192 keys maximum), without loading
 terrain. Matching recorded fragments get brighter styles. This is persisted
@@ -957,7 +960,7 @@ tick and evidence hash. Wrong-world and ended-session application is rejected.
 Classification records never modify ownership or permissions. Stage 8 introduced
 the interface without terrain policy; the Stage 9 implementation is below.
 
-The existing Map source-layer path now includes up to 128 tracked/owned nodes
+The Map source-layer path originally included up to 128 tracked/owned nodes
 per viewport, in deterministic coordinate order; cyan means unclassified. Queries
 inspect at most 65,536 candidate coordinates and load no chunks. Node outlines
 reserve space inside the existing eight-packet / 4,096-primitive limit. They work
@@ -965,6 +968,8 @@ without an OSM dataset and remain available if the geographic query fails.
 `YOU ARE HERE` remains on top. The node view is bounded, not a complete census of
 all ownership or wilderness. Stage 9 exposes green/red classification styles
 through the same path without conflating source subdivisions with ownership.
+Stage 10 supersedes this display limit with 64 nodes and independent ownership
+and eligibility toggles; it leaves authoritative node identity/rules unchanged.
 
 **Verification:** source traces cover command/flag creation, territorial NBT,
 world/session release, protection lookup, shared wrapping, packet publication and
@@ -1091,8 +1096,9 @@ world snapshot. No classification-only auto-unclaim is introduced.
 
 Map viewport requests refresh stale node data under the same queue and expose
 cyan pending/unavailable, green eligible and red insufficient surface styles.
-They retain the 128-node / shared packet bounds and `YOU ARE HERE`. These are
-viewport snapshots; pan or reopen after sampling to request updated colors.
+They retain `YOU ARE HERE`. Stage 10 uses 64-node / typed packet bounds and
+automatically refreshes the open Map viewport every 40 client ticks. These remain
+bounded snapshots; pending colors are not an eligibility guarantee.
 Optional Dynmap/JourneyMap ownership layers are unchanged and do not acquire
 terrain-policy dependencies.
 
@@ -1108,6 +1114,102 @@ runtime launch, actual terrain sampling,
 save/reopen, explosion/bulk-edit observation, dedicated-server or in-game Map
 behavior is claimed. Those checks remain required; custom mod block collision
 behavior and hook-bypassing edits remain compatibility limits.
+
+## Geographic overview (Stage 10)
+
+The existing Map item now has independent Roads, Fields, Buildings, Businesses,
+Admin, Ownership and Eligibility toggles. Zoom, anchored mouse wheel, dragging,
+coordinates, center/full controls and `YOU ARE HERE` retain their existing
+projection. The marker draws last. A short click selects a source feature or node;
+repeat clicks at the same position cycle overlapping features. Names, source
+categories and identifiers are bounded public text. **Info** provides pageable
+selection details, legend, query notices and the selected dataset's full
+attribution. OSM/ODbL credit is also visible on the main map. Everything works
+offline; absent base imagery leaves the marker and available vector layers usable.
+
+`XFEarthMapLayers` is the shared version-2 point/line/area vocabulary.
+`XFEarthGeoMapSource` reads the existing version-1 Stage 5 region index and reuses
+the active profile, road rank/kind policy and feature generation identity.
+Even-odd polygon holes and multipart contours survive clipping. Field outlines
+include farmland, meadow, farmyard, orchard and vineyard; orchard/vineyard source
+outlines do not imply supported crop generation. Buildings retain source
+footprints and businesses retain actual source geometry/points; generic appearance
+is explicitly identified. Administrative boundaries are informational and never
+assign territory. Missing or incompatible data is **unavailable**, not confirmed
+absence. Dataset coverage remains unverified.
+
+Geo colors are gold roads, green fields, tan buildings, pink businesses and purple
+administrative boundaries. Brighter source geometry indicates recorded generation
+evidence: a generic feature fragment recorded in a loaded chunk, or a processed
+surface-road chunk intersecting that route. This does not prove a whole feature
+was generated or survey current blocks; unloaded chunks and later edits can make
+evidence incomplete. Ownership fill uses the public faction/zone color (wilderness
+gray); eligibility outlines use cyan pending/unavailable, green eligible and red
+insufficient surface. Eligibility never changes ownership.
+
+The existing `XFEarthRoadMap` service now publishes all layers. It snapshots loaded
+chunk completion records on the server thread (4,096 inspected chunks, 128 stamps,
+8,192 feature keys maximum). One bounded worker reads and clips detached geographic
+data and processes detached generation evidence; it never accesses live chunks.
+Publication through `XFEarthWorkQueue` reads fresh node metadata on the owning
+thread and rechecks player/world/session. `ClaimOverlayData.maySeeClaim` applies
+the existing public ownership visibility rule and current dimension/alive/server
+checks before serializing owned nodes. Only public names/colors, zone, geometry
+and eligibility leave the server. No faction/city UUIDs, homes, flags, membership,
+balances, private war data or other players' positions are included. Tracked
+wilderness nodes may display public eligibility; this is not a wilderness census.
+
+Queries cover at most 16 Minecraft regions, visit at most 8,192 source records and
+prepare at most 96 geographic features / 3,072 vertices. Node snapshots reserve up
+to 64 features first; the final response contains at most 128 features / 4,096
+vertices in eight parts of 16 features / 512 vertices each. Oversize or malformed
+parts are skipped with notice; bounded/truncated views are reported. Larger views
+require zooming in. At coarse zoom, road categories are filtered, near-collinear
+line vertices simplified and subpixel polygon detail omitted. This is a geographic
+overview, not an exact street/building replica. Packet protocol **2** requires
+matching XF client/server builds; profile packet registration remains unchanged.
+The conservative UTF-8 payload bound is 30,653 bytes, below the 32,700-byte limit.
+Full source attribution over 1,024 characters makes source data unavailable
+rather than silently dropping its license credit.
+
+The worker cache and client frame cache each retain eight views, keyed by world
+identity, profile, dataset identity, viewport, LOD and layer mask (plus source
+policy on the worker and wire version on the client). Client frames normalize
+geometry once through `XFEarthMapData.mapX/mapZ` and lazily cache seven GL display
+lists, at most 56 total. View requests/assembly have tokens, consistency checks and
+a 10-second timeout; requests are throttled to 40 server ticks. Logout/dimension
+changes cancel server pending requests; world unload clears workers/sessions.
+World/resource cleanup releases imagery textures and all vector lists and clears
+client assembly. Closing the GUI cancels assembly but retains bounded reusable
+frames. Scissoring still uses the **16-element** LWJGL integer buffer and restores
+the first four scissor-box values, preserving the original buffer fix.
+
+Optional JourneyMap native API **1.7.10-2.0.0** supports polygons, not polylines.
+Its adapter reuses the last accepted Map viewport/layer mask as at most 128
+polygon overlays, including holes, thin symbolic line strokes and source-point
+symbols. The legacy 5.2 reflection draw adapter reuses the same frame and caps a
+pass at 512 vertices. Neither preloads all Earth or independently queries the
+JourneyMap viewport. Existing optional ownership overlays remain available;
+Dynmap remains optional. The SDK and existing reflection contracts were inspected,
+but no installed JourneyMap runtime was available to validate these additions.
+The Xenofactions Map has no JourneyMap dependency. Angelica/shaders and optional
+render integrations remain runtime-unverified.
+
+**Verification and stage status:** source inspection traces shared projection,
+holes/clipping, packet ranges, public claim filtering, client/server ownership,
+cache release and optional class boundaries. Arithmetic checks compare marker and
+vector projection at negative/edge/fractional positions across zoom levels and
+bound packet UTF-8/geometry size. Final offline Forge 1.7.10 `compileJava` succeeded
+with unchanged Gradle/Java setup and inspected class headers remain Java 8 major
+52. No test files, packaging, remapping/reobfuscation, runtime launch or in-game
+observations were performed.
+
+| Stage group | Source integration and remaining validation |
+| --- | --- |
+| 1–4 height | Shared profile/bounds and guarded native integration exist; extended height remains disabled because the selected engine lacks Earth-only isolation/native generation and has gameplay source defects. No extended-height runtime validation. |
+| 5–7 geography | Offline import and protected generation paths are source-integrated and compile. No local extract was available; real import, block generation, geometry alignment, save/reload and manual-backup/import protections remain runtime-unverified. |
+| 8–9 claims | Persistent node/classification/grant paths are source-integrated and compile. Actual terrain, platform removal, reload, periodic/bulk invalidation and dedicated-server behavior remain runtime-unverified; ownership is preserved independently. |
+| 10 overview | Item layers, selection, public networking, cache lifecycle and optional adapters are source-integrated and compile. Real GUI/GL clipping, zoom/drag, packet delivery, cleanup and JourneyMap behavior still require in-game observations. |
 
 ## Manual runtime plan
 

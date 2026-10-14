@@ -43,6 +43,7 @@ public final class AdminEditorLifecycle {
         if (event.player instanceof EntityPlayerMP) AdminEditorSession.clear((EntityPlayerMP)event.player);
     }
     @SubscribeEvent public void onDimensionChange(PlayerEvent.PlayerChangedDimensionEvent event) {
+        if(event.player instanceof EntityPlayerMP) com.hfr.world.earth.roads.XFEarthRoadMap.logout((EntityPlayerMP)event.player);
         com.hfr.shop.XShopService.logout(event.player);
         com.hfr.shop.PlayerTraderService.logout(event.player);
         TDMMapOverlaySync.clear(event.player);

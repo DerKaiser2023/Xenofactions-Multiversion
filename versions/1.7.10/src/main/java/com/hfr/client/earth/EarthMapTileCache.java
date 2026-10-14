@@ -71,6 +71,7 @@ public final class EarthMapTileCache {
     }
     /** Called only on the client thread through disconnect, world unload, or resource reload. */
     public static void clear() {
+        EarthMapLayerCache.clear();
         epoch++;
         for (Load load : PENDING.values()) load.cancel();
         PENDING.clear(); FAILED.clear();
