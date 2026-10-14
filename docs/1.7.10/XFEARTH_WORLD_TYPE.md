@@ -911,6 +911,71 @@ crop ticking, generic shells, repeat save/reopen, imported-road openings and Map
 rendering remain runtime checks. No packaging, remapping, runtime launch or in-game
 observations are claimed. Stage 4 extended-height blockers remain unchanged.
 
+## Persistent claim nodes (Stage 8)
+
+`ClaimNodeSystem` reuses the territorial `CoordPair` unit, not geographic source
+IDs or administrative subdivisions. `ClowderTerritory.territories` remains the
+authority for ownership, city origins, safezones and warzones. Commands and
+protection adapters resolve metadata through `ClaimNodeSystem.metadata`; no
+second ownership registry is introduced. Existing faction NBT, founding/upkeep
+costs, officer/leader permissions, circular city expansion/spacing, flag rules,
+war handling and spawn/build-grace exceptions are unchanged. The old commented
+ocean warning is not an active classifier; Stage 8 adds no eligibility gate.
+
+Each identity is a saved world UUID, dimension ID and the existing territorial
+X/Z coordinates. `ClaimNodes` version 1 lives in the same `hfr_clowder` saved
+data and contains independent classification records. On initial server binding
+and saving, missing owned coordinates receive `UNCLASSIFIED` records; repeated
+migration adds no duplicates, keeps existing classifications and never unclaims
+territory. Removed ownership does not erase terrain information. Unvisited
+wilderness can resolve to an implicit unclassified node without allocating a
+world-sized grid. An unknown or malformed node payload is preserved as NBT and
+disables classification access; legacy faction/territory loading continues.
+Normal world-save durability applies. Back up saves before updating.
+
+Coordinate behavior is deliberately retained: construction uses Java truncating
+`(x+1)/16,(z+1)/16`, while block protection uses `x/16,(z+1)/16`.
+`Geometry` exposes the exact half-open protection footprint using the existing
+`TerritoryCoordinateBounds` helper with X shifted by one. Coordinate zero spans
+31 blocks (`[-15,16)` on X and `[-16,15)` on Z); other units span 16.
+Changing these formulas would move existing claims. Existing Dynmap/JourneyMap
+owner overlays retain their construction geometry; the shared node layer exposes
+the protection geometry explicitly. Optional map integrations remain optional.
+
+`ClaimNodeSystem.store(world)`, `at(world,blockX,blockZ)` and
+`ClaimOverlayData.nodeSnapshot(world,viewport,limit)` are server-thread APIs.
+`atWrappedPosition(world,x,z,exempt)` shares the existing inclusive-edge border
+calculation for enabled overworld boundaries; the caller must supply the existing
+exemption decision. It does not rewrite stored keys or alias exempt outside
+territory. Other dimensions retain their own coordinates. Normal protection
+lookup still uses the entity positions supplied by the existing border handler.
+
+Stage 9 must capture actual terrain on the owning server thread, pass detached
+data to `Classifier<T>`, and publish its `Classification` through `Store.apply`
+on that thread. Results include explicit eligibility, algorithm/revision, sample
+tick and evidence hash. Wrong-world and ended-session application is rejected.
+Classification never modifies ownership or permissions. No terrain sampling or
+land/ocean decision runs in this stage.
+
+The existing Map source-layer path now includes up to 128 tracked/owned nodes
+per viewport, in deterministic coordinate order; cyan means unclassified. Queries
+inspect at most 65,536 candidate coordinates and load no chunks. Node outlines
+reserve space inside the existing eight-packet / 4,096-primitive limit. They work
+without an OSM dataset and remain available if the geographic query fails.
+`YOU ARE HERE` remains on top. The node view is bounded, not a complete census of
+all ownership or wilderness. Stage 9 can expose green/red classification styles
+through the same path without conflating source subdivisions with ownership.
+
+**Verification:** source traces cover command/flag creation, territorial NBT,
+world/session release, protection lookup, shared wrapping, packet publication and
+client-only rendering. Arithmetic checks cover positive/negative/zero node edges
+and inclusive wrap endpoints. Map packet limits were inspected. Final offline
+Forge 1.7.10 `compileJava` succeeded and all eight claim node class headers are
+Java 8 major 52. Save/reopen UUID stability, actual migration, border exemptions,
+dedicated-server operation and Map display require runtime
+checks; no disk round-trip or in-game behavior is claimed. Stage 4's extended
+height blockers remain separate, and ordinary 256-block worlds are supported.
+
 ## Manual runtime plan
 
 With real exports available, run `runClient`, create each variant, verify the

@@ -87,7 +87,7 @@ public class TileEntityFlagBig extends TileEntityMachineBase implements ITerrito
 			//Random rng = new Random();
 
 			CoordPair sampleCode = coords[rng.nextInt(coords.length)];
-			TerritoryMeta sampleMeta = ClowderTerritory.territories.get(sampleCode);
+			TerritoryMeta sampleMeta = com.hfr.clowder.ClaimNodeSystem.metadata(sampleCode.dimensionId,sampleCode.x,sampleCode.z);
 
 			if (sampleMeta == null) return; // Prevent crash if territory is missing
 
@@ -100,8 +100,9 @@ public class TileEntityFlagBig extends TileEntityMachineBase implements ITerrito
 				isCappable = false;
 				for(CoordPair a : claim) {
 					CoordPair code = a;
-					if(ClowderTerritory.territories.get(code) != null && ClowderTerritory.territories.get(code).owner.zone == Zone.FACTION)
-						ClowderTerritory.territories.get(code).owner = new Ownership(Zone.WILDERNESS);
+					TerritoryMeta metadata=com.hfr.clowder.ClaimNodeSystem.metadata(code.dimensionId,code.x,code.z);
+					if(metadata != null && metadata.owner.zone == Zone.FACTION)
+						metadata.owner = new Ownership(Zone.WILDERNESS);
 
 					MinecraftForge.EVENT_BUS.post(new RegionOwnershipChangedEvent(null,new Ownership(Zone.WILDERNESS),provinceName));
 				}

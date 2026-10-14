@@ -19,6 +19,9 @@ import java.util.UUID;
 import static com.hfr.clowder.Clowder.initializeDiplomacy;
 
 public class ClowderData extends WorldSavedData {
+    private final com.hfr.clowder.ClaimNodeSystem.Store claimNodes=new com.hfr.clowder.ClaimNodeSystem.Store();
+    public com.hfr.clowder.ClaimNodeSystem.Store claimNodes(){return claimNodes;}
+    public static boolean isActiveClaimNodeStore(com.hfr.clowder.ClaimNodeSystem.Store store){return data!=null&&data.claimNodes==store;}
 
 	private final Set<UUID> claimedPlayers = new HashSet<UUID>();
     private final java.util.Map<String, com.hfr.shop.FactionMarketRegistry.Registration> marketTerminals =
@@ -39,6 +42,7 @@ public class ClowderData extends WorldSavedData {
 		
 		Clowder.readFromNBT(nbt);
 		ClowderTerritory.readFromNBT(nbt);
+        claimNodes.read(nbt);
         for (Clowder faction : Clowder.clowders) if (faction.migrateCapital()) markDirty();
         marketTerminals.clear();
         NBTTagList terminals = nbt.getTagList("FactionMarketTerminals", 10);
@@ -68,6 +72,7 @@ public class ClowderData extends WorldSavedData {
 
 		Clowder.writeToNBT(nbt);
 		ClowderTerritory.writeToNBT(nbt);
+        claimNodes.write(nbt);
         NBTTagList terminals = new NBTTagList();
         for (java.util.Map.Entry<String, com.hfr.shop.FactionMarketRegistry.Registration> entry : marketTerminals.entrySet()) {
             NBTTagCompound tag = entry.getValue().write(); tag.setString("factionId", entry.getKey()); terminals.appendTag(tag);
@@ -142,8 +147,7 @@ public class ClowderData extends WorldSavedData {
 			resetWorldState();
 			storageOwner = storageWorld;
 		}
-		if(data != null)
-			return data;
+		if(data != null) { data.claimNodes.bind(data,storageWorld); return data; }
 
 		data = (ClowderData)storageWorld.perWorldStorage.loadData(ClowderData.class, "hfr_clowder");
 		if(data == null) {
@@ -152,6 +156,7 @@ public class ClowderData extends WorldSavedData {
 			data.markDirty();
 		}
 
+		data.claimNodes.bind(data,storageWorld);
 		return data;
 	}
 

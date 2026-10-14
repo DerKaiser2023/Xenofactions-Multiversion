@@ -439,10 +439,8 @@ public class ClowderTerritory {
 	public static Ownership getOwnerFromInts(World world, int x, int z) { return getOwnerFromInts(getDimensionId(world), x, z); }
 
 	public static Ownership getOwnerFromInts(int dimensionId, int x, int z) {
-
-		z += 1;
-
-		return getOwner(dimensionId, x / 16, z / 16);
+        CoordPair node=ClaimNodeSystem.protectionCoordinate(dimensionId,x,z);
+        return getOwner(node.dimensionId,node.x,node.z);
 	}
 	
 	//returns the ownership information of the chunk
@@ -452,16 +450,14 @@ public class ClowderTerritory {
 
 	public static Ownership getOwner(int dimensionId, int x, int z) {
 		
-		CoordPair code = new CoordPair(dimensionId, x, z);
-		
-		TerritoryMeta meta = territories.get(code);
+		TerritoryMeta meta = ClaimNodeSystem.metadata(dimensionId,x,z);
 		
 		if(meta == null)
 			return WILDERNESS;
 		
 		Ownership owner = meta.owner;
 		
-		if(owner.zone == Zone.FACTION && owner.owner == null)
+		if(owner != null && owner.zone == Zone.FACTION && owner.owner == null)
 			return WILDERNESS;
 		
 		return owner == null ? WILDERNESS : owner;
@@ -490,10 +486,8 @@ public class ClowderTerritory {
 	public static TerritoryMeta getMetaFromIntCoords(World world, int x, int z) { return getMetaFromIntCoords(getDimensionId(world), x, z); }
 
 	public static TerritoryMeta getMetaFromIntCoords(int dimensionId, int x, int z) {
-
-		z += 1;
-
-		return getMetaFromInts(dimensionId, x / 16, z / 16);
+        CoordPair node=ClaimNodeSystem.protectionCoordinate(dimensionId,x,z);
+        return getMetaFromInts(node.dimensionId,node.x,node.z);
 	}
 	
 	//returns the ownership information of the chunk
@@ -509,9 +503,7 @@ public class ClowderTerritory {
 
 	public static TerritoryMeta getMetaFromInts(int dimensionId, int x, int z) {
 		
-		CoordPair code = new CoordPair(dimensionId, x, z);
-		
-		TerritoryMeta meta = territories.get(code);
+		TerritoryMeta meta = ClaimNodeSystem.metadata(dimensionId,x,z);
 		
 		if(meta != null && meta.owner.zone == Zone.FACTION && meta.owner.owner == null)
 			meta.owner = WILDERNESS;

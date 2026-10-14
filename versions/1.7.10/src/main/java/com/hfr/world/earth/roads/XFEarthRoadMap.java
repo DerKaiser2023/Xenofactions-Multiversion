@@ -26,7 +26,14 @@ public final class XFEarthRoadMap {
         if(x1<x0||z1<z0||!profile.containsMapPosition(x0,z0)||!profile.containsMapPosition(x1,z1)
                 ||((long)XFEarthGeoImporter.region(x1)-XFEarthGeoImporter.region(x0)+1)*((long)XFEarthGeoImporter.region(z1)-XFEarthGeoImporter.region(z0)+1)>16)return;
         final File directory;final XFEarthRoadSource.Policy policy=new XFEarthRoadSource.Policy();
-        try{directory=XFEarthRoadSource.configuredDirectory();}catch(IOException e){sendNotice(player,token,dimension,"Road layer unavailable: no dataset selected");return;}
+        final List<double[]> nodeLines=new ArrayList<double[]>();final List<Byte> nodeStyles=new ArrayList<Byte>();
+        try{for(com.hfr.clowder.ClaimNodeSystem.Snapshot node:com.hfr.clowder.ClaimOverlayData.nodeSnapshot(world,x0,z0,x1,z1,128)){
+            com.hfr.clowder.ClaimNodeSystem.Geometry g=node.geometry;double ax=Math.max(x0,g.minX),az=Math.max(z0,g.minZ),bx=Math.min(x1+1.0,g.maxX),bz=Math.min(z1+1.0,g.maxZ);
+            byte style=(byte)(node.classification.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.UNCLASSIFIED?90:node.classification.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.ELIGIBLE?91:92);
+            nodeLines.add(new double[]{ax,az,bx,az});nodeLines.add(new double[]{bx,az,bx,bz});nodeLines.add(new double[]{bx,bz,ax,bz});nodeLines.add(new double[]{ax,bz,ax,az});
+            for(int i=0;i<4;i++)nodeStyles.add(style);
+        }}catch(IllegalStateException unavailable){if(com.hfr.main.MainRegistry.logger!=null)com.hfr.main.MainRegistry.logger.warn("[XF MAP] Claim node classification unavailable: "+unavailable.getMessage());}
+        try{directory=XFEarthRoadSource.configuredDirectory();}catch(IOException e){sendNodes(player,token,dimension,nodeLines,nodeStyles,"Territorial nodes; terrain unclassified. No geographic dataset selected; node view bounded to 128.");return;}
         final XFEarthFeatureSource.Policy featurePolicy=new XFEarthFeatureSource.Policy();
         final Set<String> recorded=new HashSet<String>();int scanned=0,selected=0;
         if(world instanceof net.minecraft.world.WorldServer)for(Object object:((net.minecraft.world.WorldServer)world).theChunkProviderServer.func_152380_a()){
@@ -59,16 +66,20 @@ public final class XFEarthRoadMap {
                         }if(featureLines.size()>=2048)break;
                     }
                 }catch(IOException|RuntimeException e){featureFailure=true;featureLines.clear();featureStyles.clear();}
-                int roadCount=Math.min(featureLines.isEmpty()?4096:2048,segments.size()),count=roadCount+featureLines.size(),parts=Math.max(1,(count+511)/512);
+                int capacity=4096-nodeLines.size();int roadCount=Math.min(featureLines.isEmpty()?capacity:Math.min(2048,capacity),segments.size());
+                boolean truncated=segments.size()>roadCount||featureLines.size()>=2048||featureLines.size()>capacity-roadCount;
+                while(featureLines.size()>capacity-roadCount){featureLines.remove(featureLines.size()-1);featureStyles.remove(featureStyles.size()-1);}
+                int geographicCount=roadCount+featureLines.size(),count=geographicCount+nodeLines.size(),parts=Math.max(1,(count+511)/512);
                 String credit=roads.dataset.manifest.get("attribution").getAsString();if(credit.length()>160)credit=credit.substring(0,160)+"…";
                 String notice="© OpenStreetMap contributors / ODbL; "+credit+"; source geometry / generic buildings; bright=recorded generated parts; coverage unverified"
-                    +(segments.size()>roadCount||featureLines.size()>=2048?"; layer truncated":"")+(featureFailure?"; feature layer unavailable":"");
+                    +(truncated?"; layer truncated":"")+(featureFailure?"; feature layer unavailable":"")+"; cyan=unclassified nodes (max 128)";
                 for(int part=0;part<parts;part++){int size=Math.min(512,count-part*512);double[] coords=new double[size*4];byte[] styles=new byte[size];
                     for(int i=0;i<size;i++){int index=part*512+i;if(index<roadCount){XFEarthRoadSource.Segment s=segments.get(index);double[] clipped=XFEarthRoadSource.clip(s,x0,z0,x1+1.0,z1+1.0);
                         System.arraycopy(clipped,0,coords,i*4,4);styles[i]=(byte)("surface".equals(s.kind)?s.rank:"bridge".equals(s.kind)?20:"tunnel".equals(s.kind)?21:22);}
-                        else{System.arraycopy(featureLines.get(index-roadCount),0,coords,i*4,4);styles[i]=featureStyles.get(index-roadCount);}}
+                        else if(index<geographicCount){System.arraycopy(featureLines.get(index-roadCount),0,coords,i*4,4);styles[i]=featureStyles.get(index-roadCount);}
+                        else{System.arraycopy(nodeLines.get(index-geographicCount),0,coords,i*4,4);styles[i]=nodeStyles.get(index-geographicCount);}}
                     packets.add(new EarthRoadSnapshotPacket(token,dimension,part,parts,coords,styles,notice));}
-            }catch(Exception e){packets.clear();packets.add(new EarthRoadSnapshotPacket(token,dimension,0,1,new double[0],new byte[0],"Road layer unavailable; source/profile or bounded query failed"));}
+            }catch(Exception e){packets.clear();packets.add(nodePacket(token,dimension,nodeLines,nodeStyles,"Geographic layer unavailable; territorial nodes shown, bounded to 128. Terrain remains unclassified in Stage 8."));}
             TDMServerTaskQueue.schedule(new Runnable(){public void run(){if(generation!=session)return;pending.remove(uuid);
                 if(player.worldObj!=world||player.isDead||player.playerNetServerHandler.netManager==null||!player.playerNetServerHandler.netManager.isChannelOpen())return;
                 XFEarthWorkQueue.submit(new XFEarthWorkQueue.Step(){int index;public boolean run(){
@@ -79,6 +90,13 @@ public final class XFEarthRoadMap {
         }});}catch(RejectedExecutionException full){pending.remove(uuid);sendNotice(player,token,dimension,"Road layer busy; change the view to retry");}
     }
     private static void sendNotice(EntityPlayerMP player,int token,int dimension,String notice){PacketDispatcher.wrapper.sendTo(new EarthRoadSnapshotPacket(token,dimension,0,1,new double[0],new byte[0],notice),player);}
+    private static void sendNodes(EntityPlayerMP player,int token,int dimension,List<double[]> lines,List<Byte> styles,String notice){
+        PacketDispatcher.wrapper.sendTo(nodePacket(token,dimension,lines,styles,notice),player);
+    }
+    private static EarthRoadSnapshotPacket nodePacket(int token,int dimension,List<double[]> lines,List<Byte> styles,String notice){
+        double[] coordinates=new double[lines.size()*4];byte[] encoded=new byte[lines.size()];for(int i=0;i<lines.size();i++){System.arraycopy(lines.get(i),0,coordinates,i*4,4);encoded[i]=styles.get(i);}
+        return new EarthRoadSnapshotPacket(token,dimension,0,1,coordinates,encoded,notice);
+    }
     public static void clear(){session++;if(executor!=null)executor.shutdownNow();executor=null;pending.clear();cooldown.clear();}
     public static void logout(EntityPlayerMP player){cooldown.remove(player.getUniqueID());}
 }

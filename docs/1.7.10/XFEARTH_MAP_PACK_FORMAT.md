@@ -119,6 +119,10 @@ Later geographic stages must reuse:
   its existing coordinate lookup and claim NBT semantics; do not introduce a
   parallel geographic claim registry or replace its legacy lookup with a new
   floor-division rule. World/claim reads and mutations belong to the server.
+  Stage 8 adds `ClaimNodeSystem` identities, independent versioned classification
+  and exact protection geometry via `ClaimOverlayData.nodeSnapshot`; ownership
+  remains in the existing territory map. See
+  [persistent claim nodes](XFEARTH_WORLD_TYPE.md#persistent-claim-nodes-stage-8).
 
 Geographic features can proceed on ordinary 256-block worlds. See
 [height implementation findings](XFEARTH_WORLD_TYPE.md#height-implementation-findings-stage-1)

@@ -13,6 +13,10 @@ import com.hfr.clowder.ClowderTerritory.Zone;
 /** Side-neutral, immutable claim data shared by optional map integrations. */
 public final class ClaimOverlayData {
 	private ClaimOverlayData() { }
+    /** Exact protection footprints and independent eligibility, for the shared Earth source layer/Stage 9. */
+    public static List<ClaimNodeSystem.Snapshot> nodeSnapshot(net.minecraft.world.World world,int x0,int z0,int x1,int z1,int limit){
+        return ClaimNodeSystem.store(world).snapshot(world.provider.dimensionId,x0,z0,(long)x1+1,(long)z1+1,limit);
+    }
 
 	public static List<Claim> snapshot(int dimensionId) {
 		ArrayList<Claim> claims = new ArrayList<Claim>();

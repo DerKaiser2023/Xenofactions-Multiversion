@@ -518,20 +518,7 @@ public class CommonEventHandler {
 	private double wrapX(double x) { return wrapCoordinate(x, MainRegistry.borderNegX, MainRegistry.borderPosX); }
 	private double wrapZ(double z) { return wrapCoordinate(z, MainRegistry.borderNegZ, MainRegistry.borderPosZ); }
 	private static double wrapCoordinate(double value, double min, double max) {
-		double width = max - min;
-		if (value < min) {
-			double distance = min - value;
-			if (distance <= width) return max - distance;
-			double remainder = distance % width;
-			return remainder == 0 ? min : max - remainder;
-		}
-		if (value > max) {
-			double distance = value - max;
-			if (distance <= width) return min + distance;
-			double remainder = distance % width;
-			return remainder == 0 ? max : min + remainder;
-		}
-		return value;
+        return EarthBoundaryManager.wrapCoordinate(value,min,max);
 	}
 
 	private static boolean canHandleEarthBorder(Entity entity) {

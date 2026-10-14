@@ -273,6 +273,16 @@ elevated buildings, unsupported business categories and coarse business points
 remain source information. No satellite reconstruction or exact architecture is
 claimed. See [Stage 7 implementation](XFEARTH_WORLD_TYPE.md#geographic-fields-and-structures-stage-7).
 
+## Claim nodes (Stage 8)
+
+Stage 8 claim node metadata is added automatically to the existing faction save
+on normal server binding/saving; no claim conversion command or geographic
+dataset is required. Back up the save before updating. Use matching updated XF
+client/server versions for the Map node styles. The existing source-layer control
+can show up to 128 owned/tracked node outlines with no selected dataset; cyan is
+unclassified, not confirmed land or ocean. No terrain eligibility rule or extended
+height mode is enabled. See [persistent claim nodes](XFEARTH_WORLD_TYPE.md#persistent-claim-nodes-stage-8).
+
 ## Smoke-map adoption
 
 1. Run the WorldPainter smoke profile and export it as a Minecraft 1.7.10 Anvil save.

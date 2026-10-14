@@ -212,6 +212,7 @@ public final class GuiXFEarthMap extends GuiScreen {
                         int style=roadStyles[part][i]&255;GL11.glColor3f(style>=20?.5F:1F,style==21?.5F:.8F,style>=20?1F:.25F);
                         int category=style>=60?style-30:style;
                         if(style>=30)GL11.glColor3f(category>=50?1F:category>=40?.8F:.35F,category>=50?.45F:category>=40?.65F:.9F,style>=60?1F:category>=50?.8F:.35F);
+                        if(style>=90)GL11.glColor3f(style==92?1F:.2F,style==92?.3F:1F,style==90?1F:.3F);
                         double[] c=roadParts[part];double ax=ox+data.mapX(c[i*4])*w,az=oz+data.mapZ(c[i*4+1])*h,bx=ox+data.mapX(c[i*4+2])*w,bz=oz+data.mapZ(c[i*4+3])*h;
                         if(style>=30&&c[i*4]==c[i*4+2]&&c[i*4+1]==c[i*4+3]){GL11.glVertex2d(ax-3,az);GL11.glVertex2d(ax+3,az);GL11.glVertex2d(ax,az-3);GL11.glVertex2d(ax,az+3);}
                         else{GL11.glVertex2d(ax,az);GL11.glVertex2d(bx,bz);}

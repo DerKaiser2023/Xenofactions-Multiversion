@@ -14,6 +14,13 @@ public final class EarthBoundaryManager {
     // Observe actual positions across boundary checks; player packets and mod entities can reset prevPos.
     private static final Map<Entity, Position> positions = new WeakHashMap<Entity, Position>();
     private EarthBoundaryManager() { }
+    /** The existing inclusive-edge wrap math, shared with node position resolution; exemption decisions stay with callers. */
+    public static double wrapCoordinate(double value,double min,double max){
+        double width=max-min;
+        if(value<min){double distance=min-value;if(distance<=width)return max-distance;double remainder=distance%width;return remainder==0?min:max-remainder;}
+        if(value>max){double distance=value-max;if(distance<=width)return min+distance;double remainder=distance%width;return remainder==0?max:min+remainder;}
+        return value;
+    }
     public static boolean isBoundaryEnabled(World world) {
         if (world == null || world.isRemote) return false;
         EarthBoundarySavedData data = EarthBoundarySavedData.get(world);

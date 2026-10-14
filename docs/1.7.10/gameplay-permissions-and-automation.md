@@ -12,6 +12,12 @@ Blast Furnaces, Coal Mines, Foundries, generators and the Federal Reserve are re
 
 ## Territory permissions
 
+Stage 8 claim nodes retain the existing territorial units and ownership. Their
+versioned terrain state starts `UNCLASSIFIED` and is separate from faction rights;
+it does not restrict claims or change costs, adjacency, spawn exceptions or
+protection permissions. Existing claims migrate without reset or automatic
+unclaiming. See [claim node identity and interfaces](XFEARTH_WORLD_TYPE.md#persistent-claim-nodes-stage-8).
+
 Each territory-owning faction stores two policies: `ally` and `neutral`. Categories are `BUILD` (place blocks), `DESTROY` (break blocks), `CONTAINER` (inventory tile entities), `INTERACT` (other right-clicks), and `SWITCH` (doors, trapdoors, gates, buttons, levers, and pressure plates).
 
 Defaults are:
