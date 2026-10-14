@@ -77,7 +77,9 @@ public final class ClaimNodeSystem {
     }
     public static final class Store {
         private UUID world=UUID.randomUUID();
-        private final Map<CoordPair,Classification> nodes=new HashMap<CoordPair,Classification>();
+        private final NavigableMap<CoordPair,Classification> nodes=new TreeMap<CoordPair,Classification>(new Comparator<CoordPair>(){
+            public int compare(CoordPair a,CoordPair b){int dim=Integer.compare(a.dimensionId,b.dimensionId);if(dim!=0)return dim;int x=Integer.compare(a.x,b.x);return x!=0?x:Integer.compare(a.z,b.z);}
+        });
         private NBTBase preserved;
         private boolean needsSave=true;
         private Thread thread;
@@ -90,6 +92,13 @@ public final class ClaimNodeSystem {
         public boolean available(){return preserved==null;}
         private void requireAvailable(){if(!available())throw new IllegalStateException("Unsupported/malformed ClaimNodes data retained; classification unavailable");}
         public UUID worldIdentity(){requireThread();requireAvailable();return world;}
+        public boolean tracked(CoordPair key){requireThread();requireAvailable();return nodes.containsKey(key)||ClowderTerritory.territories.containsKey(key);}
+        /** Bounded ordered refresh cursor; no full key copy or world-sized sweep per tick. */
+        public List<CoordPair> nextTracked(CoordPair after,int limit){
+            requireThread();requireAvailable();if(limit<1||limit>16)throw new IllegalArgumentException("Refresh limit");
+            NavigableMap<CoordPair,Classification> tail=after==null?nodes:nodes.tailMap(after,false);if(tail.isEmpty())tail=nodes;
+            List<CoordPair> result=new ArrayList<CoordPair>();for(CoordPair key:tail.keySet()){result.add(new CoordPair(key.dimensionId,key.x,key.z));if(result.size()==limit)break;}return result;
+        }
         private boolean migrateOwnership(){
             if(preserved!=null)return false;boolean changed=false;
             for(CoordPair key:ClowderTerritory.territories.keySet())if(!nodes.containsKey(key)){nodes.put(new CoordPair(key.dimensionId,key.x,key.z),Classification.unclassified());changed=true;}

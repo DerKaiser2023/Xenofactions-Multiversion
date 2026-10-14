@@ -136,6 +136,10 @@ public class Flag extends BlockContainer {
 			}
 
 			if(flag.canSeeSky()) {
+                com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.decision(world,ClowderTerritory.getCoordPair(world,x,z));
+                if(terrain.eligibility!=com.hfr.clowder.ClaimNodeSystem.Eligibility.ELIGIBLE){
+                    world.setBlockToAir(x,y,z);entityPlayer.addChatMessage(new ChatComponentText(terrain.rejection()));return;
+                }
 				boolean firstCity = clowder.getOwnedCityCount() == 0;
 				float foundingCost = firstCity ? 0F : clowder.getCityFoundingCost();
 				float foundingUpkeep = XFConfig.cityUpkeep(CityLevel.SETTLEMENT);
@@ -152,6 +156,7 @@ public class Flag extends BlockContainer {
 				flag.setMode(1);
 				flag.isClaimed = true;
 				flag.generateClaim();
+                if(!flag.terrainClaimNotice.isEmpty())entityPlayer.addChatMessage(new ChatComponentText(flag.terrainClaimNotice));
                 if (!clowder.capitalDesignated) {
                     clowder.capitalCityId = flag.getCityId(); clowder.capitalDesignated = true;
                     clowder.save(world);

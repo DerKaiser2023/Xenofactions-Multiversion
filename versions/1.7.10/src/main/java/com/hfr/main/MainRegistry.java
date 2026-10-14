@@ -343,6 +343,7 @@ public class MainRegistry
 		com.hfr.world.earth.XFEarthRegistry.register();
 		MinecraftForge.EVENT_BUS.register(new com.hfr.world.earth.XFEarthWorldValidationHandler());
 		MinecraftForge.EVENT_BUS.register(new com.hfr.world.earth.roads.XFEarthRoadState());
+        MinecraftForge.EVENT_BUS.register(new com.hfr.clowder.ClaimTerrainService());
 		FMLCommonHandler.instance().bus().register(com.hfr.world.earth.network.XFEarthHeightSync.events());
 		CraftingManager.mainRegistry();
 		proxy.registerRenderInfo();
@@ -699,6 +700,7 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStopping(FMLServerStoppingEvent event) {
+        com.hfr.clowder.ClaimTerrainService.clear();
 		com.hfr.world.earth.geo.XFEarthGeoImportJob.shutdown();
 		com.hfr.world.earth.roads.XFEarthRoadImport.cancelAll();
 		com.hfr.world.earth.roads.XFEarthRoadMap.clear();

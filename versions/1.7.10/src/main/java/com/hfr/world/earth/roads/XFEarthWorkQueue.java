@@ -3,7 +3,7 @@ package com.hfr.world.earth.roads;
 import com.hfr.config.XFConfig;
 import java.util.concurrent.*;
 
-/** Shared Earth road read/placement budget, drained only by the owning server tick. */
+/** Shared geographic generation/import and claim-terrain budget, drained only by the owning server tick. */
 public final class XFEarthWorkQueue {
     public interface Step { boolean run() throws Exception; }
     private static final ConcurrentLinkedQueue<Task> queue=new ConcurrentLinkedQueue<Task>();

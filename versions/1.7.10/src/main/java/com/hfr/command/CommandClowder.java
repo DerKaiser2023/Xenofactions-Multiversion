@@ -216,6 +216,8 @@ public class CommandClowder extends CommandBase {
 		if(cmd.equals("claim") || cmd.equals("city")) {
 			if(args.length > 1 && args[1].equalsIgnoreCase("upgrade")) {
 				cmdCityUpgrade(sender);
+			} else if(cmd.equals("city") && args.length > 1 && args[1].equalsIgnoreCase("terrain")) {
+                cmdCityTerrain(sender,args);
 			} else if(cmd.equals("city") && args.length > 1 && args[1].equalsIgnoreCase("cancelmove")) {
 				cmdCityMove(sender, false);
 			} else if(cmd.equals("city") && args.length > 1 && args[1].equalsIgnoreCase("recovermove")) {
@@ -223,7 +225,7 @@ public class CommandClowder extends CommandBase {
 			} else if(args.length > 1) {
 				cmdClaim(sender, joinArgs(args, 1));
 			} else {
-				sender.addChatMessage(new ChatComponentText(ERROR + "Usage: /c claim <city name> or /c city <upgrade|cancelmove|recovermove>"));
+				sender.addChatMessage(new ChatComponentText(ERROR + "Usage: /c claim <city name> or /c city <upgrade|terrain|cancelmove|recovermove>"));
 			}
 			return;
 		}
@@ -370,6 +372,7 @@ public class CommandClowder extends CommandBase {
 			sender.addChatMessage(new ChatComponentText(COMMAND + "-warps" + TITLE + " - Lists faction warps"));
 			sender.addChatMessage(new ChatComponentText(COMMAND + "-claim <city name>" + TITLE + " - Creates a named City Center"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_LEADER + "-city upgrade" + TITLE + " - Upgrades the City Center for your current claim"));
+            sender.addChatMessage(new ChatComponentText(COMMAND_LEADER + "-city terrain [retry]" + TITLE + " - Terrain eligibility here; officers can retry current city expansion"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_LEADER + "-nameclaim <name>" + TITLE + " - Renames the current territory"));
 			sender.addChatMessage(new ChatComponentText(INFO + "/clowder help 5"));
 		}
@@ -1851,6 +1854,22 @@ private void cmdCreate(ICommandSender sender, String name) {
                 + ". Set a new home there; the old market terminal is inactive."));
         } catch (IllegalArgumentException e) { sender.addChatMessage(new ChatComponentText(ERROR + e.getMessage())); }
     }
+    private void cmdCityTerrain(ICommandSender sender,String[] args){
+        EntityPlayer player=getCommandSenderAsPlayer(sender);
+        if(args.length>3||args.length==3&&!"retry".equalsIgnoreCase(args[2])){sender.addChatMessage(new ChatComponentText(ERROR+"Usage: /c city terrain [retry]"));return;}
+        CoordPair node=com.hfr.clowder.ClaimNodeSystem.protectionCoordinate(player.worldObj.provider.dimensionId,(int)player.posX,(int)player.posZ);
+        com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.decision(player.worldObj,node);
+        sender.addChatMessage(new ChatComponentText(INFO+"Node "+node+": "+terrain.eligibility+"; "+terrain.reason));
+        if(args.length!=3)return;
+        Clowder faction=Clowder.getClowderFromPlayer(player);TerritoryMeta meta=ClowderTerritory.getMetaFromCoords(node);
+        if(faction==null||faction.getPermLevel(player)<2||meta==null||meta.owner==null||meta.owner.owner!=faction){sender.addChatMessage(new ChatComponentText(ERROR+"An officer/leader must stand in their city's claim to retry expansion."));return;}
+        if(!player.worldObj.getChunkProvider().chunkExists(meta.flagX>>4,meta.flagZ>>4)){sender.addChatMessage(new ChatComponentText(ERROR+"City Center chunk is unavailable; no chunk was requested."));return;}
+        TileEntity tile=player.worldObj.getTileEntity(meta.flagX,meta.flagY,meta.flagZ);
+        if(!(tile instanceof TileEntityFlag)||((TileEntityFlag)tile).owner!=faction||!((TileEntityFlag)tile).isClaimed){sender.addChatMessage(new ChatComponentText(ERROR+"This is not an active owned City Center."));return;}
+        TileEntityFlag city=(TileEntityFlag)tile;city.generateClaim();
+        sender.addChatMessage(new ChatComponentText(INFO+(city.terrainClaimNotice.isEmpty()?"Eligible city nodes are up to date.":city.terrainClaimNotice)));
+    }
+
 	private void cmdCityUpgrade(ICommandSender sender) {
 		EntityPlayer player = getCommandSenderAsPlayer(sender);
 		Clowder clowder = Clowder.getClowderFromPlayer(player);
@@ -1890,9 +1909,10 @@ private void cmdCreate(ICommandSender sender, String name) {
 		}
 
 		CITY_UPGRADE_CONFIRMATIONS.remove(confirmKey);
-		if(city.upgradeCity())
+		if(city.upgradeCity()){
 			sender.addChatMessage(new ChatComponentText(INFO + city.name + " upgraded to " + city.cityLevel.displayName + " (level " + city.cityLevel.level() + ", radius " + XFConfig.cityRadius(city.cityLevel) + ", upkeep " + XFConfig.cityUpkeep(city.cityLevel) + ")."));
-		else
+            if(!city.terrainClaimNotice.isEmpty())sender.addChatMessage(new ChatComponentText(INFO+city.terrainClaimNotice));
+        }else
 			sender.addChatMessage(new ChatComponentText(ERROR + "Upgrade requires " + XFConfig.cityUpgradeCost(next) + " prestige and sequential upkeep capacity."));
 	}
 
@@ -2298,7 +2318,7 @@ private void cmdCreate(ICommandSender sender, String name) {
 		if(cmd.equals("flag"))
 			return getListOfStringsMatchingLastWord(args, getFlagCompletionNames());
 		if(cmd.equals("city") && args.length == 2)
-			return getListOfStringsMatchingLastWord(args, new String[] { "upgrade", "cancelmove", "recovermove" });
+			return getListOfStringsMatchingLastWord(args, new String[] { "upgrade", "terrain", "cancelmove", "recovermove" });
         if(cmd.equals("capital")) {
             if(args.length == 2) return getListOfStringsMatchingLastWord(args, new String[] { "set" });
             if(args.length >= 3 && sender instanceof EntityPlayer) {

@@ -106,6 +106,7 @@ public class ClowderData extends WorldSavedData {
 
 	/** Clears every process-static value which belongs to one Minecraft save. */
 	public static void resetWorldState() {
+        com.hfr.clowder.ClaimTerrainService.clear();
 		data = null;
 		storageOwner = null;
 		Clowder.resetWorldState();

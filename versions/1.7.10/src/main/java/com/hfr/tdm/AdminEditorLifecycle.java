@@ -18,7 +18,7 @@ import com.hfr.packet.effect.AdminEditorClosePacket;
 /** Registered regardless of whether the TDM match mode is enabled. */
 public final class AdminEditorLifecycle {
     @SubscribeEvent public void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.START) { TDMServerTaskQueue.runScheduledTasks(); com.hfr.world.earth.roads.XFEarthWorkQueue.tick(); }
+        if (event.phase == TickEvent.Phase.START) { TDMServerTaskQueue.runScheduledTasks(); com.hfr.clowder.ClaimTerrainService.tick(); com.hfr.world.earth.roads.XFEarthWorkQueue.tick(); }
     }
     @SubscribeEvent public void onPlayerTick(TickEvent.PlayerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || event.player.worldObj.isRemote) return;

@@ -182,7 +182,8 @@ public final class XFEarthRoadImport implements Runnable {
                 XFEarthRoadPlanner.Edit e=review.plan.edits.get(edit++);
                 if(ClowderTerritory.getMetaFromIntCoords(world,e.x,e.z)!=null||world.getBlock(e.x,e.y,e.z)!=e.before||world.getBlockMetadata(e.x,e.y,e.z)!=e.metadata
                         ||e.before.hasTileEntity(e.metadata)||world.getTileEntity(e.x,e.y,e.z)!=null){stamp.edited=true;next();skipped++;return false;}
-                if(!world.setBlock(e.x,e.y,e.z,e.after,e.afterMetadata,2))throw new IOException("Minecraft refused a reviewed geographic block");placed++;return false;
+                if(!world.setBlock(e.x,e.y,e.z,e.after,e.afterMetadata,2))throw new IOException("Minecraft refused a reviewed geographic block");
+                com.hfr.clowder.ClaimTerrainService.invalidate(world,e.x,e.z);placed++;return false;
             }catch(Exception e){state=cancelled?"CANCELLED":"FAILED: "+e.getMessage();message(player,state+". Blocks already placed are not undone.");throw e;}
         }
         private void next(){item++;section=edit=0;chunk=null;digest=null;began=false;}

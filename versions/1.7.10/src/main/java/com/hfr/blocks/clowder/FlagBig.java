@@ -102,6 +102,7 @@ public class FlagBig extends BlockContainer {
 									nbt.getInteger("xCoord2"),
 									nbt.getInteger("zCoord2")
 									);
+                            if(!flag.terrainClaimNotice.isEmpty())player.addChatMessage(new net.minecraft.util.ChatComponentText(flag.terrainClaimNotice));
 						}
 					}
 					

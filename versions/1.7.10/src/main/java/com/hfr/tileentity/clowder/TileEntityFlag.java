@@ -392,6 +392,7 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 	}
 	
 	public void generateClaim() {
+        int terrainRejected=0,terrainDeferred=0;
 		
 		int rad = Math.min(getRadius(), CityLevel.maxRadius());
 		String placementError = ClowderTerritory.getCityPlacementError(worldObj, xCoord >> 4, zCoord >> 4);
@@ -405,6 +406,11 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 				TerritoryMeta meta = ClowderTerritory.getMetaFromCoords(loc);
 				if(expected.contains(loc)) {
 					if(meta == null || !meta.checkPersistence(worldObj, loc) || (meta.flagX == xCoord && meta.flagY == yCoord && meta.flagZ == zCoord)) {
+                        if(!com.hfr.clowder.ClaimTerrainService.existingClaim(loc)&&owner!=null){
+                            com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.decision(worldObj,loc);
+                            if(terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.INELIGIBLE)terrainRejected++;
+                            else if(terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.UNCLASSIFIED)terrainDeferred++;
+                        }
 						ClowderTerritory.setOwnerForCoord(worldObj, loc, owner, xCoord, yCoord, zCoord, name, getCityId());
 						TerritoryMeta newMeta = ClowderTerritory.getMetaFromCoords(loc);
 						if(newMeta != null) {
@@ -417,7 +423,11 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 				}
 			}
 		}
+
+        terrainClaimNotice=terrainRejected==0&&terrainDeferred==0?"":"City expansion: "+terrainRejected+" nodes rejected for insufficient connected land/platform; "+terrainDeferred+" deferred for bounded terrain sampling. Existing claims retained. Use /c city terrain to review or retry.";
 	}
+
+    public String terrainClaimNotice="";
 	
 	public boolean bordersWilderness() {
 		

@@ -25,6 +25,8 @@ public final class XFConfig {
 	public static final String CAT_PRESTIGE_COSTS = "XENOFACTIONS_03_PRESTIGE_COSTS_UPKEEP";
 	public static final String CAT_BANKRUPTCY = "XENOFACTIONS_04_BANKRUPTCY";
 	public static final String CAT_CLAIMS = "XENOFACTIONS_05_CLAIMS_CITIES";
+    public static int claimTerrainMinArea=64,claimTerrainCoveragePercent=25,claimTerrainMaxStep=1;
+    public static int claimTerrainMaxAgeTicks=100,claimTerrainRefreshNodes=2;
 	public static final String CAT_WAR = "XENOFACTIONS_06_WAR_DIPLOMACY";
 	public static final String CAT_PROTECTION = "XENOFACTIONS_07_NEW_PLAYER_PROTECTION";
 	public static final String CAT_CUSTOM_FLAGS = "XENOFACTIONS_08_CUSTOM_FLAGS";
@@ -240,7 +242,7 @@ public final class XFConfig {
 		earthRoadMaxWidth = integer(config, CAT_EARTH_WORLD, "earthRoadMaxWidth", 7, 1, 7, "Maximum odd road width in blocks; minimum visual widths exaggerate major roads at coarse scales.");
 		earthRoadCoarseScale = integer(config, CAT_EARTH_WORLD, "earthRoadCoarseScale", 1000, 250, 10000, "At this nominal horizontal scale keep secondary and larger roads; at four times this scale keep trunk/motorway only.");
 		earthRoadStepsPerTick = integer(config, CAT_EARTH_WORLD, "earthRoadStepsPerTick", 1024, 16, 4096, "Shared Earth road read/placement steps per server tick.");
-		earthRoadTickMillis = integer(config, CAT_EARTH_WORLD, "earthRoadTickMillis", 2, 1, 10, "Shared road queue time budget checked between bounded operations; not a hard limit on Minecraft callbacks.");
+		earthRoadTickMillis = integer(config, CAT_EARTH_WORLD, "earthRoadTickMillis", 2, 1, 10, "Shared geographic/claim terrain queue time budget checked between bounded operations; not a hard limit on Minecraft callbacks.");
 		earthRoadMaxImportChunks = integer(config, CAT_EARTH_WORLD, "earthRoadMaxImportChunks", 16, 1, 64, "Maximum already loaded Earth chunks in one existing-world road preview; never force-load them.");
 		earthGenerateGeographicFeatures = bool(config, CAT_EARTH_WORLD, "earthGenerateGeographicFeatures", true, "Use the same selected road dataset for fields, source buildings and supported generic business shells in new native Earth terrain. No dataset means no geographic generation.");
 		earthFeatureExistingImports = bool(config, CAT_EARTH_WORLD, "earthFeatureExistingImports", false, "Permit reviewed feature imports under the same pristine-baseline, claim, tile and manual-backup rules as roads; disabled by default.");
@@ -300,6 +302,11 @@ public final class XFConfig {
 		fallenNationUpkeepMult = flt(config, CAT_BANKRUPTCY, "fallenNationUpkeepMultiplier", fallenNationUpkeepMult, 0F, 100F, "Upkeep multiplier during Fallen Nation.");
 
 		enableClaimsInAllDimensions = bool(config, CAT_CLAIMS, "enableClaimsInAllDimensions", enableClaimsInAllDimensions, "Allows faction claims outside dimension 0.");
+        claimTerrainMinArea=integer(config,CAT_CLAIMS,"claimTerrainMinArea",64,2,961,"Minimum connected qualifying column area per new claim node; never grants neighboring ocean nodes.");
+        claimTerrainCoveragePercent=integer(config,CAT_CLAIMS,"claimTerrainCoveragePercent",25,1,100,"Largest connected surface must cover this percentage of the actual territorial footprint, rounded up.");
+        claimTerrainMaxStep=integer(config,CAT_CLAIMS,"claimTerrainMaxStep",1,0,4,"Maximum top-height difference between orthogonally connected surface columns, in blocks; slabs retain fractional height.");
+        claimTerrainMaxAgeTicks=integer(config,CAT_CLAIMS,"claimTerrainMaxAgeTicks",100,1,1200,"Maximum server-tick age of a terrain result used for a new claim. Persisted results require a new session sample.");
+        claimTerrainRefreshNodes=integer(config,CAT_CLAIMS,"claimTerrainRefreshNodes",2,1,16,"Tracked nodes visited every 20 server ticks by the bounded refresh cursor; captures share the Earth work queue budget.");
 		allowedClaimDimensions = intList(config, CAT_CLAIMS, "allowedClaimDimensions", allowedClaimDimensions, -100000, 100000, "Dimension whitelist for claims; empty means all dimensions.");
 		blockedClaimDimensions = intList(config, CAT_CLAIMS, "blockedClaimDimensions", blockedClaimDimensions, -100000, 100000, "Dimension blacklist for claims; empty means none.");
 		maxCityRadius = integer(config, CAT_CLAIMS, "maxCityRadius", maxCityRadius, 1, 32, "Maximum city radius in chunks. Existing claims are not deleted when lowered.");

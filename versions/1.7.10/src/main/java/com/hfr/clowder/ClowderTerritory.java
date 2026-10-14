@@ -55,7 +55,7 @@ public class ClowderTerritory {
 	}
 
 	/** Atomically replaces one city's claims without touching occupied or unrelated coordinates. */
-	public static Set<CoordPair> rebuildCityClaims(Map<CoordPair, TerritoryMeta> territory, Clowder faction,
+	public static Set<CoordPair> rebuildCityClaims(World world, Map<CoordPair, TerritoryMeta> territory, Clowder faction,
 		String cityId, int dimensionId, int flagX, int flagY, int flagZ, String cityName, int cityLevel, int radius) {
 		if(territory == null || faction == null || cityId == null || cityId.isEmpty())
 			throw new IllegalArgumentException("invalid city rebuild arguments");
@@ -65,6 +65,14 @@ public class ClowderTerritory {
 			if(existing != null && !cityId.equals(existing.cityId))
 				throw new IllegalStateException("city rebuild overlaps occupied territory at " + coordinate);
 		}
+
+        Set<CoordPair> eligible=new LinkedHashSet<CoordPair>();
+        for(CoordPair coordinate:expected){
+            TerritoryMeta existing=territory.get(coordinate);
+            if(existing!=null&&cityId.equals(existing.cityId)||ClaimTerrainService.allowGrant(world,coordinate,faction,flagX,flagY,flagZ,cityName,cityId))eligible.add(coordinate);
+        }
+        expected=eligible;
+        if(!expected.contains(getCoordPair(dimensionId,flagX,flagZ)))throw new IllegalStateException("New City Center node is not terrain-eligible");
 
 		Map<CoordPair, TerritoryMeta> replacement = new HashMap<CoordPair, TerritoryMeta>(territory);
 		for(CoordPair coordinate : new ArrayList<CoordPair>(replacement.keySet())) {
@@ -347,6 +355,8 @@ public class ClowderTerritory {
 		if(!XFConfig.canClaimInDimension(getDimensionId(world)))
 			return;
 		CoordPair code = new CoordPair(getDimensionId(world), x, z);
+
+        if(!ClaimTerrainService.allowGrant(world,code,owner,fX,fY,fZ,name,stableCityId))return;
 		TerritoryMeta oldMeta = territories.remove(code);
 		Clowder oldOwner = oldMeta == null || oldMeta.owner == null ? null : oldMeta.owner.owner;
 

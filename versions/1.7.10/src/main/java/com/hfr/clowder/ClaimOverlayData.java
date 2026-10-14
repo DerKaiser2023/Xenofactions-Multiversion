@@ -15,7 +15,16 @@ public final class ClaimOverlayData {
 	private ClaimOverlayData() { }
     /** Exact protection footprints and independent eligibility, for the shared Earth source layer/Stage 9. */
     public static List<ClaimNodeSystem.Snapshot> nodeSnapshot(net.minecraft.world.World world,int x0,int z0,int x1,int z1,int limit){
-        return ClaimNodeSystem.store(world).snapshot(world.provider.dimensionId,x0,z0,(long)x1+1,(long)z1+1,limit);
+        ClaimNodeSystem.Store store=ClaimNodeSystem.store(world);
+        List<ClaimNodeSystem.Snapshot> nodes=store.snapshot(world.provider.dimensionId,x0,z0,(long)x1+1,(long)z1+1,limit);
+        List<ClaimNodeSystem.Snapshot> refreshed=new ArrayList<ClaimNodeSystem.Snapshot>();
+        for(ClaimNodeSystem.Snapshot node:nodes){
+            ClaimTerrainService.Decision decision=ClaimTerrainService.decision(world,node.identity.coordinate());
+            refreshed.add(decision.eligibility==ClaimNodeSystem.Eligibility.UNCLASSIFIED
+                ?new ClaimNodeSystem.Snapshot(node.identity,ClaimNodeSystem.Classification.unclassified(),ClaimNodeSystem.metadata(node.identity.dimension,node.identity.x,node.identity.z))
+                :store.snapshot(node.identity.coordinate()));
+        }
+        return java.util.Collections.unmodifiableList(refreshed);
     }
 
 	public static List<Claim> snapshot(int dimensionId) {

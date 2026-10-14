@@ -33,7 +33,7 @@ public final class XFEarthRoadMap {
             nodeLines.add(new double[]{ax,az,bx,az});nodeLines.add(new double[]{bx,az,bx,bz});nodeLines.add(new double[]{bx,bz,ax,bz});nodeLines.add(new double[]{ax,bz,ax,az});
             for(int i=0;i<4;i++)nodeStyles.add(style);
         }}catch(IllegalStateException unavailable){if(com.hfr.main.MainRegistry.logger!=null)com.hfr.main.MainRegistry.logger.warn("[XF MAP] Claim node classification unavailable: "+unavailable.getMessage());}
-        try{directory=XFEarthRoadSource.configuredDirectory();}catch(IOException e){sendNodes(player,token,dimension,nodeLines,nodeStyles,"Territorial nodes; terrain unclassified. No geographic dataset selected; node view bounded to 128.");return;}
+        try{directory=XFEarthRoadSource.configuredDirectory();}catch(IOException e){sendNodes(player,token,dimension,nodeLines,nodeStyles,"Territorial nodes (max 128): cyan=pending, green=eligible, red=insufficient surface. No geographic dataset selected.");return;}
         final XFEarthFeatureSource.Policy featurePolicy=new XFEarthFeatureSource.Policy();
         final Set<String> recorded=new HashSet<String>();int scanned=0,selected=0;
         if(world instanceof net.minecraft.world.WorldServer)for(Object object:((net.minecraft.world.WorldServer)world).theChunkProviderServer.func_152380_a()){
@@ -72,14 +72,14 @@ public final class XFEarthRoadMap {
                 int geographicCount=roadCount+featureLines.size(),count=geographicCount+nodeLines.size(),parts=Math.max(1,(count+511)/512);
                 String credit=roads.dataset.manifest.get("attribution").getAsString();if(credit.length()>160)credit=credit.substring(0,160)+"…";
                 String notice="© OpenStreetMap contributors / ODbL; "+credit+"; source geometry / generic buildings; bright=recorded generated parts; coverage unverified"
-                    +(truncated?"; layer truncated":"")+(featureFailure?"; feature layer unavailable":"")+"; cyan=unclassified nodes (max 128)";
+                    +(truncated?"; layer truncated":"")+(featureFailure?"; feature layer unavailable":"")+"; nodes (max 128): cyan=pending, green=eligible, red=insufficient surface";
                 for(int part=0;part<parts;part++){int size=Math.min(512,count-part*512);double[] coords=new double[size*4];byte[] styles=new byte[size];
                     for(int i=0;i<size;i++){int index=part*512+i;if(index<roadCount){XFEarthRoadSource.Segment s=segments.get(index);double[] clipped=XFEarthRoadSource.clip(s,x0,z0,x1+1.0,z1+1.0);
                         System.arraycopy(clipped,0,coords,i*4,4);styles[i]=(byte)("surface".equals(s.kind)?s.rank:"bridge".equals(s.kind)?20:"tunnel".equals(s.kind)?21:22);}
                         else if(index<geographicCount){System.arraycopy(featureLines.get(index-roadCount),0,coords,i*4,4);styles[i]=featureStyles.get(index-roadCount);}
                         else{System.arraycopy(nodeLines.get(index-geographicCount),0,coords,i*4,4);styles[i]=nodeStyles.get(index-geographicCount);}}
                     packets.add(new EarthRoadSnapshotPacket(token,dimension,part,parts,coords,styles,notice));}
-            }catch(Exception e){packets.clear();packets.add(nodePacket(token,dimension,nodeLines,nodeStyles,"Geographic layer unavailable; territorial nodes shown, bounded to 128. Terrain remains unclassified in Stage 8."));}
+            }catch(Exception e){packets.clear();packets.add(nodePacket(token,dimension,nodeLines,nodeStyles,"Geographic layer unavailable; nodes (max 128): cyan=pending, green=eligible, red=insufficient surface."));}
             TDMServerTaskQueue.schedule(new Runnable(){public void run(){if(generation!=session)return;pending.remove(uuid);
                 if(player.worldObj!=world||player.isDead||player.playerNetServerHandler.netManager==null||!player.playerNetServerHandler.netManager.isChannelOpen())return;
                 XFEarthWorkQueue.submit(new XFEarthWorkQueue.Step(){int index;public boolean run(){

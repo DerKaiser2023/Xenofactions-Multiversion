@@ -177,6 +177,12 @@ public final class CityCenterRelocationManager {
             || !sameFaction(destination.owner.owner, faction) || !faction.relocationCityId.equals(destination.cityId))
             return "The destination must be inside the moved city's existing territory.";
         int radius = ((TileEntityFlag)oldTe).getRadius();
+        CoordPair center=ClowderTerritory.getCoordPair(world,x,z);
+        TerritoryMeta centerMeta=ClowderTerritory.getMetaFromCoords(center);
+        if(centerMeta==null||!faction.relocationCityId.equals(centerMeta.cityId)){
+            ClaimTerrainService.Decision terrain=ClaimTerrainService.decision(world,center);
+            if(terrain.eligibility!=ClaimNodeSystem.Eligibility.ELIGIBLE)return terrain.rejection();
+        }
         for(int dx=-radius; dx<=radius; dx++) for(int dz=-radius; dz<=radius; dz++) if(Math.sqrt(dx*dx+dz*dz)<radius) {
             TerritoryMeta meta = ClowderTerritory.getMetaFromCoords(ClowderTerritory.getCoordPair(world, x+dx*16, z+dz*16));
             if(meta != null && !faction.relocationCityId.equals(meta.cityId)) return meta.owner != null && (meta.owner.zone == Zone.SAFEZONE || meta.owner.zone == Zone.WARZONE) ? "The new radius intersects a protected zone." : "The new radius intersects another city or faction claim.";
@@ -206,7 +212,7 @@ public final class CityCenterRelocationManager {
             TileEntityFlag newFlag=(TileEntityFlag)te; newFlag.readFromNBT(destinationNbt); newFlag.setCityId(faction.relocationCityId);
             newFlag.restoreOwnerForRelocation(faction); newFlag.markDirty(); world.markBlockForUpdate(x, y, z);
             phase = "rebuilding city territory";
-            ClowderTerritory.rebuildCityClaims(ClowderTerritory.territories, faction, faction.relocationCityId,
+            ClowderTerritory.rebuildCityClaims(world, ClowderTerritory.territories, faction, faction.relocationCityId,
                 world.provider.dimensionId, x, y, z, newFlag.name, newFlag.cityLevel.ordinal(), newFlag.getRadius());
             faction.reconcileCitiesFounded(world);
             phase = "removing source";

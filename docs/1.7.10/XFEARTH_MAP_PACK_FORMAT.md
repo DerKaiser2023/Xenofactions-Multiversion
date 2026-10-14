@@ -123,6 +123,10 @@ Later geographic stages must reuse:
   and exact protection geometry via `ClaimOverlayData.nodeSnapshot`; ownership
   remains in the existing territory map. See
   [persistent claim nodes](XFEARTH_WORLD_TYPE.md#persistent-claim-nodes-stage-8).
+  Stage 9's `ClaimTerrainService.decision` / `invalidate` own terrain freshness
+  and the grant gate; `ClaimTerrainClassifier` processes detached surface data.
+  Geographic polygons/biomes cannot substitute for actual loaded terrain. See
+  [terrain eligibility](XFEARTH_WORLD_TYPE.md#terrain-claim-eligibility-stage-9).
 
 Geographic features can proceed on ordinary 256-block worlds. See
 [height implementation findings](XFEARTH_WORLD_TYPE.md#height-implementation-findings-stage-1)

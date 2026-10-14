@@ -273,15 +273,28 @@ elevated buildings, unsupported business categories and coarse business points
 remain source information. No satellite reconstruction or exact architecture is
 claimed. See [Stage 7 implementation](XFEARTH_WORLD_TYPE.md#geographic-fields-and-structures-stage-7).
 
-## Claim nodes (Stage 8)
+## Claim nodes and terrain eligibility (Stages 8–9)
 
 Stage 8 claim node metadata is added automatically to the existing faction save
 on normal server binding/saving; no claim conversion command or geographic
 dataset is required. Back up the save before updating. Use matching updated XF
 client/server versions for the Map node styles. The existing source-layer control
 can show up to 128 owned/tracked node outlines with no selected dataset; cyan is
-unclassified, not confirmed land or ocean. No terrain eligibility rule or extended
-height mode is enabled. See [persistent claim nodes](XFEARTH_WORLD_TYPE.md#persistent-claim-nodes-stage-8).
+pending/unavailable, green eligible and red insufficient surface. Pan/reopen after
+sampling for a fresh viewport. New claims require actual terrain classification;
+existing ownership is not reset. No extended-height mode is enabled.
+
+In `XENOFACTIONS_05_CLAIMS_CITIES`, Stage 9 defaults are `claimTerrainMinArea=64`,
+`claimTerrainCoveragePercent=25`, `claimTerrainMaxStep=1`,
+`claimTerrainMaxAgeTicks=100` and `claimTerrainRefreshNodes=2`. Capture shares the
+existing `earthRoadStepsPerTick` / `earthRoadTickMillis` budget. Required chunks
+must already be loaded; first/stale placement attempts defer without consuming
+the City Center item. `/c city terrain` shows the reason/counts; an officer/leader
+can use `/c city terrain retry` inside their city after reclamation or to restart
+deferred expansion following a restart. Ocean neighbors must qualify separately.
+Review [exact rules and bulk-edit limits](XFEARTH_WORLD_TYPE.md#terrain-claim-eligibility-stage-9)
+before deployment; real platforms, save/reopen and modded collision behavior still
+need runtime validation.
 
 ## Smoke-map adoption
 
