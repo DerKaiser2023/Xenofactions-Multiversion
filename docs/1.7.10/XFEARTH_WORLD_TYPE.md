@@ -826,6 +826,91 @@ and build protections need runtime checks. No test infrastructure, packaging,
 remapping or runtime/in-game observations are claimed. Stage 4's extended-height
 blockers remain independent.
 
+## Geographic fields and structures (Stage 7)
+
+`XFEarthFeatureSource` interprets the same Stage 5 dataset exposed by
+`XFEarthRoadSource`; it adds no projection, index, claim grid or location registry.
+Its policy identity includes dataset/profile/road identity and feature settings.
+Region caching is bounded to four lists, each 2,048 parts / 65,536 contour vertices;
+queries cap parts at 8,192. Source polygon Area/even-odd rings retain multipart
+geometry and holes. Supported land use follows OSM's
+[farmland definition](https://wiki.openstreetmap.org/wiki/Tag:landuse=farmland),
+with explicit [crop tags](https://wiki.openstreetmap.org/wiki/Key:crop) interpreted
+only for supported crops. Farmyard alone never invents a barn or farmhouse.
+
+`XFEarthFeaturePlanner` uses full-unit-square containment, preserving even sub-block
+holes by skipping intersecting cells. Source building polygons take priority,
+then business candidates, farmyard, farmland and meadow; source keys break ties.
+Higher-priority source footprints reserve local cells, including unsupported or
+unsafe buildings, preventing lower-priority fields/kiosks from replacing them.
+Road corridors, water/ice, claims and non-natural blocks remain protected. Overlap
+or road contact can trim a shell; no missing source connection is drawn.
+
+Generic shells follow representable source footprints, with procedural materials,
+windows, roof and opening. Explicit farm building tags choose timber, greenhouse
+glass, generic buildings stone brick, shops/food/lodging brick and office/craft
+workshops timber. Crop/structure palettes use only existing vanilla/XF blocks;
+XF rice extends the inspected vanilla crop path. Crop metadata 7 and dry farmland
+0 reuse normal growth/support behavior, without fabricated irrigation. Unknown
+crops use generic terrain patterns. Fine-scale business node kiosks use their
+actual projected source cell; their 3-by-3 shape is explicitly procedural.
+
+Nine whole cells plus an interior cell, dry terrain, bounded fill/span/height and
+active Y clearance are required. Coarse polygons use a low generic shell; tiny,
+huge, elevated, ruined or unfinished buildings stay information only. Source
+`building:levels` influences capped generic height, not calibrated elevation or
+architectural reconstruction. See [setup and supported categories](XFEARTH_INSTALLATION.md#fields-buildings-and-businesses-stage-7).
+Orchards/vineyards and other unsupported land use have outlines but no generated
+plants; unsupported business types have source symbols/outlines, not new machines.
+Business line geometry remains in the underlying dataset rather than gaining an
+invented point. Mapped entrance-only nodes/access associations are absent from the
+Stage 5 export pipeline. Generic openings/source-road contact do not establish
+surveyed entrances; dedicated driveway routing remains unsupported.
+
+Native raster preparation computes roads/features on the worker from detached
+columns/raster samples, then applies metadata-aware edits through the **same**
+server-tick budget before existing chunk light/save handling. Feature policy binds
+resume and installation metadata. No live chunk population or pack-load retrogen
+is added. Existing `XFEarthRoadImport` owns both command trees and a single active
+job. Feature previews share its loaded snapshots, manual backup acknowledgement,
+permissions, bounded edits, cancellation and expected-block checks. Existing-world
+structures must fit wholly within one chunk; fields may span chunks. New native
+structures evaluate the complete bounded footprint against pure raster samples,
+including samples beyond the road halo. Other world types/dimensions are unchanged.
+
+Version-1 `XFEarthRoads` NBT gains optional `featuresCompleted` and `featureInfo`
+fields; absent additions default empty, retaining old baselines/road completion.
+Generated records identify source object/record/part, type and generic appearance,
+including explicit procedural point-kiosk versus source-footprint labels. At most
+256 records fit the chunk's occupied columns. Separate feature completion permits
+an untouched Stage 6 native road chunk's first feature pass, while shared pending
+markers prevent partial-job replay. Completed features are not automatically
+regenerated or migrated when data changes. Normal chunk-save durability and manual
+backup limitations remain; cancellation does not undo changes.
+
+Map publication reuses the existing viewport/reply packets and bounded worker.
+Field/building outlines and point symbols share its 4,096-primitive cap; holes are
+outlines, never filled over. The server snapshots bounded recorded metadata from
+loaded chunks (4,096 inspected / 128 selected / 8,192 keys maximum), without loading
+terrain. Matching recorded fragments get brighter styles. This is persisted
+generation information, not proof of present blocks or whole-feature completeness.
+Feature-layer failure leaves the road layer available and displays a notice.
+Attribution, source-only unknown coverage, client-thread updates, stale request
+guards, scissor restoration and `YOU ARE HERE` remain. No optional renderer/map
+integration is newly required or claimed compatible.
+
+**Verification:** inspect prior stages, geographic tag/geometry paths, existing
+rice/crop/farmland and block palettes, overlap ordering, metadata-aware edits,
+native save/load ownership, protected job gates and source Map serialization.
+Arithmetic checks cover negative source-point cells, 3-by-3 minimum footprints,
+roof clearance at Y=255, global row patterns, per-chunk record bounds and shared
+packet capacity. Final offline `compileJava` succeeded using unchanged Forge
+1.7.10 tooling; all six Stage 7 class headers are Java 8 major 52.
+No regional extract was available, so geometry/raster alignment, holes/overlaps,
+crop ticking, generic shells, repeat save/reopen, imported-road openings and Map
+rendering remain runtime checks. No packaging, remapping, runtime launch or in-game
+observations are claimed. Stage 4 extended-height blockers remain unchanged.
+
 ## Manual runtime plan
 
 With real exports available, run `runClient`, create each variant, verify the

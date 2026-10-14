@@ -17,10 +17,11 @@ public final class XFEarthRoadPlanner {
         boolean protectedColumn(int x,int z);
     }
     public static final class Edit {
-        public final int x,y,z,metadata;public final Block before,after;
-        Edit(int x,int y,int z,Block before,int metadata,Block after){this.x=x;this.y=y;this.z=z;this.before=before;this.metadata=metadata;this.after=after;}
+        public final int x,y,z,metadata,afterMetadata;public final Block before,after;
+        Edit(int x,int y,int z,Block before,int metadata,Block after){this(x,y,z,before,metadata,after,0);}
+        Edit(int x,int y,int z,Block before,int metadata,Block after,int afterMetadata){this.x=x;this.y=y;this.z=z;this.before=before;this.metadata=metadata;this.after=after;this.afterMetadata=afterMetadata;}
     }
-    public static final class Plan {public final List<Edit> edits=new ArrayList<Edit>();public int eligible,blocked,water,steep;}
+    public static final class Plan {public final List<Edit> edits=new ArrayList<Edit>();public final List<String> generatedFeatures=new ArrayList<String>();public int eligible,blocked,water,steep;}
     private XFEarthRoadPlanner(){}
     private static int grade(Terrain terrain,int x,int z,XFEarthRoadSource.Policy policy){
         int h=terrain.height(x,z);if(h<0)return -1;int[] heights=new int[9];int i=0;

@@ -82,7 +82,7 @@ public final class GuiXFEarthMap extends GuiScreen {
         if(x1<x0||z1<z0)return;
         long regions=((long)com.hfr.world.earth.geo.XFEarthGeoImporter.region(x1)-com.hfr.world.earth.geo.XFEarthGeoImporter.region(x0)+1)
             *((long)com.hfr.world.earth.geo.XFEarthGeoImporter.region(z1)-com.hfr.world.earth.geo.XFEarthGeoImporter.region(z0)+1);
-        if(regions>16){roadNotice="Source roads: zoom in to view the bounded layer";return;}roadNotice="Loading source roads…";
+        if(regions>16){roadNotice="Source geography: zoom in to view the bounded layer";return;}roadNotice="Loading source geography…";
         PacketDispatcher.wrapper.sendToServer(new com.hfr.packet.client.EarthRoadRequestPacket(roadRequest,dimension,x0,z0,x1,z1));
     }
     public void receiveRoads(int token,int dimension,int part,int parts,double[] coords,byte[] styles,String notice){
@@ -210,7 +210,11 @@ public final class GuiXFEarthMap extends GuiScreen {
                 try{GL11.glBegin(GL11.GL_LINES);
                     for(int part=0;part<roadParts.length;part++)if(roadParts[part]!=null)for(int i=0;i<roadStyles[part].length;i++){
                         int style=roadStyles[part][i]&255;GL11.glColor3f(style>=20?.5F:1F,style==21?.5F:.8F,style>=20?1F:.25F);
-                        double[] c=roadParts[part];GL11.glVertex2d(ox+data.mapX(c[i*4])*w,oz+data.mapZ(c[i*4+1])*h);GL11.glVertex2d(ox+data.mapX(c[i*4+2])*w,oz+data.mapZ(c[i*4+3])*h);
+                        int category=style>=60?style-30:style;
+                        if(style>=30)GL11.glColor3f(category>=50?1F:category>=40?.8F:.35F,category>=50?.45F:category>=40?.65F:.9F,style>=60?1F:category>=50?.8F:.35F);
+                        double[] c=roadParts[part];double ax=ox+data.mapX(c[i*4])*w,az=oz+data.mapZ(c[i*4+1])*h,bx=ox+data.mapX(c[i*4+2])*w,bz=oz+data.mapZ(c[i*4+3])*h;
+                        if(style>=30&&c[i*4]==c[i*4+2]&&c[i*4+1]==c[i*4+3]){GL11.glVertex2d(ax-3,az);GL11.glVertex2d(ax+3,az);GL11.glVertex2d(ax,az-3);GL11.glVertex2d(ax,az+3);}
+                        else{GL11.glVertex2d(ax,az);GL11.glVertex2d(bx,bz);}
                     }GL11.glEnd();
                 }finally{GL11.glPopAttrib();}
             }

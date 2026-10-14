@@ -108,6 +108,12 @@ Later geographic stages must reuse:
   pending/completion identity; older exports without them remain protected.
   See [road routes](XFEARTH_WORLD_TYPE.md#road-routes-stage-6) and
   [manual backup/import commands](XFEARTH_INSTALLATION.md#road-generation-and-bounded-imports-stage-6).
+- Stage 7's `XFEarthFeatureSource` / `XFEarthFeaturePlanner` reuse the same dataset,
+  profile, road corridor policy, metadata-aware plan and shared queue. Optional
+  `featuresCompleted` / `featureInfo` additions to version-1 chunk stamps retain
+  source keys and generic appearance without changing Stage 5's derived format.
+  Road and feature command trees share one protected preview/apply owner. See
+  [fields and structures](XFEARTH_WORLD_TYPE.md#geographic-fields-and-structures-stage-7).
 - The existing dimension-aware `ClowderTerritory` / `CoordPair` /
   `TerritoryMeta` claim grid and city-origin metadata for claim nodes. Preserve
   its existing coordinate lookup and claim NBT semantics; do not introduce a

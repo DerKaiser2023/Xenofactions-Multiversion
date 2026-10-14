@@ -646,8 +646,8 @@ public class CommandClowderAdmin extends CommandBase {
 
 		String cmd = args[0].toLowerCase();
 		if(cmd.equals("earth") && args.length == 2)
-			return getListOfStringsMatchingLastWord(args, new String[] { "status", "packs", "verify", "check", "source", "pregen", "geo", "roads" });
-		if(cmd.equals("earth") && args.length == 3 && args[1].equalsIgnoreCase("roads"))
+			return getListOfStringsMatchingLastWord(args, new String[] { "status", "packs", "verify", "check", "source", "pregen", "geo", "roads", "features" });
+		if(cmd.equals("earth") && args.length == 3 && (args[1].equalsIgnoreCase("roads")||args[1].equalsIgnoreCase("features")))
 			return getListOfStringsMatchingLastWord(args, new String[] { "preview", "status", "inspect", "cancel", "backup", "apply" });
 		if(cmd.equals("earth") && args.length == 3 && args[1].equalsIgnoreCase("geo"))
 			return getListOfStringsMatchingLastWord(args, new String[] { "import", "status", "cancel", "info" });

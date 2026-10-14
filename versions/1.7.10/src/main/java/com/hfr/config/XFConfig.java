@@ -53,6 +53,8 @@ public final class XFConfig {
 	public static boolean earthRoadExistingImports = false;
 	public static int earthRoadMaxCut=1, earthRoadMaxFill=1, earthRoadMaxSlope=1, earthRoadMaxWidth=7, earthRoadCoarseScale=1000;
 	public static int earthRoadStepsPerTick=1024, earthRoadTickMillis=2, earthRoadMaxImportChunks=16;
+	public static boolean earthGenerateGeographicFeatures=true, earthFeatureExistingImports=false;
+	public static int earthFeatureBuildingMaxScale=100, earthFeatureMaxHeight=9, earthFeatureMaxSpan=32;
 	public static int earthRasterTileCache = 8;
 	public static boolean earthPregenVegetation = false;
 	public static boolean earthRequireVerifiedHashes = true;
@@ -240,6 +242,11 @@ public final class XFConfig {
 		earthRoadStepsPerTick = integer(config, CAT_EARTH_WORLD, "earthRoadStepsPerTick", 1024, 16, 4096, "Shared Earth road read/placement steps per server tick.");
 		earthRoadTickMillis = integer(config, CAT_EARTH_WORLD, "earthRoadTickMillis", 2, 1, 10, "Shared road queue time budget checked between bounded operations; not a hard limit on Minecraft callbacks.");
 		earthRoadMaxImportChunks = integer(config, CAT_EARTH_WORLD, "earthRoadMaxImportChunks", 16, 1, 64, "Maximum already loaded Earth chunks in one existing-world road preview; never force-load them.");
+		earthGenerateGeographicFeatures = bool(config, CAT_EARTH_WORLD, "earthGenerateGeographicFeatures", true, "Use the same selected road dataset for fields, source buildings and supported generic business shells in new native Earth terrain. No dataset means no geographic generation.");
+		earthFeatureExistingImports = bool(config, CAT_EARTH_WORLD, "earthFeatureExistingImports", false, "Permit reviewed feature imports under the same pristine-baseline, claim, tile and manual-backup rules as roads; disabled by default.");
+		earthFeatureBuildingMaxScale = integer(config, CAT_EARTH_WORLD, "earthFeatureBuildingMaxScale", 100, 1, 250, "Detail scale threshold: above this, point businesses remain map information and fields/representable polygon buildings use generic coarse appearances.");
+		earthFeatureMaxHeight = integer(config, CAT_EARTH_WORLD, "earthFeatureMaxHeight", 9, 3, 16, "Maximum generic building height above its floor, bounded by the active Earth profile.");
+		earthFeatureMaxSpan = integer(config, CAT_EARTH_WORLD, "earthFeatureMaxSpan", 32, 3, 32, "Maximum projected width/depth of a generated structure. Larger footprints remain map information.");
 		earthRasterTileCache = integer(config, CAT_EARTH_WORLD, "earthRasterTileCache", 8, 1, 32, "Maximum 512x512 decoded raster tiles retained across all Earth source images.");
 		earthPregenVegetation = bool(config, CAT_EARTH_WORLD, "earthPregenVegetation", false, "Reserved decoration switch. The earth2000 clean generator currently requires this to remain false.");
 		earthRequireVerifiedHashes = bool(config, CAT_EARTH_WORLD, "earthRequireVerifiedHashes", true, "Require manifest and archive hashes.");

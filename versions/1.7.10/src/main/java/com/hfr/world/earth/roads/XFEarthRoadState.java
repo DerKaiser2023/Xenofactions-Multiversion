@@ -15,8 +15,10 @@ public final class XFEarthRoadState {
     private static final byte[] ZERO4096=new byte[4096],ZERO2048=new byte[2048];
     public static final class Stamp {
         public String baseline="",profile="",completed="",pending="";
+        public String featuresCompleted="";
+        public final List<String> featureInfo=new ArrayList<String>();
         public boolean edited;
-        public Stamp copy(){Stamp s=new Stamp();s.baseline=baseline;s.profile=profile;s.completed=completed;s.pending=pending;s.edited=edited;return s;}
+        public Stamp copy(){Stamp s=new Stamp();s.baseline=baseline;s.profile=profile;s.completed=completed;s.pending=pending;s.edited=edited;s.featuresCompleted=featuresCompleted;s.featureInfo.addAll(featureInfo);return s;}
     }
     public static Stamp get(Chunk chunk){return states.get(chunk);}
     public static void prepared(Chunk chunk,String baseline,String profile,String completed){Stamp stamp=new Stamp();stamp.baseline=baseline;stamp.profile=profile;stamp.completed=completed;states.put(chunk,stamp);}
@@ -31,11 +33,15 @@ public final class XFEarthRoadState {
         if(event.world.isRemote)return;Stamp stamp=get(event.getChunk());if(stamp==null)return;
         NBTTagCompound n=new NBTTagCompound();n.setInteger("version",1);n.setString("baseline",stamp.baseline);n.setString("profile",stamp.profile);
         n.setString("completed",stamp.completed);n.setString("pending",stamp.pending);n.setBoolean("edited",stamp.edited);event.getData().setTag(TAG,n);
+        n.setString("featuresCompleted",stamp.featuresCompleted);net.minecraft.nbt.NBTTagList information=new net.minecraft.nbt.NBTTagList();
+        for(String text:stamp.featureInfo)information.appendTag(new net.minecraft.nbt.NBTTagString(text));n.setTag("featureInfo",information);
     }
     @SubscribeEvent public void load(ChunkDataEvent.Load event){
         if(event.world.isRemote||!event.getData().hasKey(TAG,10))return;NBTTagCompound n=event.getData().getCompoundTag(TAG);
         if(n.getInteger("version")!=1)return;Stamp s=new Stamp();s.baseline=n.getString("baseline");s.profile=n.getString("profile");s.completed=n.getString("completed");s.pending=n.getString("pending");s.edited=n.getBoolean("edited");
         if(s.baseline.matches("[0-9a-f]{64}")&&s.profile.matches("[0-9a-f]{64}"))states.put(event.getChunk(),s);
+        s.featuresCompleted=n.getString("featuresCompleted");net.minecraft.nbt.NBTTagList information=n.getTagList("featureInfo",8);
+        if(information.tagCount()>256){s.edited=true;return;}for(int i=0;i<information.tagCount();i++){String text=information.getStringTagAt(i);if(text.length()>256){s.edited=true;return;}s.featureInfo.add(text);}
     }
     private static void edited(BlockEvent event){if(!event.world.isRemote&&event.world.getChunkProvider().chunkExists(event.x>>4,event.z>>4)){
         Chunk chunk=event.world.getChunkFromChunkCoords(event.x>>4,event.z>>4);Stamp s=get(chunk);if(s!=null){s.edited=true;chunk.setChunkModified();}}}

@@ -202,6 +202,77 @@ viewport (at most 16 regions / 4,096 segments); zoom in to view roads on larger 
 The Map source layer does not certify placement success, complete source coverage
 or functioning bridge/tunnel crossings.
 
+## Fields, buildings and businesses (Stage 7)
+
+Stage 7 uses the **same** `earthRoadDatasetDirectory`, profile, tick budget and
+pristine-chunk protection as roads. `earthGenerateGeographicFeatures=true` enables
+the new-terrain pass when a dataset is selected; no dataset still means no
+geographic generation. Set it false to continue an older partial pregeneration
+without adding features. Resume rejects changed feature identity/policy.
+
+Supported farmland becomes a generic dirt/grass row pattern, meadow grass and
+farmyard gravel. At or below `earthFeatureBuildingMaxScale` (default 100), an
+explicit `crop=wheat`, carrot(s), potato(es) or rice tag selects existing crops.
+Missing/unsupported crops keep the generic field appearance; irrigation and farm
+buildings are not inferred from farmland. Dry farmland/crop ticking remains normal
+Minecraft behavior. Rice reuses XF's existing crop, with no optional mod needed.
+
+Representable source building polygons become generic shells. Explicit barn,
+farm/farm_auxiliary, stable, cowshed and shed tags select timber; greenhouse glass;
+other buildings stone brick. Supported shops/food/lodging select brick and
+offices/crafts timber. There are no generated machines, inventories or businesses
+with new gameplay logic. Appearance, windows and a basic opening are procedural.
+Building levels only bound a generic height; they do not reconstruct architecture.
+At coarse scales, representable polygons use low generic shells and small buildings
+remain information only. Fine-scale supported business points can produce a
+procedural 3-by-3 kiosk around their actual source cell, not a surveyed footprint.
+
+Structures require at least nine whole footprint cells and an interior cell,
+dry near-level terrain, profile height clearance and a projected span no greater
+than `earthFeatureMaxSpan` (default/max 32). `earthFeatureMaxHeight` defaults to 9
+(3..16); the detail threshold is configurable 1..250. Water, polygon holes and
+selected imported road corridors remain clear. No driveway is invented: source
+road contact can leave an opening, while missing mapped entrances/access ways
+remain unresolved. Source entrance-only nodes were not imported by Stage 5.
+
+Fields can span chunks. New native terrain also supports structure fragments
+across chunks; existing-world previews conservatively skip structures that span
+chunks, avoiding a protected/unloaded half-building. Source-building footprints
+take priority over business kiosks, then farmyards, farmland and meadows; source
+keys break ties. Reserved higher-priority footprints can leave gaps in lower-priority
+features. At earth2000 most ordinary buildings are smaller than one block: they
+are not enlarged or relocated to make a replica.
+
+Existing-world feature application is separately off by default
+(`earthFeatureExistingImports=false`). The **same administrator job system** handles:
+
+```text
+/xc earth features preview <minChunkX> <minChunkZ> <maxChunkX> <maxChunkZ>
+/xc earth features status
+/xc earth features inspect <job-token> [changed-block-offset]
+/xc earth features backup <job-token>
+/xc earth features apply <job-token>
+/xc earth features cancel
+```
+
+Use the current manual world backup process, then inspect and acknowledge it for
+this operator/world/job before application. This acknowledgement is not automated
+backup verification. The Stage 6 limits, five-minute tokens, expected-block checks,
+claim/tile/build protections and no-force-load rule apply unchanged. Untouched
+Stage 6 native chunks can receive a feature pass despite completed roads; feature
+completion is separate. Historical chunks without trusted baselines remain blocked.
+Cancellation does not undo placed blocks.
+
+The existing Map source layer includes agricultural/building outlines, holes and
+business-point symbols. Brighter styles reflect recorded generated fragments in
+loaded chunks under the matching policy, not verified whole-feature completion or
+current block condition. The shared layer stays within eight packets / 4,096
+primitives; when features are present it reserves up to 2,048 primitives each for
+roads/features and reports truncation. Unknown land use, undersized/oversized or
+elevated buildings, unsupported business categories and coarse business points
+remain source information. No satellite reconstruction or exact architecture is
+claimed. See [Stage 7 implementation](XFEARTH_WORLD_TYPE.md#geographic-fields-and-structures-stage-7).
+
 ## Smoke-map adoption
 
 1. Run the WorldPainter smoke profile and export it as a Minecraft 1.7.10 Anvil save.
