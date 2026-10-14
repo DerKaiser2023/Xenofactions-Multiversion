@@ -308,7 +308,10 @@ public class CommonEventHandler {
 			int checkZ = MathHelper.floor_double(newZ);
 
 			// Use findSafeY for a robust Y (fast topSolid fallback to scan)
-			double newY = findSafeY(world, checkX, checkY, checkZ);
+			com.hfr.world.earth.XFEarthProfile heightProfile = com.hfr.world.earth.XFEarthProfileLoader.forWorld(world);
+			double newY = heightProfile == null ? findSafeY(world, checkX, checkY, checkZ)
+					: com.hfr.world.earth.XFEarthTeleportSafety.find(world, heightProfile, entity, newX, entity.posY, newZ, false);
+			if (Double.isNaN(newY)) return;
 
 			// If this is an MCH entity (or other mcheli.* classes), try a stronger teleport/sync
 			String clsName = entity.getClass().getName();
@@ -369,7 +372,7 @@ public class CommonEventHandler {
 	 *
 	 * Tries getTopSolidOrLiquidBlock first (fast). Falls back to scanning up to build height.
 	 */
-	// --- helper: safe Y finder (fast path + fallback) ---
+	// Legacy wrap fallback for worlds without an active Earth profile. Profiled Earth uses XFEarthTeleportSafety.
 	private static double findSafeY(World world, int checkX, int checkY, int checkZ) {
 		// Fast path: top solid or liquid block (typical in 1.7.10)
 		try {
@@ -414,29 +417,34 @@ public class CommonEventHandler {
 			// could previously crash the world handling. If invalid, fall back to a safe default
 			// (use bounding box minY or sea level).
 			double newY;
+			World world = player.worldObj;
+			com.hfr.world.earth.XFEarthProfile heightProfile = com.hfr.world.earth.XFEarthProfileLoader.forWorld(world);
+			double fallbackY = heightProfile == null ? 64.0D : heightProfile.getSeaLevel() + 1.0D;
 			try {
 				newY = player.posY;
-				if (Double.isNaN(newY) || Double.isInfinite(newY) || newY < 0.0D ) { //|| newY > 255.0D
+				if (Double.isNaN(newY) || Double.isInfinite(newY) || newY < 0.0D ) {
 					// try a reasonable fallback from the player's bounding box
 					newY = player.boundingBox != null ? player.boundingBox.minY : Double.NaN;
-					if (Double.isNaN(newY) || Double.isInfinite(newY) || newY < 0.0D ) { //|| newY > 255.0D
+					if (Double.isNaN(newY) || Double.isInfinite(newY) || newY < 0.0D ) {
 						// final safe fallback: sea level
-						newY = 64.0D;
+						newY = fallbackY;
 					}
 				}
 			} catch (Throwable t) {
 				// defensive: if reading posY or boundingBox throws for some reason, pick safe default
-				newY = 64.0D;
+				newY = fallbackY;
 			}
 
-			World world = player.worldObj;
 			// compute target block coords
 			int checkX = MathHelper.floor_double(newX);
 			int checkY = MathHelper.floor_double(newY);
 			int checkZ = MathHelper.floor_double(newZ);
 
 			// try to use top solid/liquid block (fast). Catch any exception and fallback to scan.
-			try {
+			if (heightProfile != null) {
+				newY = com.hfr.world.earth.XFEarthTeleportSafety.find(world, heightProfile, player, newX, newY, newZ, false);
+				if (Double.isNaN(newY)) return;
+			} else try {
 				int topY = world.getTopSolidOrLiquidBlock(checkX, checkZ); // returns top block y
 				if (topY > checkY) {
 					newY = topY + 1; // place player/entity one block above highest solid/liquid block
@@ -487,11 +495,21 @@ public class CommonEventHandler {
 		double targetX = XFConfig.earthBoundaryCenterX;
 		double targetZ = XFConfig.earthBoundaryCenterZ;
 		double currentY = player.posY;
-		if (Double.isNaN(currentY) || Double.isInfinite(currentY) || currentY < 1.0D || currentY > 254.0D) currentY = 64.0D;
-		double targetY = findSafeY(player.worldObj, MathHelper.floor_double(targetX), MathHelper.floor_double(currentY), MathHelper.floor_double(targetZ));
-		if (Double.isNaN(targetY) || Double.isInfinite(targetY)) targetY = 64.0D;
-		if (targetY < 1.0D) targetY = 1.0D;
-		if (targetY > 254.0D) targetY = 254.0D;
+		com.hfr.world.earth.XFEarthProfile profile = com.hfr.world.earth.XFEarthProfileLoader.forWorld(player.worldObj);
+		double targetY;
+		if (profile != null) {
+			targetY = com.hfr.world.earth.XFEarthTeleportSafety.find(player.worldObj, profile, player, targetX, currentY, targetZ, false);
+			if (Double.isNaN(targetY)) {
+				player.addChatComponentMessage(new ChatComponentText(EnumChatFormatting.RED + "No safe Earth map center destination is available."));
+				return;
+			}
+		} else {
+			if (Double.isNaN(currentY) || Double.isInfinite(currentY) || currentY < 1.0D || currentY > 254.0D) currentY = 64.0D;
+			targetY = findSafeY(player.worldObj, MathHelper.floor_double(targetX), MathHelper.floor_double(currentY), MathHelper.floor_double(targetZ));
+			if (Double.isNaN(targetY) || Double.isInfinite(targetY)) targetY = 64.0D;
+			if (targetY < 1.0D) targetY = 1.0D;
+			if (targetY > 254.0D) targetY = 254.0D;
+		}
 		player.playerNetServerHandler.setPlayerLocation(targetX, targetY, targetZ, player.rotationYaw, player.rotationPitch);
 		finishBorderRelocation(player);
 		player.addChatComponentMessage(new ChatComponentText(EnumChatFormatting.RED + "Your world border exemption ended outside the map; you were returned to the Earth map center."));

@@ -55,6 +55,12 @@ Production save data, `.world` projects, and `.mca` files are deployed separatel
 
 ## New map-pack workflow
 
+Stage 4 has **not** enabled extended-height creation. The selected native engine
+still lacks Earth-only isolation and has confirmed entity/placement source gaps;
+installing its dependencies or changing a profile to maximumY=511 does not make
+that mode available. The existing pregenerator/installer still produce ordinary
+Anvil worlds. See [Stage 4 bounds changes and activation blockers](XFEARTH_WORLD_TYPE.md#gameplay-bounds-and-activation-blockers-stage-4).
+
 The supported `earthmap` Singleplayer installer, `.xfmap` security model, local-pack
 workflow, and bundled release procedure are documented in
 [XFEARTH_WORLD_TYPE.md](XFEARTH_WORLD_TYPE.md),

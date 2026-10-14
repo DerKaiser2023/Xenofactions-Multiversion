@@ -31,10 +31,18 @@ public final class FactionMarketRegistry {
             tag.setString("token", token); return tag;
         }
         public static Registration read(NBTTagCompound tag) {
+            return read(tag, null);
+        }
+        /** Save loading supplies its owning world; detached/legacy callers retain ordinary bounds. */
+        public static Registration read(NBTTagCompound tag, World storageWorld) {
             try {
                 UUID.fromString(tag.getString("factionId")); UUID.fromString(tag.getString("token"));
                 if (tag.getInteger("version") != 1 || !tag.hasKey("dimension", 3) || !tag.hasKey("x", 3)
-                    || !tag.hasKey("y", 3) || !tag.hasKey("z", 3) || tag.getInteger("y") < 0 || tag.getInteger("y") > 255) return null;
+                    || !tag.hasKey("y", 3) || !tag.hasKey("z", 3)) return null;
+                com.hfr.world.earth.XFEarthProfile profile = storageWorld != null && storageWorld.provider.dimensionId == tag.getInteger("dimension")
+                    ? com.hfr.world.earth.XFEarthProfileLoader.forWorld(storageWorld) : null;
+                if (tag.getInteger("y") < (profile == null ? 0 : profile.getMinimumY())
+                    || tag.getInteger("y") > (profile == null ? 255 : profile.getMaximumY())) return null;
                 Registration r = new Registration(); r.dimension = tag.getInteger("dimension");
                 r.x = tag.getInteger("x"); r.y = tag.getInteger("y"); r.z = tag.getInteger("z"); r.token = tag.getString("token");
                 if (Math.abs((long)r.x) > 30000000L || Math.abs((long)r.z) > 30000000L) return null;
@@ -44,6 +52,9 @@ public final class FactionMarketRegistry {
     }
     public static String placementError(EntityPlayer player, World world, int x, int y, int z) {
         if (world.isRemote) return null;
+        com.hfr.world.earth.XFEarthProfile profile = com.hfr.world.earth.XFEarthProfileLoader.forWorld(world);
+        if (y < (profile == null ? 0 : profile.getMinimumY()) || y > (profile == null ? 255 : profile.getMaximumY()))
+            return "Market terminal placement exceeds the world height.";
         ClowderData data = ClowderData.getData(world);
         Clowder faction = Clowder.getClowderFromPlayer(player);
         if (faction == null || faction.getPermLevel(player) < 2) return "Only faction Officers and leaders may place market terminals.";

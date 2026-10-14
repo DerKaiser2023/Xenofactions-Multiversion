@@ -51,6 +51,9 @@ import cpw.mods.fml.relauncher.ReflectionHelper;
 
 public class ClientProxy extends ServerProxy
 {
+	@Override public com.hfr.world.earth.XFEarthProfile getEarthHeightProfile(World world) {
+		return com.hfr.client.earth.XFEarthHeightClient.getActiveProfile(world);
+	}
 	@Override public void receiveEarthHeight(com.hfr.world.earth.network.XFEarthHeightPacket packet, net.minecraft.network.INetHandler handler) {
 		com.hfr.client.earth.XFEarthHeightClient.receive(packet,handler);
 	}

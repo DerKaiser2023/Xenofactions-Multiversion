@@ -101,7 +101,7 @@ public final class XFEarthStorageIdentity extends WorldSavedData {
         profile.requireGameplayHeight();
         // This exact CC release unconditionally initializes cube providers, even at nominal height 256.
         if (Loader.isModLoaded("cubicchunks"))
-            throw new IOException("CubicChunks1710 cannot preserve the ordinary Earth Anvil path; gameplay integration is disabled until Stages 3 and 4");
+            throw new IOException(XFEarthProfile.EXTENDED_GAMEPLAY_BLOCKER + "; ordinary Earth requires its existing Anvil path");
     }
 
     public static void validateLayout(File root, XFEarthProfile profile, boolean requireIdentity) throws IOException {

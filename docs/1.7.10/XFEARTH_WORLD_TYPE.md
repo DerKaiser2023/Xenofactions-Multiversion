@@ -488,6 +488,131 @@ ordering, shader interactions and production coremod verification remain runtime
 checks. Native global initialization, provider/generator integration, gameplay
 limits and the Stage 2 storage/crash-recovery risks remain blockers to activation.
 
+## Gameplay bounds and activation blockers (Stage 4)
+
+**Stage 4 is incomplete: extended Earth creation/gameplay remains disabled.**
+The active supported world remains ordinary Anvil Y=0..255. The selected native
+preparation target remains CubicChunks1710 v0.1.23-alpha-pre, Y=0..511, sea level
+62 for earth2000. No opt-in switch is exposed because required engine paths fail
+source inspection. No existing save is converted. The earlier storage and
+network/render bridges remain gated rather than being presented as a playable
+512-block world.
+
+The confirmed activation blockers are:
+
+1. Native `MixinWorld.initWorld` initializes cubic height metadata, providers and
+   lighting for every WorldServer/WorldClient. `MixinWorldServer` replaces both
+   `createChunkProvider` and animal spawning without an Earth/world-format
+   predicate. `CubicChunksSavedData.get` and `WorldFormatSavedData.get` create and
+   immediately save native metadata when absent. The selected API exposes no
+   ordinary-world opt-out. Installing this engine to enable Earth would change
+   unrelated worlds/dimensions and their storage behavior, contrary to this
+   stage's limits.
+2. XF's world type still implements the ordinary Forge generator boundary, not
+   native `ICubicWorldType`. Native fallback `VanillaWorldGenerator` copies only
+   section indices 0..15 and uses uniform filler above them. It also invokes
+   vanilla decoration/population. This cannot supply the pregenerated Earth
+   contract for missing/edge cubes or guarantee the existing FAIL policy and
+   no-population behavior. A native Earth generator/loader and creation path are
+   required after engine isolation is available; detached Stage 2 storage alone
+   does not provide that live-world boundary.
+3. In the pinned
+   [entity height mixin](https://github.com/GTNewHorizons/CubicChunks1710/blob/v0.1.23-alpha-pre/src/main/java/com/cardinalstar/cubicchunks/mixin/early/common/MixinWorld_HeightLimit.java),
+   `updateEntityWithOptionalForce_chunkExists1` calls `Coords.blockToCube` and
+   then shifts those cube coordinates right by four again before `cubeExists`.
+   For example, entity block Y=496 maps to cube 31, but the subsequent lookup
+   uses cube 1. This is an incorrect source path for entity membership/update
+   checks; no corrected pinned implementation has been integrated.
+4. The pinned
+   [placement redirect](https://github.com/GTNewHorizons/CubicChunks1710/blob/v0.1.23-alpha-pre/src/main/java/com/cardinalstar/cubicchunks/mixin/early/common/MixinNetHandlerPlayServer.java)
+   returns `!manager.activateBlockOrUseItem(...)`. The exact Forge 1614 server
+   handler already negates that result to mark placement failure. The redirect
+   therefore reverses Forge's placement-result/inventory correction bookkeeping.
+   This source mismatch prevents claiming correct interaction support.
+5. Native collision patches replace vanilla's Y=64 column-availability probe
+   with the bounding box midpoint. Vanilla `getCollidingBoundingBoxes` still
+   gates all block collision collection on `blockExists` at that probe. A box
+   intersecting the last legal blocks while its midpoint is above the exclusive
+   height can fail that check. Ceiling collision behavior needs correction and
+   runtime verification before enabling the bounded 0..511 world.
+
+These are selected-engine limitations, not problems fixed by increasing a config
+value. The gameplay/profile/preflight guard now explains the global provider /
+storage / spawning isolation and native Earth generator blockers. A compatible
+maintained engine correction/integration is required; XF adds no second custom
+chunk format or speculative engine rewrite in this stage.
+
+**Implemented XF changes:** `XFEarthProfileLoader.forWorld(world)` resolves the
+existing validated server profile only for adopted dimension-0 Earth. On the
+client it uses the sided proxy's accepted Stage 3 height profile, with no client
+class references in common code. Other world types, other dimensions and detached
+legacy metadata readers retain their existing 0..255 rules. Sidecar JSON on an
+unrelated world cannot change its bounds. `XFEarthProfile.containsBlockY` is the
+shared inclusive block-Y check; the existing cache/unload ownership remains.
+
+`XFEarthTeleportSafety.find` is the Earth-only owning-server-thread terrain search
+used by player/entity border wrapping, exemption return to map center, scheduled
+faction home/warp/rendezvous destinations and build-grace home/spawn recovery.
+It translates the actual entity bounding box, loads its horizontal footprint,
+checks collision, liquids and vanilla fire/cactus contact, and searches upward
+then downward within the active profile. Grounded warps additionally require
+solid non-liquid support. Clear flight positions are preserved for border wraps,
+including open sky above the build limit; a block-height bound is not a flight ceiling.
+An exhausted search returns no destination; it does not clamp the player into a
+block. Scheduled unsafe/missing-terrain warps abort before dimension transfer.
+Feet may stand at maximumY+1 on the last legal block (256 or 512), with the body
+extending into open sky. This does not allocate blocks above the profile.
+Custom mod hazards, vehicle bounding boxes and passengers require runtime checks.
+
+The XShop link/unlink Y parser and TDM map/bomb selection validation now use that
+same active profile. Faction market NBT still stores integer Y with the same
+version/schema; its existing WorldSavedData owner supplies active bounds to the
+reader, preventing a future upper terminal from being discarded solely by the
+old 255 cap. Detached readers and registrations in other dimensions keep the
+ordinary bound. Claims remain the existing dimension-aware X/Z grid with integer
+city/home/warp positions; no separate geographic/claim registry is introduced.
+The existing City Center activation/relocation restriction **Y=45..200** is an
+intentional gameplay rule, not an engine storage limit, and remains unchanged.
+
+Earth raster preparation already uses the profile's minimum Y for bedrock,
+`surfaceY` for stone/filler/surface bounds and `seaLevel` for water/ice. Horizontal
+scale and geographic conversion are unchanged. Increasing
+`verticalElevationScale` changes elevation relative to sea level, not sea level
+or saved terrain. Arithmetic checks over all 65,536 source samples preserve the
+ordinary scale-1 result; scale 2 reaches Y=448 and scale 448/193 reaches Y=510,
+both with the encoded sea sample remaining Y=62. These are detached preparation
+results, not a supported extended pregeneration command: the existing command
+continues to create ordinary worlds.
+
+`/XRTP` is absent from the maintained Forge 1.7.10 command/source registrations
+and the available local xRadar source reference. Its owning mod/source is not
+available here; no height or safety compatibility is invented for that command.
+The Map item, `YOU ARE HERE` marker, geographic data and optional integrations
+are unchanged. Angelica remains rejected for extended rendering, ChunkAPI /
+EndlessIDs codecs are unsupported, and shader, JourneyMap-at-height and Deadhour
+compatibility remain unverified.
+
+The prospective stack is unchanged: matching XF and CubicChunks1710
+v0.1.23-alpha-pre on server/client, GTNHLib 0.11.51, RegionLib v0.1.0-GTNH, and an
+early compatible UniMixins/GTNH bootstrap supplying Mixin >=0.8.5-GTNH and
+MixinExtras >=0.5.0. Having those components installed is **insufficient** while
+the source blockers above remain. Profile/range/version validation and the
+pre-write gameplay gate still reject extended saves/creation before activation;
+no partially implemented mode or automatic migration is enabled.
+
+**Verification:** inspect the prior three stages, native C07/C08 int-Y codecs,
+ItemBlock ceiling patch, server placement/digging bounds, World block/metadata
+access, ray traversal through getBlock, collision probes, entity cube containers,
+spawning, tile lookup/load and the vanilla owning-thread `updateEntity` loop.
+Those native patches show intended upper-height paths, but the blockers above
+prevent a complete source-integration claim. Offline `compileJava` succeeded;
+the new helper is Java 8 classfile major 52. Mathematical checks cover elevation
+samples and the inclusive search-loop endpoints. No test infrastructure was
+added. No packaging, remapping/reobfuscation, transformer execution, runtime
+launch, dedicated-server launch or in-game behavior was observed. Ordinary Earth
+warp/border/market/selection behavior, vehicle safety, save/reopen and the entire
+extended-height stack still require runtime validation.
+
 ## Manual runtime plan
 
 With real exports available, run `runClient`, create each variant, verify the

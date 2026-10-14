@@ -44,7 +44,7 @@ public class ClowderData extends WorldSavedData {
         NBTTagList terminals = nbt.getTagList("FactionMarketTerminals", 10);
         for (int i = 0; i < terminals.tagCount(); i++) {
             NBTTagCompound tag = terminals.getCompoundTagAt(i);
-            com.hfr.shop.FactionMarketRegistry.Registration registration = com.hfr.shop.FactionMarketRegistry.Registration.read(tag);
+            com.hfr.shop.FactionMarketRegistry.Registration registration = com.hfr.shop.FactionMarketRegistry.Registration.read(tag, storageOwner);
             if (registration != null && !marketTerminals.containsKey(tag.getString("factionId")))
                 marketTerminals.put(tag.getString("factionId"), registration);
         }

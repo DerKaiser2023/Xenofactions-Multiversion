@@ -831,10 +831,16 @@ public void handleChatServer(ServerChatEvent event) {
 			Clowder clowder = Clowder.getClowderFromPlayer(player);
 
 			if(clowder != null && clowder.buildGraceUntil > now) {
+				double homeY = clowder.homeY + 1.0D;
+				com.hfr.world.earth.XFEarthProfile profile = com.hfr.world.earth.XFEarthProfileLoader.forWorld(player.worldObj);
+				if (profile != null) {
+					homeY = com.hfr.world.earth.XFEarthTeleportSafety.find(player.worldObj, profile, player, clowder.homeX + 0.5D, homeY, clowder.homeZ + 0.5D, true);
+					if (Double.isNaN(homeY)) { teleportToSpawn(player); resetGraceBorderData(data); return; }
+				}
 
 				player.setPositionAndUpdate(
 						clowder.homeX + 0.5D,
-						clowder.homeY + 1,
+						homeY,
 						clowder.homeZ + 0.5D
 				);
 
@@ -866,10 +872,19 @@ public void handleChatServer(ServerChatEvent event) {
 		World world = player.worldObj;
 
 		ChunkCoordinates spawn = world.getSpawnPoint();
+		double spawnY = spawn.posY + 1.0D;
+		com.hfr.world.earth.XFEarthProfile profile = com.hfr.world.earth.XFEarthProfileLoader.forWorld(world);
+		if (profile != null) {
+			spawnY = com.hfr.world.earth.XFEarthTeleportSafety.find(world, profile, player, spawn.posX + 0.5D, spawnY, spawn.posZ + 0.5D, true);
+			if (Double.isNaN(spawnY)) {
+				player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "No safe Earth spawn destination is available."));
+				return;
+			}
+		}
 
 		player.setPositionAndUpdate(
 				spawn.posX + 0.5D,
-				spawn.posY + 1,
+				spawnY,
 				spawn.posZ + 0.5D
 		);
 
@@ -1484,10 +1499,22 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 				} else if(player instanceof EntityPlayerMP) {
 
 					EntityPlayerMP playermp = (EntityPlayerMP)player;
+					double destinationY = tp.posY;
+					com.hfr.world.earth.XFEarthProfile profile = com.hfr.world.earth.XFEarthProfileLoader.forWorld(tpWorld);
+					if (profile != null) {
+						try {
+							destinationY = com.hfr.world.earth.XFEarthTeleportSafety.find(tpWorld, profile, playermp, tp.posX + 0.5D, tp.posY, tp.posZ + 0.5D, true);
+						} catch (com.hfr.world.earth.XFEarthMissingChunkException missing) { destinationY = Double.NaN; }
+						if (Double.isNaN(destinationY)) {
+							player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Warp aborted: no safe Earth destination within the active height bounds."));
+							rem.add(time);
+							continue;
+						}
+					}
 					playermp.mountEntity(null);
 					if(playermp.dimension != tp.dimensionId)
 						playermp.travelToDimension(tp.dimensionId);
-					playermp.playerNetServerHandler.setPlayerLocation(tp.posX + 0.5D, tp.posY, tp.posZ + 0.5D, player.rotationYaw, player.rotationPitch);
+					playermp.playerNetServerHandler.setPlayerLocation(tp.posX + 0.5D, destinationY, tp.posZ + 0.5D, player.rotationYaw, player.rotationPitch);
 
 					if(tp.rendezvous)
 					{

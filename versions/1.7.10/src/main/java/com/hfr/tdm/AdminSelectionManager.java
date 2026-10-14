@@ -81,7 +81,9 @@ public final class AdminSelectionManager {
         if (!allowed(player, s.type) || player.dimension != s.dimension) { clear(player); return "Selection cancelled: permission or dimension changed."; }
         if (!s.hasA || !s.hasB) return "Set both selection points before committing.";
         if (isMapType(s.type) && TDMManager.getMap(player.worldObj, s.map) != s.targetIdentity) { clear(player); return "Map changed or was deleted; selection cancelled."; }
-        if (isMapType(s.type) && (s.ay < 0 || s.by < 0 || s.ay > 255 || s.by > 255)) return "Selection exceeds the world height.";
+        com.hfr.world.earth.XFEarthProfile heightProfile = com.hfr.world.earth.XFEarthProfileLoader.forWorld(player.worldObj);
+        int minimumY = heightProfile == null ? 0 : heightProfile.getMinimumY(), maximumY = heightProfile == null ? 255 : heightProfile.getMaximumY();
+        if (isMapType(s.type) && (s.ay < minimumY || s.by < minimumY || s.ay > maximumY || s.by > maximumY)) return "Selection exceeds the world height.";
         if (s.type == Type.SAFEZONE || s.type == Type.WARZONE || s.type == Type.WILDERNESS) {
             if (!XFConfig.canClaimInDimension(s.dimension)) return "Clowder zones are disabled in this dimension.";
             long chunksX = (Math.floorDiv(Math.max(s.ax, s.bx), 16) - Math.floorDiv(Math.min(s.ax, s.bx), 16)) + 1L;

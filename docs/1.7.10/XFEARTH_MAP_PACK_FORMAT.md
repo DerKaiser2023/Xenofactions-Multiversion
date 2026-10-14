@@ -83,6 +83,12 @@ Later geographic stages must reuse:
   native CubicChunks codecs and renderer; it introduces no second geographic
   grid. The gameplay/installation gate remains closed through Stage 4. See
   [Stage 3 requirements and blockers](XFEARTH_WORLD_TYPE.md#extended-networking-and-rendering-bridge-stage-3).
+- `XFEarthProfileLoader.forWorld(world)` on the owning thread for active Earth
+  gameplay bounds, `containsBlockY` for inclusive block checks, and server-thread
+  `XFEarthTeleportSafety.find` for Earth collision/terrain searches. World types
+  and dimensions outside adopted Earth retain their existing bounds. Stage 4
+  remains [blocked from activation](XFEARTH_WORLD_TYPE.md#gameplay-bounds-and-activation-blockers-stage-4)
+  by the selected engine's global initialization and gameplay source gaps.
 - `XFEarthMapData`, `EarthMapImages` and `EarthMapTileCache` for the existing
   offline imagery and optional JourneyMap import. MapData delegates coordinate
   calculations to the profile; neither integration chooses another Earth grid.

@@ -106,7 +106,8 @@ public final class CommandXShop extends CommandBase {
                 boolean link = cmd.equals("link"); length(args, link ? 5 : 4, link ? "/xshop link <ID/name> <x> <y> <z>" : "/xshop unlink <x> <y> <z>");
                 int offset = link ? 2 : 1;
                 int x = parseIntBounded(sender, args[offset], -30000000, 30000000);
-                int y = parseIntBounded(sender, args[offset + 1], 0, 255);
+                com.hfr.world.earth.XFEarthProfile heightProfile = com.hfr.world.earth.XFEarthProfileLoader.forWorld(player.worldObj);
+                int y = parseIntBounded(sender, args[offset + 1], heightProfile == null ? 0 : heightProfile.getMinimumY(), heightProfile == null ? 255 : heightProfile.getMaximumY());
                 int z = parseIntBounded(sender, args[offset + 2], -30000000, 30000000);
                 if (!player.worldObj.blockExists(x, y, z)) throw new IllegalArgumentException("The target chunk must be loaded.");
                 TileEntity raw = player.worldObj.getTileEntity(x, y, z);

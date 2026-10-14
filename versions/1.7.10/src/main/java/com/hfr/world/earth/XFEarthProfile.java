@@ -2,6 +2,7 @@ package com.hfr.world.earth;
 
 /** Gson DTO made immutable to callers after validation by the loader. */
 public final class XFEarthProfile {
+    public static final String EXTENDED_GAMEPLAY_BLOCKER = "CubicChunks1710 v0.1.23-alpha-pre replaces providers/storage and spawning globally; Earth-only Anvil/cubic isolation and the native Earth cube generator are unsupported";
     int formatVersion; String profile; String targetMinecraftVersion;
     int sourceScale, resize, effectiveScale, width, height;
     int minimumX, maximumX, minimumZ, maximumZ;
@@ -45,7 +46,8 @@ public final class XFEarthProfile {
     public String getHeightImplementation(){return heightImplementation;}
     public String getHeightImplementationVersion(){return heightImplementationVersion;}
     public boolean isExtendedHeight(){return !"vanilla-anvil".equals(heightImplementation);}
-    public void requireGameplayHeight(){if(isExtendedHeight())bad("extended storage is preparation-only until networking and rendering/gameplay Stages 3 and 4 are complete");}
+    public boolean containsBlockY(int y){return y>=minimumY&&y<=maximumY;}
+    public void requireGameplayHeight(){if(isExtendedHeight())bad("extended Earth gameplay remains disabled: "+EXTENDED_GAMEPLAY_BLOCKER);}
 
     /** Raster origin is the northwest block, with columns east and rows south. */
     public double mapX(double x){return (x-bounds.minimumX)/width;}
