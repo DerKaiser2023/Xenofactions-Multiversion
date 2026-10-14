@@ -29,7 +29,7 @@ public final class XFEarthPregenerator implements Runnable {
   world=w;server=MinecraftServer.getServer();this.source=source;this.target=target;temp=new File(target.getParentFile(),target.getName()+".xfearth-generating");
   template=new File(w.getSaveHandler().getWorldDirectory(),"level.dat");settings.levelName=target.getName();settings.generatorOptions=profile.getProfile();settings.seed=w.getSeed();settings.gameType=w.getWorldInfo().getGameType().getID();settings.hardcore=w.getWorldInfo().isHardcoreModeEnabled();settings.structures=false;settings.commands=w.getWorldInfo().areCommandsAllowed();settings.bonusChest=false;prepare();
  }
- public static synchronized XFEarthPregenerator start(WorldServer world,File source,File target)throws IOException{if(active!=null&&active.thread!=null&&active.thread.isAlive())throw new IOException("An Earth pregeneration is already running");active=new XFEarthPregenerator(world,source,target);active.thread=new Thread(active,"XF Earth pregenerator");active.thread.setDaemon(true);active.thread.start();return active;}
+ public static synchronized XFEarthPregenerator start(WorldServer world,File source,File target)throws IOException{if(cpw.mods.fml.common.Loader.isModLoaded("cubicchunks"))throw new IOException("Ordinary Earth pregeneration requires the ordinary Anvil runtime; CubicChunks gameplay integration is disabled");if(active!=null&&active.thread!=null&&active.thread.isAlive())throw new IOException("An Earth pregeneration is already running");active=new XFEarthPregenerator(world,source,target);active.thread=new Thread(active,"XF Earth pregenerator");active.thread.setDaemon(true);active.thread.start();return active;}
  public static synchronized XFEarthPregenerator current(){return active;}
  public synchronized void pause(){if(thread==null||!thread.isAlive()||"COMPLETE".equals(state.completionState))return;paused=true;state.completionState="PAUSED";safeState();}
  public synchronized void resume(){if(thread==null||!thread.isAlive()||"COMPLETE".equals(state.completionState))return;paused=false;state.completionState="RUNNING";safeState();notifyAll();}
@@ -70,6 +70,7 @@ public final class XFEarthPregenerator implements Runnable {
  private void writeMetadata()throws IOException{
   writeJson(new File(temp,"xenoearth-profile.json"),profile);
   XFEarthMapInstaller.patchLevel(template,new File(temp,"level.dat"),settings);
+  com.hfr.world.earth.storage.XFEarthStorageIdentity.writePreparedIdentity(temp,profile);
   Map<String,Object> install=new LinkedHashMap<String,Object>();install.put("formatVersion",1);install.put("sourceMode","RASTER_PREGEN");install.put("profile","earth2000");install.put("sourceManifestSha256",state.sourceManifestHash);install.put("generatorVersion",XFEarthTerrainConverter.VERSION);install.put("installedAt",System.currentTimeMillis());install.put("populationMode","pregenerated");writeJson(new File(temp,"xfearth-install.json"),install);
  }
  private XFEarthPregenState readState()throws IOException{Reader r=new InputStreamReader(new FileInputStream(new File(temp,STATE)),"UTF-8");try{XFEarthPregenState s=new Gson().fromJson(r,XFEarthPregenState.class);if(s==null||s.formatVersion!=1)throw new IOException("Invalid partial generation state");return s;}finally{r.close();}}

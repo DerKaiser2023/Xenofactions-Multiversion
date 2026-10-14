@@ -79,6 +79,7 @@ import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStoppingEvent;
 import cpw.mods.fml.common.network.NetworkRegistry;
 import cpw.mods.fml.common.registry.EntityRegistry;
@@ -681,6 +682,11 @@ public class MainRegistry
 		//and now we just pray that the market data does not cope over serverside
 
 		//I'm flying too high
+	}
+
+	@Mod.EventHandler
+	public void validateEarthStorageBeforeWorldLoad(FMLServerAboutToStartEvent event) throws java.io.IOException {
+		com.hfr.world.earth.storage.XFEarthStorageIdentity.preflight(event.getServer());
 	}
 
 	@Mod.EventHandler

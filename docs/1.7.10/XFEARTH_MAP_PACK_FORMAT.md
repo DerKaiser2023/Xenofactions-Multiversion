@@ -20,22 +20,36 @@ height. These optional additions have defaults for all existing profiles:
 | `minimumY` | `0` | Inclusive lowest block Y |
 | `maximumY` | `255` | Inclusive highest block Y |
 | `heightImplementation` | `"vanilla-anvil"` | Active storage/runtime implementation |
+| `heightImplementationVersion` | `"1.7.10"` | Exact storage implementation version |
 | `verticalElevationScale` | `1.0` | Multiplier on decoded nominal raster elevation relative to `seaLevel` |
 
-Only `vanilla-anvil` and Y=0..255 are accepted in this stage. A different
-implementation or taller/negative range is rejected during pack verification,
-save-profile loading and client description decoding. The Earth world load check
-also rejects an advertised world height different from 256. There is no height
-enable switch or save migration. Existing save profiles and bundled archives are
-not rewritten. An explicit null implementation and non-positive/non-finite
-elevation scales are invalid; omit new fields to retain defaults.
+Gameplay and `.xfmap` installation still accept only `vanilla-anvil`, version
+`1.7.10`, Y=0..255. Stage 2 metadata validation additionally accepts
+`cubicchunks1710`, exact version `v0.1.23-alpha-pre`, Y=0..511 for detached storage
+preparation. `requireGameplayHeight()` rejects that profile before normal world
+loading and at the provider/Anvil chunk boundary. Unsupported implementations,
+versions and ranges are rejected. There is no height enable switch or save
+migration. Existing save profiles and bundled archives are not rewritten.
+Explicit null implementation/version and non-positive/non-finite elevation
+scales are invalid; omit new fields to retain ordinary defaults.
+
+The overworld identity is saved as `data/xenoearth_storage.dat`, using ordinary
+WorldSavedData NBT. Its `data` tag contains formatVersion 1, dimension 0,
+implementation/version and inclusive Y bounds. Legacy ordinary worlds without
+this metadata remain Anvil and acquire the identity on their next world save.
+New native pregeneration records it before finalization. Metadata/profile
+mismatches, root mixed Anvil/cubic directories and incorrect native height
+metadata are rejected. Non-overworld dimensions are not migrated or tagged.
+Gameplay packs also reject root `region2d/`, `region3d/`, native cubic height data
+and cubic templates before extraction; an optional identity must match their
+ordinary profile.
 
 Horizontal `effectiveScale` controls geographic coordinates independently of
 `verticalElevationScale`. The native raster decoder first rounds unsigned 16-bit
 samples from 0..65535 to nominal Y=0..255, then computes
 `seaLevel + (nominalY - seaLevel) * verticalElevationScale`, clamps to the
 existing inclusive surface range, and rounds to a block. Scale 1 preserves every
-previous sample result. These nominal levels are **not metres**: the supplied
+previous sample result for ordinary profiles. These nominal levels are **not metres**: the supplied
 heightmap has no physical-elevation calibration. Changing profile metadata does
 not rescale saved terrain. Future physical elevation data needs its own explicit
 calibration into this shared profile, not an assumption that horizontal and
@@ -59,6 +73,10 @@ Later geographic stages must reuse:
   raster decoding. `earth2000()` is the canonical native generator profile,
   reused by source validation, terrain preparation, region iteration and output
   metadata. The external source manifest still validates that exact dataset.
+  `earth2000Extended()` reuses the same geography for detached Y=0..511 storage;
+  `XFEarthColumnData` is the sparse section preparation shared with the ordinary
+  generator, and `XFEarthCubicStorage` is its native storage boundary. Do not pass
+  extended section data to vanilla `Chunk` constructors or Anvil loaders.
 - `XFEarthMapData`, `EarthMapImages` and `EarthMapTileCache` for the existing
   offline imagery and optional JourneyMap import. MapData delegates coordinate
   calculations to the profile; neither integration chooses another Earth grid.

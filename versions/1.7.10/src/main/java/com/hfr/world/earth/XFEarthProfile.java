@@ -10,6 +10,7 @@ public final class XFEarthProfile {
     int minimumY = 0, maximumY = 255;
     double verticalElevationScale = 1.0;
     String heightImplementation = "vanilla-anvil";
+    String heightImplementationVersion = "1.7.10";
     String projection, populationMode; boolean caves, ores, lava, structures, vegetation;
     String mapImageId;
     private transient XFEarthBounds bounds;
@@ -18,16 +19,20 @@ public final class XFEarthProfile {
         if(!allowedVersion.equals(targetMinecraftVersion)) bad("targetMinecraftVersion must be "+allowedVersion);
         if(width<=0||height<=0||width%16!=0||height%16!=0) bad("width and height must be positive multiples of 16");
         if((long)maximumX-minimumX+1!=width || (long)maximumZ-minimumZ+1!=height) bad("coordinate bounds do not match width/height");
-        if(!"vanilla-anvil".equals(heightImplementation) || minimumY!=0 || maximumY!=255)
-            bad("only vanilla-anvil Y=0..255 is enabled; taller worlds require completed storage, networking, rendering and gameplay integration");
+        if("vanilla-anvil".equals(heightImplementation)) {
+            if(minimumY!=0||maximumY!=255||!"1.7.10".equals(heightImplementationVersion)) bad("vanilla-anvil requires version 1.7.10 and Y=0..255");
+        } else if(com.hfr.world.earth.storage.XFEarthStorageIdentity.CUBIC.equals(heightImplementation)) {
+            if(minimumY!=0||maximumY!=511||!com.hfr.world.earth.storage.XFEarthStorageIdentity.CUBIC_VERSION.equals(heightImplementationVersion))
+                bad("cubicchunks1710 storage requires v0.1.23-alpha-pre and Y=0..511");
+        } else bad("unsupported height implementation: "+heightImplementation);
         if(!finite(verticalElevationScale)||verticalElevationScale<=0) bad("verticalElevationScale must be finite and positive");
-        if(minimumSurfaceY<1||maximumSurfaceY>254||minimumSurfaceY>maximumSurfaceY) bad("surface range must be within 1..254");
+        if(minimumSurfaceY<=minimumY||maximumSurfaceY>=maximumY||minimumSurfaceY>maximumSurfaceY) bad("surface range must lie inside block Y bounds");
         if(seaLevel<minimumSurfaceY||seaLevel>maximumSurfaceY) bad("seaLevel must lie inside surface range");
         if(!"pregenerated".equals(populationMode)) bad("populationMode must be pregenerated");
         if(profile==null||profile.trim().isEmpty()) bad("profile name is required");
         bounds=new XFEarthBounds(minimumX,maximumX,minimumZ,maximumZ);
     }
-    public void validateForPack(com.hfr.world.earth.pack.XFEarthMapManifest m){validate("1.7.10");if(width!=m.width||height!=m.height||effectiveScale!=m.effectiveScale)bad("profile dimensions/scale disagree with manifest");}
+    public void validateForPack(com.hfr.world.earth.pack.XFEarthMapManifest m){validate("1.7.10");requireGameplayHeight();if(width!=m.width||height!=m.height||effectiveScale!=m.effectiveScale)bad("profile dimensions/scale disagree with manifest");}
     private static void bad(String message){throw new IllegalArgumentException("Invalid XenoEarth profile: "+message);}
     public String getProfile(){return profile;} public int getEffectiveScale(){return effectiveScale;} public int getWidth(){return width;} public int getHeight(){return height;}
     public int getSeaLevel(){return seaLevel;} public XFEarthBounds getBounds(){return bounds;}
@@ -38,6 +43,9 @@ public final class XFEarthProfile {
     public int getMinimumSurfaceY(){return minimumSurfaceY;} public int getMaximumSurfaceY(){return maximumSurfaceY;}
     public double getVerticalElevationScale(){return verticalElevationScale;}
     public String getHeightImplementation(){return heightImplementation;}
+    public String getHeightImplementationVersion(){return heightImplementationVersion;}
+    public boolean isExtendedHeight(){return !"vanilla-anvil".equals(heightImplementation);}
+    public void requireGameplayHeight(){if(isExtendedHeight())bad("extended storage is preparation-only until networking and rendering/gameplay Stages 3 and 4 are complete");}
 
     /** Raster origin is the northwest block, with columns east and rows south. */
     public double mapX(double x){return (x-bounds.minimumX)/width;}
@@ -73,6 +81,13 @@ public final class XFEarthProfile {
         p.minimumX=-10752;p.maximumX=10751;p.minimumZ=-5376;p.maximumZ=5375;
         p.minimumSurfaceY=1;p.maximumSurfaceY=254;p.seaLevel=62;
         p.projection="equirectangular";p.populationMode="pregenerated";
+        p.validate("1.7.10");return p;
+    }
+    /** New storage preparation only; cannot be installed or opened for gameplay. */
+    public static XFEarthProfile earth2000Extended(){
+        XFEarthProfile p=earth2000();p.maximumY=511;p.maximumSurfaceY=510;
+        p.heightImplementation=com.hfr.world.earth.storage.XFEarthStorageIdentity.CUBIC;
+        p.heightImplementationVersion=com.hfr.world.earth.storage.XFEarthStorageIdentity.CUBIC_VERSION;
         p.validate("1.7.10");return p;
     }
 }

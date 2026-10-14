@@ -2,6 +2,7 @@ package com.hfr.world.earth.pregen;
 
 import java.io.IOException;
 import com.hfr.world.earth.XFEarthProfile;
+import com.hfr.world.earth.storage.XFEarthColumnData;
 import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 import net.minecraft.world.World;
@@ -16,26 +17,27 @@ public final class XFEarthTerrainConverter {
  public XFEarthTerrainConverter(XFEarthRasterSet rasters,XFEarthProfile profile){this.rasters=rasters;this.profile=profile;}
  public PreparedChunk prepare(int chunkX,int chunkZ)throws IOException{
   final int SEA=profile.getSeaLevel();
-  Block[] blocks=new Block[16*16*profile.getBlockHeight()];byte[] metadata=new byte[blocks.length],biomes=new byte[256];
+  XFEarthColumnData column=new XFEarthColumnData(profile,chunkX,chunkZ);byte[] biomes=new byte[256];
   for(int lz=0;lz<16;lz++)for(int lx=0;lx<16;lx++){
    int wx=chunkX*16+lx,wz=chunkZ*16+lz,px=wx-profile.getBounds().minimumX,pz=wz-profile.getBounds().minimumZ;
    int raw=rasters.sample("HeightMap20k.png",px,pz),surface=profile.surfaceY(raw);
    int biome=biome(rasters.rgb("BiomeMap20k.png",px,pz));boolean river=water(rasters.rgb("WaterMap20k.png",px,pz));boolean ice=water(rasters.rgb("Ice20k.png",px,pz));
    boolean ocean=surface<SEA&&!river;Block top=surface(rasters.rgb("globecover20k.png",px,pz),biome,ocean);Block filler=filler(top,ocean);
-   set(blocks,lx,lz,0,Blocks.bedrock);for(int y=1;y<=surface;y++)set(blocks,lx,lz,y,y==surface?top:(y>=surface-3?filler:Blocks.stone));
-   if(ocean||river){for(int y=surface+1;y<=SEA;y++)set(blocks,lx,lz,y,Blocks.water);if(ice)set(blocks,lx,lz,SEA,Blocks.ice);}
+   column.setBlock(lx,profile.getMinimumY(),lz,Blocks.bedrock,0);for(int y=profile.getMinimumY()+1;y<=surface;y++)column.setBlock(lx,y,lz,y==surface?top:(y>=surface-3?filler:Blocks.stone),0);
+   if(ocean||river){for(int y=surface+1;y<=SEA;y++)column.setBlock(lx,y,lz,Blocks.water,0);if(ice)column.setBlock(lx,SEA,lz,Blocks.ice,0);}
    if(ocean)biome=surface<SEA-18?BiomeGenBase.deepOcean.biomeID:(ice?BiomeGenBase.frozenOcean.biomeID:BiomeGenBase.ocean.biomeID);else if(river)biome=ice?BiomeGenBase.frozenRiver.biomeID:BiomeGenBase.river.biomeID;
    biomes[lz*16+lx]=(byte)biome;
   }
-  return new PreparedChunk(chunkX,chunkZ,blocks,metadata,biomes);
+  column.setBiomes(biomes);return new PreparedChunk(column);
  }
  public static final class PreparedChunk {
-  private final int x,z;private final Block[] blocks;private final byte[] metadata,biomes;
-  private PreparedChunk(int x,int z,Block[] blocks,byte[] metadata,byte[] biomes){this.x=x;this.z=z;this.blocks=blocks;this.metadata=metadata;this.biomes=biomes;}
+  private final XFEarthColumnData column;
+  private PreparedChunk(XFEarthColumnData column){this.column=column;}
+  /** Detached section data can be written by XFEarthCubicStorage without constructing a vanilla Chunk. */
+  public XFEarthColumnData getColumnData(){return column;}
   /** Uses World/Forge block callbacks and must run on the owning server thread. */
-  public Chunk create(World world){Chunk chunk=new Chunk(world,blocks,metadata,x,z);chunk.setBiomeArray(biomes);chunk.generateSkylightMap();chunk.isTerrainPopulated=true;chunk.isLightPopulated=true;chunk.isModified=true;return chunk;}
+  public Chunk create(World world){return column.createAnvilChunk(world);}
  }
- private void set(Block[] a,int x,int z,int y,Block b){a[(x*16+z)*profile.getBlockHeight()+y-profile.getMinimumY()]=b;}
  private static boolean water(int rgb){return rgb!=0;}
  private static int biome(int rgb){
   int gray=rgb&255;if(((rgb>>16)&255)==gray&&((rgb>>8)&255)==gray&&BiomeGenBase.getBiome(gray)!=null)return gray;

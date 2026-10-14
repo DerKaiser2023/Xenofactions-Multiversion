@@ -208,6 +208,9 @@ JourneyMap builds has not been established.
 
 ## Height implementation findings (Stage 1)
 
+These are the Stage 1 inspection findings. The Stage 2 storage implementation
+below advances preparation while keeping the gameplay gate closed.
+
 **Active support remains vanilla Anvil, Y=0..255.** The shared profile and all
 later geographic features work at that height. Changing a configuration value
 or `WorldProvider.getActualHeight()` cannot add real blocks above it. No save
@@ -285,6 +288,101 @@ packet/thread ownership, claims and border adoption. The existing offline
 default loading, pregenerator cancellation/pause/resume and world unload still
 require in-game checks. No height-mod runtime launch, save conversion,
 reobfuscation or packaging was performed.
+
+## Extended storage preparation (Stage 2)
+
+The selected format is still the pinned CubicChunks1710 **v0.1.23-alpha-pre**
+native column/cube format at **Y=0..511**. `XFEarthCubicStorage` uses the public
+`SaveCubeColumns.create(Path)` driver from optional **RegionLib v0.1.0-GTNH**.
+This is the non-shadow-paging branch already supported by the candidate's
+`RegionCubeStorage`, not a second custom region format. It writes GZIP native NBT
+to `region2d/*.2dr` and `region3d/*.3dr`. The driver supplies region indexing,
+file access, flush and close; XF does not implement a region-file container.
+The existing Gradle/toolchain versions, Java 8 target and normal runtime
+dependencies are preserved. The existing `coreModClass` convention registers a
+narrow XF client launch guard; no mixin setup or build-tool upgrade is added.
+No driver or height mod has been bundled or installed.
+
+Only RegionLib is required to use this detached preparation API. Loading the
+CubicChunks coremod just to prepare storage would change other worlds: the
+inspected release initializes cube providers unconditionally for WorldServer
+and WorldClient. The ordinary Earth preflight and Anvil pregenerator therefore
+reject an active CubicChunks mod until runtime integration is complete.
+Unrelated world types retain their existing behavior; XF adds no dimension
+provider or height-engine transformer in Stage 2.
+
+The preparation boundary consists of:
+
+- `XFEarthProfile.earth2000Extended()` / validated profile JSON for the exact
+  implementation/version/range, reusing all existing horizontal geography.
+- `XFEarthTerrainConverter.prepare(...).getColumnData()` / `XFEarthColumnData`
+  for detached sections and biomes. The ordinary raster generator now uses this
+  same representation and explicitly constructs only an ordinary Anvil Chunk
+  on the owning server thread. There is no dense 16x16x256 generation buffer.
+- `XFEarthCubicStorage.createNew(destination, profile, levelSnapshot)` for a new,
+  absent directory and a complete detached template NBT snapshot. It creates
+  the profile, WorldSavedData identity, native `cubicChunksData.dat` with minHeight
+  0/maxHeight 512 (exclusive), and native storage. It refuses existing targets.
+- `writeNewColumn(data)`, `readColumn(x,z)`, `close()` and
+  `openExisting(destination)`. Reopen is for inspection only. Writes reject any
+  existing column or partial cube at that position; reads use the driver's
+  `createRegion=false`, require every cube record, and never regenerate missing
+  storage. Closure is synchronized with operations. There is no command or
+  gameplay switch exposing an extended world yet.
+
+`XFEarthColumnData` holds 32 nullable section slots. A block at Y=511 addresses
+slot 31, local Y=15; block cells use the vanilla section index
+`localY << 8 | localZ << 4 | localX` (0..4095). Data, BlockLight, SkyLight and Add
+are 2048-byte nibble arrays; Blocks is 4096 bytes. A native cube's `Level.y` is an
+**int cube coordinate**, not Anvil's byte section Y. Empty cubes have records so
+column completeness is explicit, but allocate no block arrays. Ordinary Anvil
+conversion rejects an extended profile rather than slicing away upper sections.
+
+The native base codec is pinned to cube/column NBT version 1. Metadata and light
+arrays are copied intact. Tile entities retain their complete detached NBT and
+integer absolute X/Y/Z; cube membership is checked on read and write, without
+constructing tile entities or touching a World on the worker. Existing cube
+entities, ticks, extra NBT, lighting-engine identity and lighting bookkeeping are
+retained. Unregistered block IDs, malformed arrays, misplaced tile entities,
+wrong coordinates/version and unknown lighting identities fail explicitly.
+ChunkAPI/EndlessIDs preparation is rejected because their alternative section
+codec has not been integrated; ordinary integrations remain optional/unaffected.
+
+HeightMap3D uses the pinned native stream: 256 Z-major X/Z cells, each containing
+a VarInt interval count followed by sorted inclusive integer Y pairs. Generated
+sections encode nonzero opacity with this layout, retaining heights above 255.
+Existing streams are retained unless blocks are changed. Loading checks interval
+count, ordering, range, truncation and trailing bytes. Generated vanilla terrain
+uses static opacity; snapshots involving world-dependent custom block opacity
+need the owning world's native opacity index in later integration.
+
+`FMLServerAboutToStartEvent` preflight resolves the save root directly from the
+existing SaveFormatOld/AnvilSaveConverter before server-side conversion,
+SaveHandler construction and world construction. Singleplayer's client creates
+a SaveHandler even earlier, inside `Minecraft.launchIntegratedServer`; the XF
+coremod inserts the same preflight at that method's head before session.lock or
+level writes. It targets only that exact Minecraft class/method/descriptor,
+recognizes MCP and remapped SRG names and fails closed if the target cannot be
+identified. Dedicated servers load no client classes through the guard.
+Preflight validates the profile, identity and native height metadata and rejects
+extended Earth gameplay. On ordinary Earth load the dimension-0 identity is
+registered for normal WorldSavedData persistence. Nether/End and existing chunk
+payloads are not rewritten. This is a load safety gate, not a migration.
+
+**Verification and remaining risks:** source inspection traces upper sections
+from lookup through native NBT, RegionLib storage and reload, and checks the
+candidate's native reader schema (including tile entity creation and light
+identity handling). Offline `compileJava` succeeded. Native file round-trip,
+close/reopen, interrupted writes, process restart, real tile entities and both
+server preflight paths and production coremod loading/remapping still require
+runtime validation. The driver promises
+flush but not multi-entry atomicity; interrupted preparation can leave a partial
+column, which is retained and rejected rather than repaired or overwritten.
+The non-shadow-paging driver does not claim crash recovery equivalent to the
+candidate's shadow-paging option. No packaging or game runtime was performed.
+Stages 3 and 4 must complete network/render/gameplay integration and address the
+candidate's global initialization before gameplay can be enabled. Deadhour,
+Angelica and JourneyMap compatibility remain unverified.
 
 ## Manual runtime plan
 
