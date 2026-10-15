@@ -74,13 +74,15 @@ Invitations are saved in the existing faction data with faction and player UUIDs
 | `/c capital set <owned city>` | Leader-only: change the designated capital. Default cooldown between changes is seven days. |
 | `/c sethome` | Officer or leader: set faction home inside the designated capital only. |
 | `/c home` | Teleport to faction home. |
-| `/c setallywarp` | Set ally warp point. |
-| `/c allywarp <faction>` | Warp to an allied faction's ally warp. |
+| `/c setallywarp` | Officer or leader: set your faction's ally rally point inside its claimed land. Shares the ten-minute home-setting cooldown. |
+| `/c allywarp <faction>` | Travel to an allied faction's rally point. Faction names take priority; player names resolve through the existing alliance faction lookup. |
 | `/c setwarp <name>` or `/c addwarp <name>` | Create a named faction warp. |
 | `/c delwarp <name>` | Delete a faction warp. |
 | `/c warp <name>` | Use a faction warp. |
 | `/c warps` | List faction warps. |
 | `/c gracebuild` | Use faction build grace when enabled. |
+
+Ally rally travel waits ten seconds and cancels horizontal movement. The destination faction must list your faction as an ally; a pending alliance offer grants no access. The server rechecks membership, alliance access, bankruptcy restrictions, origin territory, rally coordinates/dimension and dimension availability before teleporting. A renamed faction keeps its pending destination identity; a removed faction or changed rally point aborts with a specific error. Rally travel does not grant access to that faction's named `/c warp` destinations. Existing Earth destination safety and border handling remain in effect.
 
 ### Economy
 

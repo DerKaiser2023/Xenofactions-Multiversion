@@ -176,6 +176,7 @@ public class Clowder {
 	public int allyWarpY;
 	public int allyWarpZ;
 	public int allyWarpDim;
+	public boolean allyWarpSet;
 	public long buildGraceUntil = 0L;
 	public boolean buildGraceUsed = false;
 	public String surrenderTributeTo = "";
@@ -1186,9 +1187,25 @@ public class Clowder {
 		this.allyWarpY = (int) y;
 		this.allyWarpZ = (int) z;
 		this.allyWarpDim = player != null ? ClowderTerritory.getDimensionId(player.worldObj) : 0;
+		this.allyWarpSet = true;
 
 		if(player != null && player.worldObj != null)
 			ClowderData.getData(player.worldObj).markDirty();
+	}
+
+	/** The destination faction grants rally access; offers alone never grant access. */
+	public String getAllyWarpError(EntityPlayer player, Clowder destination) {
+		if(destination == null || !destination.valid()) return "The destination faction no longer exists!";
+		if(areAllyWarpsDisabled()) return "Ally warps are disabled while your faction is in " + getBankruptcyStageName() + ".";
+		if(destination.areAllyWarpsDisabled()) return destination.name + " cannot receive ally warps while in " + destination.getBankruptcyStageName() + ".";
+		if(destination.allies.get(this) == null) return destination.name + " is not our ally!";
+		if(!destination.allyWarpSet) return destination.name + " did not set an alliance rally-point!";
+		ClowderTerritory.Ownership origin = ClowderTerritory.getOwnerFromInts(player.worldObj, (int)player.posX, (int)player.posZ);
+		if(origin != null && (origin.zone == ClowderTerritory.Zone.WARZONE
+				|| (origin.zone == ClowderTerritory.Zone.FACTION && origin.owner != this && allies.get(origin.owner) == null)))
+			return "You can not teleport to an Ally Warp from unfriendly territory!";
+		if(DimensionManager.getWorld(destination.allyWarpDim) == null) return "Ally warp dimension " + destination.allyWarpDim + " is not loaded or unavailable.";
+		return null;
 	}
 
 	public void rename(String name, EntityPlayer player) {
@@ -1833,6 +1850,7 @@ public class Clowder {
 		nbt.setInteger(i + "_allyWarpY", this.allyWarpY);
 		nbt.setInteger(i + "_allyWarpZ", this.allyWarpZ);
 		nbt.setInteger(i + "_allyWarpDim", this.allyWarpDim);
+		nbt.setBoolean(i + "_allyWarpSet", this.allyWarpSet);
 		nbt.setFloat(i + "_prestige", this.prestige);
 		nbt.setFloat(i + "_prestigeGen", this.prestigeGen);
 		nbt.setFloat(i + "_prestigeReq", this.prestigeReq);
@@ -2024,6 +2042,10 @@ public class Clowder {
 		c.allyWarpZ = nbt.getInteger(i + "_allyWarpZ");
 		if(!nbt.hasKey(i + "_allyWarpDim") && MainRegistry.logger != null) MainRegistry.logger.info("Migrating legacy ally warp for " + c.name + " to dimension 0.");
 		c.allyWarpDim = nbt.hasKey(i + "_allyWarpDim") ? nbt.getInteger(i + "_allyWarpDim") : 0;
+		// Legacy saves have no presence flag. Preserve every distinguishable rally point,
+		// including those on a coordinate axis; all-zero legacy values also meant unset.
+		c.allyWarpSet = nbt.hasKey(i + "_allyWarpSet") ? nbt.getBoolean(i + "_allyWarpSet")
+				: c.allyWarpX != 0 || c.allyWarpY != 0 || c.allyWarpZ != 0 || c.allyWarpDim != 0;
 		c.prestige = nbt.getFloat(i + "_prestige");
 		c.canDeclareTime = Math.max(nbt.getFloat(i + "_canDeclareTime"), 0F);
 		c.fabricateTime = Math.max(nbt.getFloat(i + "_fabricateTime"), 0F);
@@ -2589,7 +2611,8 @@ public class Clowder {
 		String warp;
 		boolean home;
 		boolean rendezvous = false;
-		String allyName;
+		String allyUuid;
+		String factionUuid;
 
 		public ScheduledTeleport(int dimensionId, int posX, int posY, int posZ, String player, String warp) {
 			this(posX, posY, posZ, player, warp);
@@ -2619,21 +2642,13 @@ public class Clowder {
 			this.home = home;
 		}
 
-		//for ally warp
-		public ScheduledTeleport(int dimensionId, int posX, int posY, int posZ, String player, boolean home, boolean rendezvous, String allyName) {
-			this(posX, posY, posZ, player, home, rendezvous, allyName);
-			this.dimensionId = dimensionId;
-		}
-
-		public ScheduledTeleport(int posX, int posY, int posZ, String player, boolean home, boolean rendezvous, String allyName) {
-			this.posX = posX;
-			this.posY = posY;
-			this.posZ = posZ;
-			this.dimensionId = 0;
-			this.player = player;
-			this.home = home;
-			this.rendezvous = rendezvous;
-			this.allyName = allyName;
+		public static ScheduledTeleport allyWarp(EntityPlayerMP player, Clowder source, Clowder destination) {
+			ScheduledTeleport tp = new ScheduledTeleport(destination.allyWarpDim, destination.allyWarpX,
+					destination.allyWarpY, destination.allyWarpZ, player.getCommandSenderName(), false);
+			tp.rendezvous = true;
+			tp.factionUuid = source.uuid;
+			tp.allyUuid = destination.uuid;
+			return tp;
 		}
 	}
 }

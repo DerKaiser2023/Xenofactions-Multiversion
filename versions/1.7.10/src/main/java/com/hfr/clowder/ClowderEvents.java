@@ -1489,19 +1489,38 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 
 			ScheduledTeleport tp = Clowder.teleports.get(time);
 			World tpWorld = DimensionManager.getWorld(tp.dimensionId);
-			if(tpWorld == null)
+			if(tpWorld == null && !tp.rendezvous)
 				continue;
 			EntityPlayer player = MinecraftServer.getServer().getConfigurationManager().func_152612_a(tp.player);
 
-			if(player == null)
+			if(player == null) {
+				if(tp.rendezvous) rem.add(time);
 				continue;
+			}
 
 			if(time < System.currentTimeMillis()) {
 
 				Ownership owner = ClowderTerritory.getOwnerFromInts(tp.dimensionId, tp.posX, tp.posZ);
 				Clowder me = Clowder.getClowderFromPlayer(player);
+				Clowder ally = null;
+				if(tp.rendezvous) {
+					Clowder source = Clowder.getClowderFromUuid(tp.factionUuid);
+					ally = Clowder.getClowderFromUuid(tp.allyUuid);
+					String error;
+					if(source == null || !source.valid()) error = "Your original faction no longer exists!";
+					else if(me != source) error = "You are no longer in the faction that requested this ally warp!";
+					else error = source.getAllyWarpError(player, ally);
+					if(error == null && (ally.allyWarpDim != tp.dimensionId || ally.allyWarpX != tp.posX
+							|| ally.allyWarpY != tp.posY || ally.allyWarpZ != tp.posZ))
+						error = "The allied faction's rally point changed. Request the warp again.";
+					if(error != null) {
+						player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Ally warp aborted: " + error));
+						rem.add(time);
+						continue;
+					}
+				}
 
-                if (tp.home && (me == null || !me.homeSet || !me.isInCapital(tp.dimensionId, tp.posX, tp.posZ))) {
+                if (tp.home && !tp.rendezvous && (me == null || !me.homeSet || !me.isInCapital(tp.dimensionId, tp.posX, tp.posZ))) {
                     player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Home warp aborted because the capital or home changed."));
                 } else if(!tp.rendezvous && (owner == null || owner.zone != Zone.FACTION || owner.owner != me)) {
 
@@ -1531,7 +1550,6 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 					if(tp.rendezvous)
 					{
 						me.notifyAll(world, new ChatComponentText(CommandClowder.INFO + "Player " + player.getDisplayName() + " is warping to an ally warp point!"));
-						Clowder ally = Clowder.getClowderFromName(tp.allyName);
 						if (ally != null)
 							ally.notifyAll(world, new ChatComponentText(CommandClowder.INFO + "Player " + player.getDisplayName() + " from allied faction " + me.name + " is warping to our ally warp point!"));
 					}
@@ -1554,7 +1572,7 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 
 				if(player.posX != player.lastTickPosX || player.posZ != player.lastTickPosZ) {
 					rem.add(time);
-					player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Warp aborted!"));
+					player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + (tp.rendezvous ? "Ally warp aborted because you moved." : "Warp aborted!")));
 				}
 			}
 		}

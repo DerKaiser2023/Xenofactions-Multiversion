@@ -1423,60 +1423,21 @@ private void cmdCreate(ICommandSender sender, String name) {
 	}
 
 	private void cmdAllyWarp(ICommandSender sender, String name) {
-
 		EntityPlayerMP player = getCommandSenderAsPlayer(sender);
 		Clowder clowder = Clowder.getClowderFromPlayer(player);
-		Clowder ally = Clowder.getClowderFromName(name);
-
-		if (clowder != null) {
-			if(clowder.areAllyWarpsDisabled()) {
-				sender.addChatMessage(new ChatComponentText(ERROR + "Ally warps are disabled while your faction is in " + clowder.getBankruptcyStageName() + "."));
-				return;
-			}
-			if (ally != null) {
-				if(ally.areAllyWarpsDisabled()) {
-					sender.addChatMessage(new ChatComponentText(ERROR + ally.name + " cannot receive ally warps while in " + ally.getBankruptcyStageName() + "."));
-					return;
-				}
-
-				Ownership owner = ClowderTerritory.getOwnerFromInts(player.worldObj, (int) player.posX, (int) player.posZ);
-
-				if (owner != null
-						&& (owner.zone == Zone.WARZONE || (owner.zone == Zone.FACTION && (owner.owner != clowder && clowder.allies.get(owner.owner) == null) ) ) ) {
-
-					System.out.println("alliesS get owner name: " + clowder.alliesS.get(owner.owner.name) + " owner.owner name: " + owner.owner.name);
-					sender.addChatMessage(new ChatComponentText(ERROR + "You can not teleport to an Ally Warp from unfriendly territory!"));
-
-				} else
-				{
-					//area where ally warp teleportation is executed. put ally restrictions here
-
-					if(ally.allies.get(clowder) != null)
-					{
-
-						if(ally.allyWarpX != 0 && ally.allyWarpY != 0 && ally.allyWarpZ != 0)
-						{
-							sender.addChatMessage(new ChatComponentText(INFO + "Please stand still for 10 seconds!"));
-							clowder.teleports.put(System.currentTimeMillis() + 10000L, new ScheduledTeleport(ally.allyWarpDim, ally.allyWarpX,
-									ally.allyWarpY, ally.allyWarpZ, player.getDisplayName(), true, true, ally.name));
-						}
-						else
-							sender.addChatMessage(new ChatComponentText(ERROR + name + " did not set an alliance rally-point!"));
-
-					}
-					else
-						sender.addChatMessage(new ChatComponentText(ERROR + name + " is not our ally!"));
-				}
-
-			}
-
-			else {
-				sender.addChatMessage(new ChatComponentText(ERROR + name + " is not a valid faction!"));
-			}
-		}
-		else {
+		if(clowder == null) {
 			sender.addChatMessage(new ChatComponentText(ERROR + "You are not in any faction!"));
+			return;
 		}
+		Clowder ally = resolveAllianceTarget(sender, name);
+		if(ally == null) return;
+		String error = clowder.getAllyWarpError(player, ally);
+		if(error != null) {
+			sender.addChatMessage(new ChatComponentText(ERROR + error));
+			return;
+		}
+		sender.addChatMessage(new ChatComponentText(INFO + "Please stand still for 10 seconds!"));
+		Clowder.teleports.put(System.currentTimeMillis() + 10000L, ScheduledTeleport.allyWarp(player, clowder, ally));
 	}
 
 	private void cmdAddWarp(ICommandSender sender, String name) {
