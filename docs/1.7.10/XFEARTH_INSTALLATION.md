@@ -534,21 +534,27 @@ dataset is required. Back up the save before updating. Use matching updated XF
 client/server versions for the Map node styles. The Ownership and Eligibility
 controls can show up to 64 owned/tracked nodes with no selected dataset; cyan is
 pending/unavailable, green eligible and red insufficient surface. The open Map
-refreshes its viewport every 40 client ticks. New claims require actual terrain classification;
-existing ownership is not reset. No extended-height mode is enabled.
+refreshes its viewport every 40 client ticks. These background styles do not gate
+ownership. New claims immediately check loaded terrain; existing ownership is
+not reset. No extended-height mode is enabled.
 
-In `XENOFACTIONS_05_CLAIMS_CITIES`, Stage 9 defaults are `claimTerrainMinArea=64`,
-`claimTerrainCoveragePercent=25`, `claimTerrainMaxStep=1`,
-`claimTerrainMaxAgeTicks=100` and `claimTerrainRefreshNodes=2`. Capture shares the
-existing `earthRoadStepsPerTick` / `earthRoadTickMillis` budget. Required chunks
-must already be loaded; first/stale placement attempts defer without consuming
-the City Center item. Wait nearby while sampling, then retry placement. Retries
-share pending work; missing chunks and capture failures give specific reasons.
-Unrelated chunk unloads do not discard a completed sample. Protected/rejected
-placements retain the item and do not charge founding prestige.
-`/c city terrain` shows the reason/counts; an officer/leader
-can use `/c city terrain retry` inside their city after reclamation or to restart
-deferred expansion following a restart. Ocean neighbors must qualify separately.
+In `XENOFACTIONS_05_CLAIMS_CITIES`, surface defaults remain
+`claimTerrainMinArea=64`, `claimTerrainCoveragePercent=25` and
+`claimTerrainMaxStep=1`. Placement checks loaded height/surface data in bounded
+windows and stops as soon as enough connected land/platform is confirmed. It
+resolves available neighbors during the action, without terrain-sampling waits
+or any road/profile/dataset/map prerequisite. Open liquid and underwater seabed
+cannot count; ocean neighbors must qualify separately. Required terrain and its
+collision halo must already be loaded; unsupported/unconfirmed columns are not
+assumed eligible. Protected/rejected placements retain the item and do not charge
+founding prestige. The existing Forge approval and founding rollback are retained.
+
+`claimTerrainMaxAgeTicks=100` and `claimTerrainRefreshNodes=2` now affect only
+optional background classification, which still shares the Earth work budget.
+There are no deferred grant intents, including after restart. `/c city terrain`
+shows the immediate surface result; officers/leaders may use `/c city terrain retry`
+after reclamation/building or loading previously unavailable terrain. Ordinary
+loaded-land placement does not require that command or a second item attempt.
 Review [exact rules and bulk-edit limits](XFEARTH_WORLD_TYPE.md#terrain-claim-eligibility-stage-9)
 before deployment; real platforms, save/reopen and modded collision behavior still
 need runtime validation.

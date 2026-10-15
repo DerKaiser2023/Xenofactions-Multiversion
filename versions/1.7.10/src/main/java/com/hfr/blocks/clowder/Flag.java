@@ -101,7 +101,7 @@ public class Flag extends BlockContainer {
 		super.onBlockPlacedBy(world, x, y, z, player, itemStack);
 	}
 
-    /** Rechecked on every retry and after all Forge placement listeners, before any faction mutation. */
+    /** Checked before placement and after all Forge placement listeners, before any faction mutation. */
     public static String foundingError(World world, int x, int y, int z, EntityPlayer player, ItemStack stack) {
         Clowder faction=Clowder.getClowderFromPlayer(player);
         if(faction==null || !Clowder.clowders.contains(faction))
@@ -130,7 +130,7 @@ public class Flag extends BlockContainer {
         for(int dx=-2;dx<=2;dx++)for(int dz=-2;dz<=2;dz++)
             if(!world.canBlockSeeTheSky(x+dx,y+1,z+dz) || !world.getBlock(x+dx,y-1,z+dz).isSideSolid(world,x+dx,y-1,z+dz,net.minecraftforge.common.util.ForgeDirection.UP))
                 return "The City Center requires a solid, sky-accessible 5 by 5 foundation.";
-        com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.decision(world,center);
+        com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.grantDecision(world,center);
         return terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.ELIGIBLE?null:terrain.rejection();
     }
 
@@ -143,7 +143,7 @@ public class Flag extends BlockContainer {
         String capital=faction.capitalCityId;boolean designated=faction.capitalDesignated;
         flag.name=stack.stackTagCompound.getString("cityName").trim();flag.createCityId();
         try {
-            // The existing atomic rebuild requires the center sample and only grants eligible neighbors.
+            // Resolve the center and all available eligible neighbors before charging founding costs.
             flag.restoreOwnerForRelocation(faction);flag.setMode(1);flag.isClaimed=true;
             java.util.Set<CoordPair> claims=ClowderTerritory.rebuildCityClaims(world,ClowderTerritory.territories,faction,flag.getCityId(),
                 world.provider.dimensionId,x,y,z,flag.name,flag.cityLevel.ordinal(),flag.getRadius());
@@ -152,8 +152,8 @@ public class Flag extends BlockContainer {
             if(!faction.capitalDesignated){faction.capitalCityId=flag.getCityId();faction.capitalDesignated=true;}
             faction.save(world);flag.markDirty();com.hfr.dynmap.XFDynmapIntegration.markDirty();
             com.hfr.clowder.ClaimTerrainService.invalidate(world,x,z);world.markBlockForUpdate(x,y,z);
-            int deferred=ClowderTerritory.getCityClaimCoordinates(world.provider.dimensionId,x,z,flag.getRadius()).size()-claims.size();
-            if(deferred>0)player.addChatMessage(new ChatComponentText("City expansion: "+deferred+" nodes await terrain sampling or lack connected land/platform surface. Use /c city terrain to review or retry."));
+            int excluded=ClowderTerritory.getCityClaimCoordinates(world.provider.dimensionId,x,z,flag.getRadius()).size()-claims.size();
+            if(excluded>0)player.addChatMessage(new ChatComponentText("City expansion: "+excluded+" nodes lack confirmed loaded land/platform surface."));
         } catch(RuntimeException failure) {
             // Avoid setOwner(null), which applies the intentional city-loss prestige penalty.
             flag.restoreOwnerForRelocation(null);flag.isClaimed=false;

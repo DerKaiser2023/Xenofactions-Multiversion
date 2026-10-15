@@ -4,7 +4,6 @@ import static net.minecraftforge.common.util.ForgeDirection.UP;
 
 import java.util.List;
 import java.util.HashMap;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 
@@ -393,7 +392,7 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 	private final class CityExpansion {
 		final Map<CoordPair, TerritoryMeta> previous = new HashMap<CoordPair, TerritoryMeta>();
 		final Map<CoordPair, TerritoryMeta> replacement = new HashMap<CoordPair, TerritoryMeta>();
-		final List<CoordPair> deferred = new ArrayList<CoordPair>();
+		int unavailable;
 		int granted, rejected, blocked;
 		void stage(CoordPair key, TerritoryMeta old, CityLevel level) {
 			TerritoryMeta meta = new TerritoryMeta(new Ownership(Zone.FACTION, owner), xCoord, yCoord, zCoord);
@@ -403,8 +402,8 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 		}
 		String notice() {
 			return "City expansion: " + granted + " nodes added; " + rejected + " rejected for insufficient connected land/platform; "
-				+ deferred.size() + " deferred for terrain sampling; " + blocked + " occupied/protected nodes retained. "
-				+ (rejected == 0 && deferred.isEmpty() && blocked == 0 ? "All nodes within the radius are owned by this city."
+				+ unavailable + " unavailable to the loaded surface check; " + blocked + " occupied/protected nodes retained. "
+				+ (rejected == 0 && unavailable == 0 && blocked == 0 ? "All nodes within the radius are owned by this city."
 					: "The configured radius is a limit, not a fully granted area. Use /c city terrain retry to retry this level without another charge.");
 		}
 	}
@@ -418,9 +417,9 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 			TerritoryMeta old = ClowderTerritory.getMetaFromCoords(key);
 			if(ownsCityMeta(old)) continue;
 			if(old != null && (old.owner == null || old.owner.zone != Zone.WILDERNESS)) { expansion.blocked++; continue; }
-			ClaimTerrainService.Decision decision = ClaimTerrainService.decision(worldObj, key);
+			ClaimTerrainService.Decision decision = ClaimTerrainService.grantDecision(worldObj, key);
 			if(decision.eligibility == Eligibility.INELIGIBLE) { expansion.rejected++; continue; }
-			if(decision.eligibility == Eligibility.UNCLASSIFIED) { expansion.deferred.add(key); continue; }
+			if(decision.eligibility == Eligibility.UNCLASSIFIED) { expansion.unavailable++; continue; }
 			expansion.stage(key, old, target); expansion.granted++;
 		}
 		return expansion;
@@ -430,7 +429,7 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 		CityExpansion expansion = null;
 		CityLevel previousLevel = cityLevel;
 		try {
-			// Terrain capture may be queued here, but no grant intent or city/financial mutation occurs yet.
+			// Resolve all loaded new nodes before any city or financial mutation.
 			ClowderData data = ClowderData.getData(worldObj);
 			expansion = prepareCityExpansion(target);
 			ClowderTerritory.territories.putAll(expansion.replacement);
@@ -451,14 +450,6 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 		}
 		terrainClaimNotice = expansion.notice();
 		com.hfr.dynmap.XFDynmapIntegration.markDirty();
-		// Only a committed level may own deferred grants. Resuming never calls upgradeCity or charges prestige.
-		try {
-			for(CoordPair key : expansion.deferred)
-				ClaimTerrainService.allowGrant(worldObj, key, owner, xCoord, yCoord, zCoord, name, getCityId());
-		} catch(RuntimeException failure) {
-			MainRegistry.logger.error("City level committed; deferred expansion scheduling interrupted", failure);
-			terrainClaimNotice += " Deferred scheduling was interrupted; retry terrain expansion at this level.";
-		}
 		try {
 			syncPrestigeGauges();
 		} catch(RuntimeException failure) {
@@ -503,7 +494,7 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 	}
 	
 	public void generateClaim() {
-        int terrainRejected=0,terrainDeferred=0;
+        int terrainRejected=0,terrainUnavailable=0;
 		
 		int rad = Math.min(getRadius(), CityLevel.maxRadius());
 		String placementError = ClowderTerritory.getCityPlacementError(worldObj, xCoord >> 4, zCoord >> 4);
@@ -518,9 +509,9 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 				if(expected.contains(loc)) {
 					if(meta == null || !meta.checkPersistence(worldObj, loc) || (meta.flagX == xCoord && meta.flagY == yCoord && meta.flagZ == zCoord)) {
                         if(!com.hfr.clowder.ClaimTerrainService.existingClaim(loc)&&owner!=null){
-                            com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.decision(worldObj,loc);
-                            if(terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.INELIGIBLE)terrainRejected++;
-                            else if(terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.UNCLASSIFIED)terrainDeferred++;
+                            com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.grantDecision(worldObj,loc);
+                            if(terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.INELIGIBLE){terrainRejected++;continue;}
+                            else if(terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.UNCLASSIFIED){terrainUnavailable++;continue;}
                         }
 						ClowderTerritory.setOwnerForCoord(worldObj, loc, owner, xCoord, yCoord, zCoord, name, getCityId());
 						TerritoryMeta newMeta = ClowderTerritory.getMetaFromCoords(loc);
@@ -535,7 +526,7 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 			}
 		}
 
-        terrainClaimNotice=terrainRejected==0&&terrainDeferred==0?"":"City expansion: "+terrainRejected+" nodes rejected for insufficient connected land/platform; "+terrainDeferred+" deferred for bounded terrain sampling. Existing claims retained. Use /c city terrain to review or retry.";
+        terrainClaimNotice=terrainRejected==0&&terrainUnavailable==0?"":"City expansion: "+terrainRejected+" nodes rejected for insufficient connected land/platform; "+terrainUnavailable+" unavailable to the loaded surface check. Existing claims retained. Use /c city terrain to review.";
 	}
 
     public String terrainClaimNotice="";

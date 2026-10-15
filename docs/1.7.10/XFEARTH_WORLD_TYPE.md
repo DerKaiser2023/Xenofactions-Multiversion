@@ -1087,147 +1087,116 @@ height blockers remain separate, and ordinary 256-block worlds are supported.
 
 ## Terrain claim eligibility (Stage 9)
 
-`ClaimTerrainService` captures actual loaded blocks within each Stage 8 node's
-exact protection footprint. The active Earth profile supplies vertical bounds;
-ordinary worlds use their existing block height. Unsupported height engines
-defer classification, and Stage 4's extended-height gate remains disabled.
-Biome names, sea-level assumptions and OSM polygons never authorize a claim;
-imported geography remains an independent map/reference layer. No internet or
-geographic extract is required for terrain decisions.
+New ownership uses `ClaimTerrainService.grantDecision` and `ClaimSurfaceCheck`
+synchronously on the owning server thread. Stage 9 originally made a fresh queued
+classification a prerequisite: the first attempt returned `UNCLASSIFIED` even on
+valid land, while neighboring nodes waited for the shared Earth queue. That gate
+and its deferred ownership intents have been removed. A normal placement resolves
+its center and all available eligible neighbors in the same action. No terrain
+sample, road queue progress, profile, dataset, internet connection or map overlay
+is required. Unknown saved classification does not prevent the loaded check.
 
-Each integer X/Z column contributes at most one qualifying surface. Capture
-starts at the highest populated chunk section and searches downward within the
-active block bounds. A surface needs a solid, non-replaceable block and actual
-collision boxes with a flat, full-cell top, at least 1/8 block thick, inside the
-block's Y interval. Coplanar box unions are supported, bounded to 32 boxes per
-block. Vanilla bottom/top/double slabs retain their actual fractional top height;
-modded full solid decks use the same properties rather than a dirt/stone whitelist.
-Leaves/foliage, plants, cactus/gourd, liquids, ice and packed ice do not contribute
-surfaces. Decoration or foliage does not replace the solid terrain below it.
-Narrow supports, fences and stairs without a full top plane do not themselves
-contribute a whole qualifying column. Invalid/throwing or over-limit collision
-queries defer rather than reporting missing land. This is territorial surface
-measurement, not a teleport clearance or architectural reconstruction check.
+The check uses each Stage 8 node's exact protection footprint, including the legacy
+negative-coordinate conversion and enlarged zero-coordinate units. Each integer
+X/Z column contributes at most one surface. Existing chunk height maps locate the
+ordinary surface; a separate window below the highest populated section also
+looks for transparent decks above the height map. Each window reads at most 32
+vertical positions, with at most 64 per column and 961 columns per node. Air gaps
+between windows and underground volumes are not scanned. Columns and their
+one-block collision halo must already be loaded; unavailable columns cannot count.
+No chunk is loaded or generated to satisfy this check.
 
-Liquid encountered before a qualifying surface prevents the floor beneath it
-from counting. Solid terrain below that liquid is reported as submerged; liquid
-with no observed solid floor is open liquid/water. A dry surface with solid support
-below it is dry/filled land. A qualifying deck separated from water below by air
-or excluded vegetation is a platform, even with no dirt or stone underneath.
-Pylon-supported columns may appear as dry/filled support alongside deck columns.
-Dry/filled measurements do not prove whether a block was natural or placed by a
-player. Reclaimed land and natural land use the same qualifying surface rule.
-Empty columns contribute nothing. All categories are determined from actual
-blocks, including when biome/geography still describe ocean.
+A qualifying surface is solid and non-replaceable, with a flat, full-cell collision
+top at least 1/8 block thick inside the block's Y interval. Coplanar unions of at
+most 32 collision boxes are supported. Bottom/top/double slabs retain fractional
+top heights, and modded decks use their collision properties rather than a block
+whitelist. Leaves/foliage, plants, cactus/gourd, liquids, ice and packed ice do not
+contribute. Narrow supports, fences and stairs without a full top plane cannot
+contribute a whole column. Foliage and decorations can be skipped to find the
+surface within the bounded window. Natural land, reclaimed land and dry solid
+platforms use the same rule; a deck needs no scan of the water or support beneath
+it. Liquid encountered before a qualifying surface stops that column immediately,
+so underwater seabed cannot satisfy the requirement. Biome and geography labels
+never authorize a claim.
 
-Connectivity uses **four** orthogonal neighbors inside the same node, with top
-height difference no greater than `claimTerrainMaxStep` (default 1 block). It never
-crosses a node boundary or uses diagonal contact. The largest connected component
-must contain at least:
+Connectivity uses four orthogonal neighbors inside the node, with adjacent top
+height difference at most `claimTerrainMaxStep` (default 1 block). Diagonals and
+connections across node boundaries do not count. The connected component must
+contain at least:
 
 ```text
 max(claimTerrainMinArea, ceil(nodeColumns * claimTerrainCoveragePercent / 100))
 ```
 
-Defaults are 64 columns and 25%. Ordinary 16×16 nodes therefore need 64 connected
-columns; 16×31 nodes need 124, and the legacy 31×31 zero node needs 241. One block
-cannot qualify even at minimum configuration (area is bounded to at least 2).
-An unobstructed 8×8 deck can qualify an ordinary node; two disconnected 4×8 decks
-cannot. Larger zero-coordinate footprints need larger decks. Each neighboring
-ocean node must independently pass; adjacency to an eligible rig never unlocks it.
-This deliberately clips city-radius/flag-selection grants to eligible nodes.
+Defaults remain 64 columns and 25%: ordinary 16×16 nodes need 64 connected columns,
+16×31 nodes need 124, and the 31×31 zero node needs 241. An unobstructed 8×8 deck
+qualifies an ordinary node; two disconnected 4×8 decks do not. An incremental
+component union stops reading columns as soon as sufficient connected surface is
+confirmed. Every ocean neighbor must qualify independently; proximity to an
+eligible platform does not unlock it.
 
-New City Center placement checks faction membership, territory/spacing, foundation,
-war/relocation and affordability before requesting terrain. Unknown/stale terrain
-produces a temporary queued/in-progress message; wait nearby and retry the item
-after sampling. Unavailable chunks and capture failures report their own reasons.
-Repeated attempts share one pending capture per world/dimension/node. A completed
-sample is reused within the existing freshness window unless relevant terrain or
-policy changes. Placement posts Forge protection approval before committing city
-claims or charging prestige, then rechecks founding requirements. Rejection restores
-the replaced block and retains the item; the item is consumed only on success.
-The provisional City Center's own placement event does not invalidate the sample
-being checked; accepted placement invalidates it after the city is committed.
-Expansion, legacy
-capital flags and conquest-flag selections use the central territorial grant gate.
-Deferred grants carry bounded, transient intents; on completion they recheck the
-same tile/location, active faction owner, intended radius/selection, existing
-territory and applicable flag foundation/capture state. They are discarded if
-authorization changes or the source chunk unloads. Intents do not persist across restart; retry expansion or
-selection afterwards. Relocation retains the existing transaction/overlap/spacing
-rules and existing city nodes within the destination shape, adding only eligible
-new nodes; deferred additions use the same validated intents. Costs and existing
-upkeep formulas are unchanged, including selection-size based conquest upkeep.
+Unloaded columns, unsupported/throwing collision queries or a surface outside the
+bounded windows never count as land. If insufficient surface is confirmed, the
+node is rejected or reported unavailable immediately, without queuing ownership.
+Very deep foliage and transparent decks outside both search windows can therefore
+remain unconfirmed. The slower background survey may show more complete surface
+counts; it cannot override the immediate ownership check. Standard 0..255 worlds
+remain supported; Stage 4's extended-height gate is unchanged.
 
-`/c city terrain` shows the current protection node's eligibility and connected,
-dry/filled, platform, water and submerged counts, or the deferred reason.
-`/c city terrain retry` lets an officer/leader in their active city's territory
-retry the current radius after reclamation/building. It does not buy an upgrade,
-increase the radius or bypass other claim rules. Founding, upgrade and conquest
-selection messages report rejected/deferred nodes. Existing faction claims and
-authorized ownership transfers remain independent of classification. Changing
-eligibility never unclaims or removes a flag; existing foundation/sky, faction,
-war and persistence rules may still do so under their original conditions.
+City founding retains faction membership, dimension, name, radius/spacing,
+protected-zone, foundation, war/relocation and affordability checks. Forge approves
+the provisional block before founding requirements are rechecked and claims are
+published. Rejection restores the replaced block and retains the item. Founding
+costs follow successful territory preparation; the item is consumed only after
+successful founding. Failure rolls back new city claims and restores accounting.
+The solid, sky-accessible 5×5 foundation and Y 45..200 limits are unchanged.
 
-Eight captures at most share the existing `XFEarthWorkQueue` with generation,
-imports and map publication. Each capture step reads at most one block column's
-current Y position; completion evaluates at most 961 detached columns and may
-publish one validated grant with the existing bounded flag-foundation checks.
-Live chunks are never accessed by a worker. The
-existing `earthRoadStepsPerTick` / `earthRoadTickMillis` defaults (1024 / 2 ms)
-remain the shared budget, checked between bounded steps rather than interrupting
-Minecraft/mod callbacks. Required footprint plus one-block halo chunks must
-already be loaded, with availability rechecked during capture. No chunks are
-force-loaded; block implementations that independently access distant chunks
-are outside the inspected support contract.
+Upgrades, same-level expansion, relocation, conquest selections, legacy capital
+flags and the central `setOwnerForInts` gate use the same immediate policy for new
+nodes. Existing city nodes, authorized faction transfers, radius/spacing, costs,
+upkeep, permissions and protected zones retain their existing rules. Upgrade
+preparation preserves existing city territory and occupied/protected nodes, then
+commits available eligible wilderness grants with level/accounting rollback.
+Relocation retains its existing transaction and only adds eligible new nodes.
+No queued job holds a grant intent or calls an ownership setter. Restart does not
+require resuming deferred sampling; ownership and node NBT formats are unchanged.
 
-The runtime cache/waiting set is bounded to 4,096 records per world; backpressure
-defers requests rather than choosing land/ocean. Results persist through the
-Stage 8 schema with algorithm `xf:connected-surface`, revision 1 and an evidence
-hash. Saved results are never trusted as fresh after restart. Fresh grant results
-must match the current session, policy and invalidation generation and be at most
-`claimTerrainMaxAgeTicks` old (default 100 server ticks). Mutations during capture
-discard the partial sample. World/session shutdown invalidates queued work.
+`/c city terrain` reports the current protection node's immediate connected-surface
+result. Officers/leaders can still use `/c city terrain retry` in their active city
+to reconsider its paid radius after reclamation, construction or loading terrain.
+This is optional, costs no additional upgrade, and is not needed to complete
+ordinary loaded-land placement. Upgrade/selection notices distinguish insufficient
+surface from unavailable terrain. Classification never automatically unclaims.
 
-Forge non-cancelled break/place/multi-place events invalidate affected nodes and
-their one-block collision neighborhood. Standard Forge detonation invalidates
-affected positions, coalescing node keys. Over 4,096 blocks or 256 distinct
-affected nodes invalidate the world's cache epoch without scanning every node.
-Chunk unloads invalidate only nodes whose footprint or one-block halo touches the
-unloaded chunk; unrelated unloads neither restart captures nor expire results. XF live
-road/feature imports call `invalidate(world,x,z)` explicitly after each edit.
-Other owning-thread bulk editors can use that public hook. WorldEdit/FAWE, direct
-chunk/section writes, custom explosions bypassing Forge, fluid changes and other
-unobserved mod edits have no immediate integration. A bounded ordered cursor
-visits `claimTerrainRefreshNodes` tracked nodes every 20 server ticks (default 2),
-without copying or scanning the full registry. A pass over N nodes takes roughly
-`20 * ceil(N / refreshNodes)` ticks plus queue/capture delays; there is no fixed
-whole-world refresh deadline. Hook-bypassing edits can remain unnoticed until
-refresh or a stale claim attempt; an edit within the freshness window is not
-guaranteed immediately visible. Capture spans ticks, so hook-bypassing edits may
-also produce mixed-time observations until a later refresh; this is not an atomic
-world snapshot. No classification-only auto-unclaim is introduced.
+`ClaimTerrainService.decision` remains an independent background diagnostic API
+for map eligibility outlines. At most eight captures share `XFEarthWorkQueue` with
+geographic work, using the existing `earthRoadStepsPerTick` / `earthRoadTickMillis`
+budget. These captures run on server ticks, not worker threads, and never publish
+ownership. They can still scan whole columns and report dry/filled, platform,
+water and submerged counts through `ClaimTerrainClassifier`. The bounded runtime
+cache holds at most 4,096 records per world. Evidence persists in the existing
+Stage 8 schema as `xf:connected-surface`, revision 1; saved evidence is not fresh
+after restart. `claimTerrainMaxAgeTicks` (default 100) and
+`claimTerrainRefreshNodes` (default 2 every 20 ticks) control diagnostics only.
 
-Map viewport requests refresh stale node data under the same queue and expose
-cyan pending/unavailable, green eligible and red insufficient surface styles.
-They retain `YOU ARE HERE`. Stage 10 uses 64-node / typed packet bounds and
-automatically refreshes the open Map viewport every 40 client ticks. These remain
-bounded snapshots; pending colors are not an eligibility guarantee.
-Optional Dynmap/JourneyMap ownership layers are unchanged and do not acquire
-terrain-policy dependencies.
+Non-cancelled Forge block/bulk-placement, break and explosion events invalidate
+background records, as do XF road imports and the public `invalidate(world,x,z)`
+hook. Large edits invalidate the cache epoch; chunk unloads invalidate only the
+affected footprints/halos. Invalidation leaves profile and capture work to the
+tick queue. Direct section writes, custom explosions and editors bypassing these
+hooks can leave background outlines stale until refresh. Immediate grants read
+loaded blocks again, independently of those cached results and their freshness.
+World/session shutdown discards background work. Map cyan pending/unavailable,
+green eligible and red insufficient outlines remain bounded diagnostic snapshots,
+not ownership promises; opening or closing a map cannot change grant timing.
+Optional Dynmap/JourneyMap ownership layers retain their existing behavior.
 
-**Verification:** source traces cover land, submerged floor, open liquid, filled
-land and deck capture; slabs/collision unions; connectivity; all production
-territorial grants including relocation; invalidation, freshness, cancellation,
-saved classification and independent ownership. Arithmetic checks cover area
-thresholds, isolated/split decks, fractional height-step limits and endpoint
-invalidation around negative/zero/positive units in three dimensions. Final
-offline Forge 1.7.10 `compileJava` succeeded with the unchanged Gradle tooling;
-all ten terrain class headers are Java 8 major 52. No packaging, remapping,
-runtime launch, actual terrain sampling,
-save/reopen, explosion/bulk-edit observation, dedicated-server or in-game Map
-behavior is claimed. Those checks remain required; custom mod block collision
-behavior and hook-bypassing edits remain compatibility limits.
+**Validation:** source tracing covers founding through publication and rollback,
+shared new-grant paths, background isolation, bounds, liquid stops and component
+early exits. Offline Forge 1.7.10 compilation and Java 8 class verification are
+used for this change. No in-game placement, multiplayer synchronization, modded
+collision behavior, failure injection, save/reopen or runtime performance result
+is claimed; those remain runtime validation work.
 
 ## Geographic overview (Stage 10)
 

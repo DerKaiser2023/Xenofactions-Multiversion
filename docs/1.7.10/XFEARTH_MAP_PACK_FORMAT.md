@@ -123,8 +123,10 @@ Later geographic stages must reuse:
   and exact protection geometry via `ClaimOverlayData.nodeSnapshot`; ownership
   remains in the existing territory map. See
   [persistent claim nodes](XFEARTH_WORLD_TYPE.md#persistent-claim-nodes-stage-8).
-  Stage 9's `ClaimTerrainService.decision` / `invalidate` own terrain freshness
-  and the grant gate; `ClaimTerrainClassifier` processes detached surface data.
+  `ClaimTerrainService.decision` / `invalidate` own optional background diagnostic
+  freshness; `ClaimTerrainClassifier` processes detached surface data. New grants
+  use `grantDecision` / `ClaimSurfaceCheck` synchronously on loaded terrain,
+  independently of background results, profiles, road queues or overlays.
   Geographic polygons/biomes cannot substitute for actual loaded terrain. See
   [terrain eligibility](XFEARTH_WORLD_TYPE.md#terrain-claim-eligibility-stage-9).
 - Stage 10's `XFEarthMapLayers` is the shared point/line/even-odd-area overview

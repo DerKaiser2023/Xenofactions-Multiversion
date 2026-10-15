@@ -1815,7 +1815,7 @@ private void cmdCreate(ICommandSender sender, String name) {
         EntityPlayer player=getCommandSenderAsPlayer(sender);
         if(args.length>3||args.length==3&&!"retry".equalsIgnoreCase(args[2])){sender.addChatMessage(new ChatComponentText(ERROR+"Usage: /c city terrain [retry]"));return;}
         CoordPair node=com.hfr.clowder.ClaimNodeSystem.protectionCoordinate(player.worldObj.provider.dimensionId,(int)player.posX,(int)player.posZ);
-        com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.decision(player.worldObj,node);
+        com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.grantDecision(player.worldObj,node);
         sender.addChatMessage(new ChatComponentText(INFO+"Node "+node+": "+terrain.eligibility+"; "+terrain.reason));
         if(args.length!=3)return;
         Clowder faction=Clowder.getClowderFromPlayer(player);TerritoryMeta meta=ClowderTerritory.getMetaFromCoords(node);

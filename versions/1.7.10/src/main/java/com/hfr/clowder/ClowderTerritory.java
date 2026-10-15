@@ -69,7 +69,7 @@ public class ClowderTerritory {
         Set<CoordPair> eligible=new LinkedHashSet<CoordPair>();
         for(CoordPair coordinate:expected){
             TerritoryMeta existing=territory.get(coordinate);
-            if(existing!=null&&cityId.equals(existing.cityId)||ClaimTerrainService.allowGrant(world,coordinate,faction,flagX,flagY,flagZ,cityName,cityId))eligible.add(coordinate);
+            if(existing!=null&&cityId.equals(existing.cityId)||ClaimTerrainService.allowGrant(world,coordinate,faction))eligible.add(coordinate);
         }
         expected=eligible;
         if(!expected.contains(getCoordPair(dimensionId,flagX,flagZ)))throw new IllegalStateException("New City Center node is not terrain-eligible");
@@ -356,7 +356,7 @@ public class ClowderTerritory {
 			return;
 		CoordPair code = new CoordPair(getDimensionId(world), x, z);
 
-        if(!ClaimTerrainService.allowGrant(world,code,owner,fX,fY,fZ,name,stableCityId))return;
+        if(!ClaimTerrainService.allowGrant(world,code,owner))return;
 		TerritoryMeta oldMeta = territories.remove(code);
 		Clowder oldOwner = oldMeta == null || oldMeta.owner == null ? null : oldMeta.owner.owner;
 

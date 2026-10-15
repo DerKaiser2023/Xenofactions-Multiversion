@@ -14,17 +14,20 @@ Blast Furnaces, Coal Mines, Foundries, generators and the Federal Reserve are re
 
 Stage 8 claim nodes retain the existing territorial units and ownership. Their
 versioned terrain state starts `UNCLASSIFIED` and is separate from faction rights.
-Stage 9 requires enough connected actual land/platform surface for **new** nodes;
-default coverage is at least 64 columns and 25% of that node. Unknown/stale terrain
-defers a grant. Existing ownership, transfers, costs, radius/spacing, spawn
-exceptions and protection permissions remain under their existing rules; terrain
-classification never automatically unclaims. `/c city terrain` reports eligibility;
-officers/leaders can use `/c city terrain retry` in their city to retry its current
-paid level's expansion without another charge. Upgrades report level advancement
-separately from added, rejected, deferred and occupied/protected nodes. Existing
-city territory and other zones are retained; new grants use eligible wilderness
-only. Deferred grants are revalidated on the server; after a restart, retry the
-saved level's expansion because pending sampling intents are session-local.
+New nodes require enough connected actual land/platform surface: defaults remain
+64 columns and 25% of the node, with a one-block adjacent height step. The owning
+server checks loaded height/surface data during the action, with bounded vertical
+windows and an early exit when sufficient connected area is confirmed. Liquid
+stops a column before seabed; natural/reclaimed land and solid decks remain eligible.
+Unloaded or unsupported columns cannot count. Background sampling, roads, datasets
+and map overlays are independent of grants, and no deferred ownership intents remain.
+Existing ownership, transfers, costs, radius/spacing, spawn exceptions, foundation
+rules and protection permissions are preserved; classification never unclaims.
+`/c city terrain` reports the immediate check. Officers/leaders may use
+`/c city terrain retry` after terrain changes or loading unavailable terrain,
+without buying another level. Normal loaded-land founding resolves its available
+territory immediately. Upgrades distinguish added, rejected, unavailable and
+occupied/protected nodes while retaining existing city territory and other zones.
 See [terrain eligibility](XFEARTH_WORLD_TYPE.md#terrain-claim-eligibility-stage-9).
 
 Each territory-owning faction stores two policies: `ally` and `neutral`. Categories are `BUILD` (place blocks), `DESTROY` (break blocks), `CONTAINER` (inventory tile entities), `INTERACT` (other right-clicks), and `SWITCH` (doors, trapdoors, gates, buttons, levers, and pressure plates).

@@ -305,7 +305,7 @@ public final class XFConfig {
         claimTerrainMinArea=integer(config,CAT_CLAIMS,"claimTerrainMinArea",64,2,961,"Minimum connected qualifying column area per new claim node; never grants neighboring ocean nodes.");
         claimTerrainCoveragePercent=integer(config,CAT_CLAIMS,"claimTerrainCoveragePercent",25,1,100,"Largest connected surface must cover this percentage of the actual territorial footprint, rounded up.");
         claimTerrainMaxStep=integer(config,CAT_CLAIMS,"claimTerrainMaxStep",1,0,4,"Maximum top-height difference between orthogonally connected surface columns, in blocks; slabs retain fractional height.");
-        claimTerrainMaxAgeTicks=integer(config,CAT_CLAIMS,"claimTerrainMaxAgeTicks",100,1,1200,"Maximum server-tick age of a terrain result used for a new claim. Persisted results require a new session sample.");
+        claimTerrainMaxAgeTicks=integer(config,CAT_CLAIMS,"claimTerrainMaxAgeTicks",100,1,1200,"Maximum server-tick age of optional background diagnostic/overlay results. Ownership checks loaded terrain immediately.");
         claimTerrainRefreshNodes=integer(config,CAT_CLAIMS,"claimTerrainRefreshNodes",2,1,16,"Tracked nodes visited every 20 server ticks by the bounded refresh cursor; captures share the Earth work queue budget.");
 		allowedClaimDimensions = intList(config, CAT_CLAIMS, "allowedClaimDimensions", allowedClaimDimensions, -100000, 100000, "Dimension whitelist for claims; empty means all dimensions.");
 		blockedClaimDimensions = intList(config, CAT_CLAIMS, "blockedClaimDimensions", blockedClaimDimensions, -100000, 100000, "Dimension blacklist for claims; empty means none.");

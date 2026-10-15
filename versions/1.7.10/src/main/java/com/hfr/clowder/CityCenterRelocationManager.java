@@ -180,7 +180,7 @@ public final class CityCenterRelocationManager {
         CoordPair center=ClowderTerritory.getCoordPair(world,x,z);
         TerritoryMeta centerMeta=ClowderTerritory.getMetaFromCoords(center);
         if(centerMeta==null||!faction.relocationCityId.equals(centerMeta.cityId)){
-            ClaimTerrainService.Decision terrain=ClaimTerrainService.decision(world,center);
+            ClaimTerrainService.Decision terrain=ClaimTerrainService.grantDecision(world,center);
             if(terrain.eligibility!=ClaimNodeSystem.Eligibility.ELIGIBLE)return terrain.rejection();
         }
         for(int dx=-radius; dx<=radius; dx++) for(int dz=-radius; dz<=radius; dz++) if(Math.sqrt(dx*dx+dz*dz)<radius) {

@@ -224,13 +224,14 @@ public class TileEntityFlagBig extends TileEntityMachineBase implements ITerrito
 	}
 	
 	public void generateClaim() {
-        int rejected=0,deferred=0;
+        int rejected=0,unavailable=0;
 		
 		for(CoordPair coords : this.claim) {
 
-            if(this.owner!=null&&!com.hfr.clowder.ClaimTerrainService.allowGrant(worldObj,coords,owner,xCoord,yCoord,zCoord,provinceName,ClowderTerritory.cityId(worldObj.provider.dimensionId,xCoord,yCoord,zCoord))){
-                com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.decision(worldObj,coords);
-                if(terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.INELIGIBLE)rejected++;else deferred++;continue;
+            if(this.owner!=null&&!com.hfr.clowder.ClaimTerrainService.existingClaim(coords)){
+                com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.grantDecision(worldObj,coords);
+                if(terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.INELIGIBLE){rejected++;continue;}
+                if(terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.UNCLASSIFIED){unavailable++;continue;}
             }
 			
 			TerritoryMeta meta = ClowderTerritory.getMetaFromCoords(coords);
@@ -252,7 +253,7 @@ public class TileEntityFlagBig extends TileEntityMachineBase implements ITerrito
 			else
 				ClowderTerritory.removeZoneForCoord(worldObj, coords);
 		}
-        terrainClaimNotice=rejected==0&&deferred==0?"":"Selection: "+rejected+" nodes rejected for insufficient connected surface; "+deferred+" deferred for bounded terrain sampling. Existing claims retained.";
+        terrainClaimNotice=rejected==0&&unavailable==0?"":"Selection: "+rejected+" nodes rejected for insufficient connected surface; "+unavailable+" unavailable to the loaded surface check. Existing claims retained.";
 	}
 
     public String terrainClaimNotice="";
