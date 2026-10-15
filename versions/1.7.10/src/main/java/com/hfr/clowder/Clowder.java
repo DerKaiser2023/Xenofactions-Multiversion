@@ -1501,6 +1501,24 @@ public class Clowder {
 		this.save(world);
 	}
 
+	/** Commit both city-upgrade balances together; a failed save leaves both exact old values. */
+	public boolean chargeCityUpgrade(CityLevel current, CityLevel next, World world) {
+		if(next == null || current.next() != next) return false;
+		float cost = XFConfig.cityUpgradeCost(next);
+		float required = Math.max(0F, prestigeReq - XFConfig.cityUpkeep(current)) + XFConfig.cityUpkeep(next);
+		if(prestige < cost || required > prestige - cost) return false;
+		float oldPrestige = prestige, oldUpkeep = prestigeReq;
+		try {
+			prestige = Math.min(prestige - cost, prestigeCap);
+			prestigeReq = Math.max(0F, required);
+			save(world);
+			return true;
+		} catch(RuntimeException failure) {
+			prestige = oldPrestige; prestigeReq = oldUpkeep;
+			throw failure;
+		}
+	}
+
 	public void addPrestigeGen(float f, World world) {
 		prestigeGen += f;
 

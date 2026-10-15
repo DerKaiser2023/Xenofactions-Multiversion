@@ -3,13 +3,19 @@ package com.hfr.tileentity.clowder;
 import static net.minecraftforge.common.util.ForgeDirection.UP;
 
 import java.util.List;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.UUID;
 
 import com.hfr.clowder.Clowder;
 import com.hfr.clowder.ClowderFlag;
 import com.hfr.clowder.CityLevel;
 import com.hfr.clowder.CityCenterRelocationManager;
+import com.hfr.clowder.ClaimTerrainService;
+import com.hfr.clowder.ClaimNodeSystem.Eligibility;
 import com.hfr.config.XFConfig;
+import com.hfr.data.ClowderData;
 import com.hfr.clowder.ClowderTerritory;
 import com.hfr.clowder.ClowderTerritory.CoordPair;
 import com.hfr.clowder.ClowderTerritory.Ownership;
@@ -340,20 +346,125 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 	}
 
 	public boolean upgradeCity() {
-		if(owner == null)
-			return false;
+		String error = getCityUpgradeError();
+		if(error != null) { terrainClaimNotice = error; return false; }
+		return commitCityExpansion(cityLevel.next(), true);
+	}
+
+	/** Checked before quoting and again when the repeated command commits. */
+	public String getCityUpgradeError() {
+		String error = getCityExpansionError();
+		if(error != null) return error;
 		CityLevel next = cityLevel.next();
-		if(next == null)
+		if(next == null) return name + " is already a Capital.";
+		float cost = XFConfig.cityUpgradeCost(next);
+		if(owner.getPrestige() < cost || Math.max(0F, owner.getPrestigeReq() - getCost()) + XFConfig.cityUpkeep(next) > owner.getPrestige() - cost)
+			return "Upgrade requires " + cost + " prestige and sequential upkeep capacity.";
+		return null;
+	}
+
+	private String getCityExpansionError() {
+		if(worldObj == null || worldObj.isRemote || isInvalid() || owner == null || CityCenterRelocationManager.isOrphaned(this) || !isClaimed)
+			return "This is not an active owned City Center.";
+		if(!XFConfig.canClaimInDimension(worldObj.provider.dimensionId)) return "City claims are disabled in this dimension.";
+		for(int cx = (xCoord - 2) >> 4; cx <= (xCoord + 2) >> 4; cx++)
+			for(int cz = (zCoord - 2) >> 4; cz <= (zCoord + 2) >> 4; cz++)
+				if(!worldObj.getChunkProvider().chunkExists(cx, cz)) return "City Center foundation chunks are unavailable; stay nearby and retry.";
+		if(worldObj.getTileEntity(xCoord, yCoord, zCoord) != this || !canSeeSky())
+			return "The City Center requires its solid, sky-accessible 5 by 5 foundation.";
+		TerritoryMeta center = ClowderTerritory.getMetaFromIntCoords(worldObj, xCoord, zCoord);
+		if(!ownsCityMeta(center)) return "The City Center no longer owns its center claim.";
+		return null;
+	}
+
+	private boolean ownsCityMeta(TerritoryMeta meta) {
+		return meta != null && meta.owner != null && meta.owner.zone == Zone.FACTION && meta.owner.owner == owner
+			&& meta.dimensionId == worldObj.provider.dimensionId && getCityId().equals(meta.cityId)
+			&& meta.flagX == xCoord && meta.flagY == yCoord && meta.flagZ == zCoord;
+	}
+
+	/** Retry the already paid level, using the same non-destructive expansion as an upgrade. */
+	public boolean retryCityExpansion() {
+		String error = getCityExpansionError();
+		if(error != null) { terrainClaimNotice = error; return false; }
+		return commitCityExpansion(cityLevel, false);
+	}
+
+	private final class CityExpansion {
+		final Map<CoordPair, TerritoryMeta> previous = new HashMap<CoordPair, TerritoryMeta>();
+		final Map<CoordPair, TerritoryMeta> replacement = new HashMap<CoordPair, TerritoryMeta>();
+		final List<CoordPair> deferred = new ArrayList<CoordPair>();
+		int granted, rejected, blocked;
+		void stage(CoordPair key, TerritoryMeta old, CityLevel level) {
+			TerritoryMeta meta = new TerritoryMeta(new Ownership(Zone.FACTION, owner), xCoord, yCoord, zCoord);
+			meta.dimensionId = worldObj.provider.dimensionId; meta.cityId = getCityId();
+			meta.name = name; meta.cityName = name; meta.cityLevel = level.ordinal();
+			previous.put(key, old); replacement.put(key, meta);
+		}
+		String notice() {
+			return "City expansion: " + granted + " nodes added; " + rejected + " rejected for insufficient connected land/platform; "
+				+ deferred.size() + " deferred for terrain sampling; " + blocked + " occupied/protected nodes retained. "
+				+ (rejected == 0 && deferred.isEmpty() && blocked == 0 ? "All nodes within the radius are owned by this city."
+					: "The configured radius is a limit, not a fully granted area. Use /c city terrain retry to retry this level without another charge.");
+		}
+	}
+
+	private CityExpansion prepareCityExpansion(CityLevel target) {
+		CityExpansion expansion = new CityExpansion();
+		// Update every existing node's level without pruning old territory or repairing foreign claims.
+		for(Map.Entry<CoordPair, TerritoryMeta> entry : ClowderTerritory.territories.entrySet())
+			if(ownsCityMeta(entry.getValue())) expansion.stage(entry.getKey(), entry.getValue(), target);
+		for(CoordPair key : ClowderTerritory.getCityClaimCoordinates(worldObj.provider.dimensionId, xCoord, zCoord, XFConfig.cityRadius(target))) {
+			TerritoryMeta old = ClowderTerritory.getMetaFromCoords(key);
+			if(ownsCityMeta(old)) continue;
+			if(old != null && (old.owner == null || old.owner.zone != Zone.WILDERNESS)) { expansion.blocked++; continue; }
+			ClaimTerrainService.Decision decision = ClaimTerrainService.decision(worldObj, key);
+			if(decision.eligibility == Eligibility.INELIGIBLE) { expansion.rejected++; continue; }
+			if(decision.eligibility == Eligibility.UNCLASSIFIED) { expansion.deferred.add(key); continue; }
+			expansion.stage(key, old, target); expansion.granted++;
+		}
+		return expansion;
+	}
+
+	private boolean commitCityExpansion(CityLevel target, boolean charge) {
+		CityExpansion expansion = null;
+		CityLevel previousLevel = cityLevel;
+		try {
+			// Terrain capture may be queued here, but no grant intent or city/financial mutation occurs yet.
+			ClowderData data = ClowderData.getData(worldObj);
+			expansion = prepareCityExpansion(target);
+			ClowderTerritory.territories.putAll(expansion.replacement);
+			cityLevel = target;
+			markDirty(); data.markDirty();
+			// Last fallible commit step. Accounting restores itself on failure.
+			if(charge && !owner.chargeCityUpgrade(previousLevel, target, worldObj))
+				throw new IllegalStateException("Prestige or upkeep capacity changed before the upgrade completed.");
+		} catch(RuntimeException failure) {
+			cityLevel = previousLevel;
+			if(expansion != null) for(Map.Entry<CoordPair, TerritoryMeta> entry : expansion.previous.entrySet()) {
+				if(entry.getValue() == null) ClowderTerritory.territories.remove(entry.getKey());
+				else ClowderTerritory.territories.put(entry.getKey(), entry.getValue());
+			}
+			terrainClaimNotice = "City expansion could not be committed; see the server log.";
+			MainRegistry.logger.error("City upgrade/expansion failed; previous level, claims and balances retained", failure);
 			return false;
-		float beforeCost = getCost();
-		if(owner.getPrestige() < XFConfig.cityUpgradeCost(next) || owner.getPrestigeReq() - beforeCost + XFConfig.cityUpkeep(next) > owner.getPrestige() - XFConfig.cityUpgradeCost(next))
-			return false;
-		owner.addPrestige(-XFConfig.cityUpgradeCost(next), worldObj);
-		owner.addPrestigeReq(-beforeCost, worldObj);
-		cityLevel = next;
-		owner.addPrestigeReq(getCost(), worldObj);
-		generateClaim();
-		markDirty();
+		}
+		terrainClaimNotice = expansion.notice();
+		com.hfr.dynmap.XFDynmapIntegration.markDirty();
+		// Only a committed level may own deferred grants. Resuming never calls upgradeCity or charges prestige.
+		try {
+			for(CoordPair key : expansion.deferred)
+				ClaimTerrainService.allowGrant(worldObj, key, owner, xCoord, yCoord, zCoord, name, getCityId());
+		} catch(RuntimeException failure) {
+			MainRegistry.logger.error("City level committed; deferred expansion scheduling interrupted", failure);
+			terrainClaimNotice += " Deferred scheduling was interrupted; retry terrain expansion at this level.";
+		}
+		try {
+			syncPrestigeGauges();
+		} catch(RuntimeException failure) {
+			// Normal tile ticks retry these gauges; a transport failure cannot undo a committed upgrade.
+			MainRegistry.logger.error("City level committed; immediate client gauge refresh interrupted", failure);
+		}
 		return true;
 	}
 	

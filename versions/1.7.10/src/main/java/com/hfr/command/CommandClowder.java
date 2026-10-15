@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import com.mojang.authlib.GameProfile;
 import com.hfr.blocks.BlockDummyable;
@@ -65,7 +66,7 @@ import static com.hfr.main.MainRegistry.sub;
 
 public class CommandClowder extends CommandBase {
 
-	private static final HashMap<String, Long> CITY_UPGRADE_CONFIRMATIONS = new HashMap();
+	private final HashMap<UUID, CityUpgradeConfirmation> cityUpgradeConfirmations = new HashMap<UUID, CityUpgradeConfirmation>();
 	private static final HashMap<String, WarConfirmation> WAR_CONFIRMATIONS = new HashMap();
 
 	//private static final CoordPair wbpospos = new CoordPair(4274, 1335);
@@ -213,20 +214,14 @@ public class CommandClowder extends CommandBase {
 		if(cmd.equals("balance")) { cmdBalance(sender); return; }
 		if(cmd.equals("deposit")) { if(!requireArgs(sender, cmd, args, 2)) return; cmdDeposit(sender, args[1]); return; }
 
-		if(cmd.equals("claim") || cmd.equals("city")) {
-			if(args.length > 1 && args[1].equalsIgnoreCase("upgrade")) {
-				cmdCityUpgrade(sender);
-			} else if(cmd.equals("city") && args.length > 1 && args[1].equalsIgnoreCase("terrain")) {
-                cmdCityTerrain(sender,args);
-			} else if(cmd.equals("city") && args.length > 1 && args[1].equalsIgnoreCase("cancelmove")) {
-				cmdCityMove(sender, false);
-			} else if(cmd.equals("city") && args.length > 1 && args[1].equalsIgnoreCase("recovermove")) {
-				cmdCityMove(sender, true);
-			} else if(args.length > 1) {
-				cmdClaim(sender, joinArgs(args, 1));
-			} else {
-				sender.addChatMessage(new ChatComponentText(ERROR + "Usage: /c claim <city name> or /c city <upgrade|terrain|cancelmove|recovermove>"));
-			}
+		if(cmd.equals("city")) {
+			cmdCity(sender, args);
+			return;
+		}
+		if(cmd.equals("claim")) {
+			// Retain the supported claim-upgrade alias, including its argument validation.
+			if(args.length > 1 && args[1].equalsIgnoreCase("upgrade")) cmdCity(sender, args);
+			else if(requireArgs(sender, cmd, args, 2)) cmdClaim(sender, joinArgs(args, 1));
 			return;
 		}
 
@@ -264,6 +259,7 @@ public class CommandClowder extends CommandBase {
 	}
 
 	private String getUsageFor(String cmd) {
+		if(cmd.equals("claim")) return "/c claim <city name>";
 		if(cmd.equals("create")) return "/c create <name>";
 		if(cmd.equals("disband")) return "/c disband <faction name>";
 		if(cmd.equals("merge")) return "/c merge <faction>";
@@ -1827,12 +1823,27 @@ private void cmdCreate(ICommandSender sender, String name) {
         if(!player.worldObj.getChunkProvider().chunkExists(meta.flagX>>4,meta.flagZ>>4)){sender.addChatMessage(new ChatComponentText(ERROR+"City Center chunk is unavailable; no chunk was requested."));return;}
         TileEntity tile=player.worldObj.getTileEntity(meta.flagX,meta.flagY,meta.flagZ);
         if(!(tile instanceof TileEntityFlag)||((TileEntityFlag)tile).owner!=faction||!((TileEntityFlag)tile).isClaimed){sender.addChatMessage(new ChatComponentText(ERROR+"This is not an active owned City Center."));return;}
-        TileEntityFlag city=(TileEntityFlag)tile;city.generateClaim();
-        sender.addChatMessage(new ChatComponentText(INFO+(city.terrainClaimNotice.isEmpty()?"Eligible city nodes are up to date.":city.terrainClaimNotice)));
+        TileEntityFlag city=(TileEntityFlag)tile;
+        if(!city.getCityId().equals(meta.cityId)){sender.addChatMessage(new ChatComponentText(ERROR+"This claim no longer belongs to that City Center."));return;}
+        boolean expanded=city.retryCityExpansion();
+        sender.addChatMessage(new ChatComponentText((expanded?INFO:ERROR)+city.terrainClaimNotice));
     }
+
+	private void cmdCity(ICommandSender sender, String[] args) {
+		if(args.length > 1) {
+			if(args[1].equalsIgnoreCase("terrain")) { cmdCityTerrain(sender, args); return; }
+			if(args.length == 2) {
+				if(args[1].equalsIgnoreCase("upgrade")) { cmdCityUpgrade(sender); return; }
+				if(args[1].equalsIgnoreCase("cancelmove")) { cmdCityMove(sender, false); return; }
+				if(args[1].equalsIgnoreCase("recovermove")) { cmdCityMove(sender, true); return; }
+			}
+		}
+		sender.addChatMessage(new ChatComponentText(ERROR + "Usage: /c city <upgrade|terrain [retry]|cancelmove|recovermove>. Found a city with /c claim <city name>."));
+	}
 
 	private void cmdCityUpgrade(ICommandSender sender) {
 		EntityPlayer player = getCommandSenderAsPlayer(sender);
+		CityUpgradeConfirmation pending = cityUpgradeConfirmations.remove(player.getUniqueID());
 		Clowder clowder = Clowder.getClowderFromPlayer(player);
 		if(clowder == null) {
 			sender.addChatMessage(new ChatComponentText(ERROR + "You are not in any faction!"));
@@ -1843,8 +1854,12 @@ private void cmdCreate(ICommandSender sender, String name) {
 			return;
 		}
 		TerritoryMeta meta = ClowderTerritory.getMetaFromIntCoords(player.worldObj, (int)player.posX, (int)player.posZ);
-		if(meta == null || meta.owner == null || meta.owner.owner != clowder) {
+		if(meta == null || meta.dimensionId != player.dimension || meta.owner == null || meta.owner.zone != Zone.FACTION || meta.owner.owner != clowder) {
 			sender.addChatMessage(new ChatComponentText(ERROR + "Stand inside one of your city claims to upgrade it."));
+			return;
+		}
+		if(!player.worldObj.getChunkProvider().chunkExists(meta.flagX >> 4, meta.flagZ >> 4)) {
+			sender.addChatMessage(new ChatComponentText(ERROR + "City Center chunk is unavailable; stay nearby and retry."));
 			return;
 		}
 		TileEntity te = player.worldObj.getTileEntity(meta.flagX, meta.flagY, meta.flagZ);
@@ -1853,28 +1868,54 @@ private void cmdCreate(ICommandSender sender, String name) {
 			return;
 		}
 		TileEntityFlag city = (TileEntityFlag)te;
-		CityLevel next = city.cityLevel.next();
-		if(next == null) {
-			sender.addChatMessage(new ChatComponentText(ERROR + city.name + " is already a Capital."));
+		if(city.owner != clowder || !city.getCityId().equals(meta.cityId)) {
+			sender.addChatMessage(new ChatComponentText(ERROR + "This claim is not attached to your active City Center."));
 			return;
 		}
+		String error = city.getCityUpgradeError();
+		if(error != null) {
+			sender.addChatMessage(new ChatComponentText(ERROR + error));
+			return;
+		}
+		CityLevel next = city.cityLevel.next();
 
-		String confirmKey = player.getDisplayName() + ":" + meta.flagX + ":" + meta.flagY + ":" + meta.flagZ + ":" + next.ordinal();
-		Long confirmUntil = CITY_UPGRADE_CONFIRMATIONS.get(confirmKey);
 		long now = System.currentTimeMillis();
-		if(confirmUntil == null || confirmUntil < now) {
-			CITY_UPGRADE_CONFIRMATIONS.put(confirmKey, now + 10000L);
+		if(pending == null || !pending.matches(city, now)) {
+			cityUpgradeConfirmations.entrySet().removeIf(entry -> entry.getValue().expiresAt < now);
+			cityUpgradeConfirmations.put(player.getUniqueID(), new CityUpgradeConfirmation(city, now + 10000L));
 			sender.addChatMessage(new ChatComponentText(INFO + "Upgrade " + city.name + " to " + next.displayName + " for " + XFConfig.cityUpgradeCost(next) + " prestige."));
 			sender.addChatMessage(new ChatComponentText(INFO + "New city level will be " + next.level() + " with radius " + XFConfig.cityRadius(next) + " and " + XFConfig.cityUpkeep(next) + " upkeep. Run /c city upgrade again within 10 seconds to confirm."));
 			return;
 		}
 
-		CITY_UPGRADE_CONFIRMATIONS.remove(confirmKey);
 		if(city.upgradeCity()){
-			sender.addChatMessage(new ChatComponentText(INFO + city.name + " upgraded to " + city.cityLevel.displayName + " (level " + city.cityLevel.level() + ", radius " + XFConfig.cityRadius(city.cityLevel) + ", upkeep " + XFConfig.cityUpkeep(city.cityLevel) + ")."));
+			sender.addChatMessage(new ChatComponentText(INFO + city.name + " level upgraded to " + city.cityLevel.displayName + " (level " + city.cityLevel.level() + ", configured radius limit " + XFConfig.cityRadius(city.cityLevel) + ", upkeep " + XFConfig.cityUpkeep(city.cityLevel) + ")."));
             if(!city.terrainClaimNotice.isEmpty())sender.addChatMessage(new ChatComponentText(INFO+city.terrainClaimNotice));
         }else
-			sender.addChatMessage(new ChatComponentText(ERROR + "Upgrade requires " + XFConfig.cityUpgradeCost(next) + " prestige and sequential upkeep capacity."));
+			sender.addChatMessage(new ChatComponentText(ERROR + "Upgrade did not complete; city level, territory and finances were retained. " + city.terrainClaimNotice));
+	}
+
+	private static final class CityUpgradeConfirmation {
+		final TileEntityFlag city;
+		final Clowder faction;
+		final String cityId, name;
+		final int dimension, x, y, z, radius;
+		final CityLevel level;
+		final float cost, upkeep;
+		final long expiresAt;
+		CityUpgradeConfirmation(TileEntityFlag city, long expiresAt) {
+			this.city = city; faction = city.owner; cityId = city.getCityId(); name = city.name;
+			dimension = city.getWorldObj().provider.dimensionId; x = city.xCoord; y = city.yCoord; z = city.zCoord;
+			level = city.cityLevel; radius = XFConfig.cityRadius(level.next());
+			cost = XFConfig.cityUpgradeCost(level.next()); upkeep = XFConfig.cityUpkeep(level.next());
+			this.expiresAt = expiresAt;
+		}
+		boolean matches(TileEntityFlag target, long now) {
+			return now <= expiresAt && target == city && target.owner == faction && target.cityLevel == level
+				&& target.getWorldObj().provider.dimensionId == dimension && target.xCoord == x && target.yCoord == y && target.zCoord == z
+				&& cityId.equals(target.getCityId()) && name.equals(target.name) && radius == XFConfig.cityRadius(level.next())
+				&& cost == XFConfig.cityUpgradeCost(level.next()) && upkeep == XFConfig.cityUpkeep(level.next());
+		}
 	}
 
 	//I have no idea how territories work, but it looks retarded

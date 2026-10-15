@@ -65,8 +65,9 @@ Invitations are saved in the existing faction data with faction and player UUIDs
 
 | Command | Purpose |
 | --- | --- |
-| `/c claim <city name>` | Claim/found a city at your location. |
-| `/c city upgrade` | Upgrade the city where you are standing. |
+| `/c claim <city name>` | Receive a named City Center item to place and found a city. |
+| `/c city upgrade` | Officer or leader: upgrade your existing city where you are standing; repeat within ten seconds to confirm. `/c claim upgrade` remains an alias. |
+| `/c city terrain [retry]` | Inspect this node's terrain eligibility; Officer or leader may retry the current owned city's expansion without another upgrade charge. |
 | `/c city cancelmove` | Leader-only: cancel the pending relocation without changing the City Center or its claims. |
 | `/c city recovermove` | Leader-only: issue a replacement token for the active server-authorized relocation. |
 | `/c nameclaim <name>` | Name the current claim. |
@@ -81,6 +82,12 @@ Invitations are saved in the existing faction data with faction and player UUIDs
 | `/c warp <name>` | Use a faction warp. |
 | `/c warps` | List faction warps. |
 | `/c gracebuild` | Use faction build grace when enabled. |
+
+`/clowder` and `/c` use the same city handler. City actions are explicit: unknown actions (including misspellings such as `city ugrade`) and extra arguments return usage, never a founding item. Use `/c claim <city name>` for founding. The command menu's upgrade action sends the fixed `/clowder city upgrade` command.
+
+Confirmation rechecks membership/rank, the owned City Center and center claim, dimension/location/identity, active foundation, sequential level, configured price and upkeep capacity. Changing the target or quoted settings requires a fresh confirmation. An upgrade retains the city's identifier, name, flag position and dimension. Preparation or commit failure retains its previous level, territory and balances.
+
+Level advancement and territory completion are reported separately. A successful level upgrade pays the configured prestige cost and changes upkeep once; it retains existing city nodes and occupied/protected territory. Only eligible wilderness nodes are added. The response counts nodes added, terrain rejected, deferred, and blocked by existing territory; the configured radius is a limit rather than a promise of a fully claimed area. Deferred grants revalidate the live city, owner, radius, foundation and current territory before publication, and never charge again. Rejected/unavailable nodes can be reconsidered with `/c city terrain retry`. Deferred work is session-local; after a restart, retry the saved level's expansion rather than buying another level. Level, granted territory metadata and faction balances use the existing tile/faction NBT saves and client synchronization.
 
 Ally rally travel waits ten seconds and cancels horizontal movement. The destination faction must list your faction as an ally; a pending alliance offer grants no access. The server rechecks membership, alliance access, bankruptcy restrictions, origin territory, rally coordinates/dimension and dimension availability before teleporting. A renamed faction keeps its pending destination identity; a removed faction or changed rally point aborts with a specific error. Rally travel does not grant access to that faction's named `/c warp` destinations. Existing Earth destination safety and border handling remain in effect.
 

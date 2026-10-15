@@ -20,7 +20,12 @@ defers a grant. Existing ownership, transfers, costs, radius/spacing, spawn
 exceptions and protection permissions remain under their existing rules; terrain
 classification never automatically unclaims. `/c city terrain` reports eligibility;
 officers/leaders can use `/c city terrain retry` in their city to retry its current
-expansion. See [terrain eligibility](XFEARTH_WORLD_TYPE.md#terrain-claim-eligibility-stage-9).
+paid level's expansion without another charge. Upgrades report level advancement
+separately from added, rejected, deferred and occupied/protected nodes. Existing
+city territory and other zones are retained; new grants use eligible wilderness
+only. Deferred grants are revalidated on the server; after a restart, retry the
+saved level's expansion because pending sampling intents are session-local.
+See [terrain eligibility](XFEARTH_WORLD_TYPE.md#terrain-claim-eligibility-stage-9).
 
 Each territory-owning faction stores two policies: `ally` and `neutral`. Categories are `BUILD` (place blocks), `DESTROY` (break blocks), `CONTAINER` (inventory tile entities), `INTERACT` (other right-clicks), and `SWITCH` (doors, trapdoors, gates, buttons, levers, and pressure plates).
 
