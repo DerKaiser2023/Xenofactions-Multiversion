@@ -14,13 +14,15 @@ Blast Furnaces, Coal Mines, Foundries, generators and the Federal Reserve are re
 
 Stage 8 claim nodes retain the existing territorial units and ownership. Their
 versioned terrain state starts `UNCLASSIFIED` and is separate from faction rights.
-New nodes require enough connected actual land/platform surface: defaults remain
-64 columns and 25% of the node, with a one-block adjacent height step. The owning
-server checks loaded height/surface data during the action, with bounded vertical
-windows and an early exit when sufficient connected area is confirmed. Liquid
-stops a column before seabed; natural/reclaimed land and solid decks remain eligible.
-Unloaded or unsupported columns cannot count. Background sampling, roads, datasets
-and map overlays are independent of grants, and no deferred ownership intents remain.
+A new node is rejected only if every surface column is open water at least three
+consecutive water blocks deep. Still and flowing water count. Any exposed solid
+land, solid platform above water, or shallower water column allows it immediately.
+Submerged seabed, leaves, plants and floating items do not count as exposed land.
+There is no land coverage, connected area or height-step requirement; biome names
+have no effect, including in deep rivers and lakes. Unloaded or unsupported terrain
+is reported separately from water rejection. The owning server reads bounded,
+loaded surface data; background sampling, roads, datasets and map overlays are
+independent of grants, and no deferred ownership intents remain.
 Existing ownership, transfers, costs, radius/spacing, spawn exceptions, foundation
 rules and protection permissions are preserved; classification never unclaims.
 `/c city terrain` reports the immediate check. Officers/leaders may use

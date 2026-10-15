@@ -88,6 +88,11 @@ Category: `XENOFACTIONS_05_CLAIMS_CITIES`
 | Key | Default | Meaning |
 | --- | ---: | --- |
 | `maxCityRadius` | `6` | Maximum city radius. |
+| `claimTerrainMinArea` | `64` | Deprecated compatibility key; ignored. No minimum land area. |
+| `claimTerrainCoveragePercent` | `25` | Deprecated compatibility key; ignored. No minimum land coverage. |
+| `claimTerrainMaxStep` | `1` | Deprecated compatibility key; ignored. No connectivity or height-step restriction. |
+| `claimTerrainMaxAgeTicks` | `100` | Optional diagnostic-cache age in server ticks; grants read terrain immediately. |
+| `claimTerrainRefreshNodes` | `2` | Tracked diagnostic nodes visited every 20 server ticks. |
 | `minimumCitySpacingChunks` | `13` | Minimum spacing between city centers. |
 | `claimNameMinLength` | `1` | Minimum claim-name length. |
 | `claimNameMaxLength` | `32` | Maximum claim-name length. |

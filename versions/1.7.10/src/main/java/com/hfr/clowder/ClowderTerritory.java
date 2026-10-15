@@ -57,6 +57,18 @@ public class ClowderTerritory {
 	/** Atomically replaces one city's claims without touching occupied or unrelated coordinates. */
 	public static Set<CoordPair> rebuildCityClaims(World world, Map<CoordPair, TerritoryMeta> territory, Clowder faction,
 		String cityId, int dimensionId, int flagX, int flagY, int flagZ, String cityName, int cityLevel, int radius) {
+        return rebuildCityClaimsWithTerrain(world,territory,faction,cityId,dimensionId,flagX,flagY,flagZ,cityName,cityLevel,radius).claims;
+    }
+
+    public static final class CityClaimResult {
+        public final Set<CoordPair> claims;
+        public final int rejected,unavailable;
+        CityClaimResult(Set<CoordPair> claims,int rejected,int unavailable){this.claims=claims;this.rejected=rejected;this.unavailable=unavailable;}
+    }
+
+    /** Founding needs separate water rejection and unavailable counts from the actual grant pass. */
+    public static CityClaimResult rebuildCityClaimsWithTerrain(World world, Map<CoordPair, TerritoryMeta> territory, Clowder faction,
+        String cityId, int dimensionId, int flagX, int flagY, int flagZ, String cityName, int cityLevel, int radius) {
 		if(territory == null || faction == null || cityId == null || cityId.isEmpty())
 			throw new IllegalArgumentException("invalid city rebuild arguments");
 		Set<CoordPair> expected = getCityClaimCoordinates(dimensionId, flagX, flagZ, radius);
@@ -67,9 +79,14 @@ public class ClowderTerritory {
 		}
 
         Set<CoordPair> eligible=new LinkedHashSet<CoordPair>();
+        int rejected=0,unavailable=0;
         for(CoordPair coordinate:expected){
             TerritoryMeta existing=territory.get(coordinate);
-            if(existing!=null&&cityId.equals(existing.cityId)||ClaimTerrainService.allowGrant(world,coordinate,faction))eligible.add(coordinate);
+            if(existing!=null&&cityId.equals(existing.cityId)||ClaimTerrainService.existingClaim(coordinate)){eligible.add(coordinate);continue;}
+            ClaimTerrainService.Decision decision=ClaimTerrainService.grantDecision(world,coordinate);
+            if(decision.eligibility==ClaimNodeSystem.Eligibility.ELIGIBLE)eligible.add(coordinate);
+            else if(decision.eligibility==ClaimNodeSystem.Eligibility.INELIGIBLE)rejected++;
+            else unavailable++;
         }
         expected=eligible;
         if(!expected.contains(getCoordPair(dimensionId,flagX,flagZ)))throw new IllegalStateException("New City Center node is not terrain-eligible");
@@ -87,7 +104,7 @@ public class ClowderTerritory {
 		}
 		verifyCityClaims(replacement, faction, cityId, dimensionId, flagX, flagY, flagZ, cityName, cityLevel, expected);
 		territory.clear(); territory.putAll(replacement);
-		return expected;
+		return new CityClaimResult(expected,rejected,unavailable);
 	}
 
 	public static void verifyCityClaims(Map<CoordPair, TerritoryMeta> territory, Clowder faction, String cityId,

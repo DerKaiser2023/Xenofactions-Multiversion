@@ -1090,115 +1090,102 @@ height blockers remain separate, and ordinary 256-block worlds are supported.
 ## Terrain claim eligibility (Stage 9)
 
 New ownership uses `ClaimTerrainService.grantDecision` and `ClaimSurfaceCheck`
-synchronously on the owning server thread. Stage 9 originally made a fresh queued
-classification a prerequisite: the first attempt returned `UNCLASSIFIED` even on
-valid land, while neighboring nodes waited for the shared Earth queue. That gate
-and its deferred ownership intents have been removed. A normal placement resolves
-its center and all available eligible neighbors in the same action. No terrain
-sample, road queue progress, profile, dataset, internet connection or map overlay
-is required. Unknown saved classification does not prevent the loaded check.
+synchronously on the owning server thread. Founding and expansion use exactly the
+same rule: **reject only when every surface column is open water at least three
+consecutive water blocks deep, counted downward from the water surface**. Still
+and flowing water both count. One exposed solid land column, one solid platform
+above water, or one water column less than three blocks deep makes the node
+eligible immediately. Leaves, plants and floating item entities do not supply land
+or platforms. The check stops at water, so submerged seabed never counts as exposed
+land; only the surface block and the next two water blocks are needed.
 
-The check uses each Stage 8 node's exact protection footprint, including the legacy
-negative-coordinate conversion and enlarged zero-coordinate units. Each integer
-X/Z column contributes at most one surface. Existing chunk height maps locate the
-ordinary surface; a separate window below the highest populated section also
-looks for transparent decks above the height map. Each window reads at most 32
-vertical positions, with at most 64 per column and 961 columns per node. Air gaps
-between windows and underground volumes are not scanned. Columns and their
-one-block collision halo must already be loaded; unavailable columns cannot count.
-No chunk is loaded or generated to satisfy this check.
+There is no minimum land coverage, connected area, matching surface height or
+maximum step height. Beaches, slopes, cliffs, narrow islands and uneven dry land
+qualify. Ocean biome names and map colors have no role; deep rivers and lakes use
+the same rule as oceans. Solid collision surfaces, including transparent decks,
+slabs and partial solid supports, qualify without a full-cell flat-top requirement.
+Ice and packed ice count as solid surfaces. Other liquids are not a water rejection.
 
-A qualifying surface is solid and non-replaceable, with a flat, full-cell collision
-top at least 1/8 block thick inside the block's Y interval. Coplanar unions of at
-most 32 collision boxes are supported. Bottom/top/double slabs retain fractional
-top heights, and modded decks use their collision properties rather than a block
-whitelist. Leaves/foliage, plants, cactus/gourd, liquids, ice and packed ice do not
-contribute. Narrow supports, fences and stairs without a full top plane cannot
-contribute a whole column. Foliage and decorations can be skipped to find the
-surface within the bounded window. Natural land, reclaimed land and dry solid
-platforms use the same rule; a deck needs no scan of the water or support beneath
-it. Liquid encountered before a qualifying surface stops that column immediately,
-so underwater seabed cannot satisfy the requirement. Biome and geography labels
-never authorize a claim.
+The exact existing Stage 8 protection footprint is unchanged, including legacy
+negative-coordinate conversion and enlarged zero-coordinate units. A standard
+16×16 node requires all 256 columns to be confirmed deep water before rejection;
+a 16×31 or 31×31 footprint requires all 496 or 961 columns respectively. An
+eligible column wins even if another column is unavailable. If none is eligible
+and any column is unavailable, the result is `UNCLASSIFIED` (unavailable), rather
+than a water rejection. Existing ownership is never revoked by classification.
 
-Connectivity uses four orthogonal neighbors inside the node, with adjacent top
-height difference at most `claimTerrainMaxStep` (default 1 block). Diagonals and
-connections across node boundaries do not count. The connected component must
-contain at least:
+The check reuses already cached precipitation heights, which include transparent
+solid decks and are invalidated by normal Minecraft block writes. It never invokes
+the precipitation API's lazy full-height scan. Without a cached height it starts
+at the highest populated section, skips absent sections directly, and makes at
+most 64 surface block probes per column, plus two downward reads at water. There
+is no full-height terrain survey or cave detection. Exceptionally deep foliage
+or many populated sections above an unresolved surface can exhaust that bound;
+such columns are unavailable, never assumed deep water. Standard 0..255 worlds
+remain supported. Collision callbacks require a loaded one-block halo; water
+reads need only their own loaded chunk. No chunk is loaded or generated for a
+claim. Unsupported heights or collision queries remain unavailable.
 
-```text
-max(claimTerrainMinArea, ceil(nodeColumns * claimTerrainCoveragePercent / 100))
-```
-
-Defaults remain 64 columns and 25%: ordinary 16×16 nodes need 64 connected columns,
-16×31 nodes need 124, and the 31×31 zero node needs 241. An unobstructed 8×8 deck
-qualifies an ordinary node; two disconnected 4×8 decks do not. An incremental
-component union stops reading columns as soon as sufficient connected surface is
-confirmed. Every ocean neighbor must qualify independently; proximity to an
-eligible platform does not unlock it.
-
-Unloaded columns, unsupported/throwing collision queries or a surface outside the
-bounded windows never count as land. If insufficient surface is confirmed, the
-node is rejected or reported unavailable immediately, without queuing ownership.
-Very deep foliage and transparent decks outside both search windows can therefore
-remain unconfirmed. The slower background survey may show more complete surface
-counts; it cannot override the immediate ownership check. Standard 0..255 worlds
-remain supported; Stage 4's extended-height gate is unchanged.
+Normal placement resolves its center and all available eligible neighbors in the
+same action. No background sample, road work, geographic profile, dataset, internet
+connection or map overlay is required. A new platform is read on the next grant
+attempt without a restart or a diagnostic-cache freshness wait. Unknown saved
+classification does not block the immediate loaded-terrain check.
 
 City founding retains faction membership, dimension, name, radius/spacing,
 protected-zone, foundation, war/relocation and affordability checks. Forge approves
 the provisional block before founding requirements are rechecked and claims are
 published. Rejection restores the replaced block and retains the item. Founding
-costs follow successful territory preparation; the item is consumed only after
-successful founding. Failure rolls back new city claims and restores accounting.
-The solid, sky-accessible 5×5 foundation and Y 45..200 limits are unchanged.
+costs follow successful territory preparation; failure rolls back new city claims
+and restores accounting. The solid, sky-accessible 5×5 foundation and Y 45..200
+limits are unchanged. Partial founding reports granted, water-rejected and
+unavailable nodes separately from the actual grant pass.
 
 Upgrades, same-level expansion, relocation, conquest selections, legacy capital
-flags and the central `setOwnerForInts` gate use the same immediate policy for new
-nodes. Existing city nodes, authorized faction transfers, radius/spacing, costs,
-upkeep, permissions and protected zones retain their existing rules. Upgrade
-preparation preserves existing city territory and occupied/protected nodes, then
-commits available eligible wilderness grants with level/accounting rollback.
-Relocation retains its existing transaction and only adds eligible new nodes.
-No queued job holds a grant intent or calls an ownership setter. Restart does not
-require resuming deferred sampling; ownership and node NBT formats are unchanged.
+flags and the central `setOwnerForInts` gate share this policy for new nodes.
+Existing city nodes, authorized faction transfers, costs, upkeep, permissions,
+radius/spacing and protected zones retain their existing rules. Upgrade preparation
+preserves existing territory, then commits available eligible wilderness grants
+with the existing level/accounting rollback. Added, water-rejected, unavailable
+and occupied/protected counts remain separate. `/c city terrain` reports the
+immediate rule. Officers/leaders can use `/c city terrain retry` in their active
+city to resume the saved paid radius after construction or loading terrain,
+without another upgrade charge or upkeep change. No queued job publishes ownership.
+Ownership and node NBT formats are unchanged; old diagnostic evidence does not
+authorize a grant.
 
-`/c city terrain` reports the current protection node's immediate connected-surface
-result. Officers/leaders can still use `/c city terrain retry` in their active city
-to reconsider its paid radius after reclamation, construction or loading terrain.
-This is optional, costs no additional upgrade, and is not needed to complete
-ordinary loaded-land placement. Upgrade/selection notices distinguish insufficient
-surface from unavailable terrain. Classification never automatically unclaims.
-
-`ClaimTerrainService.decision` remains an independent background diagnostic API
-for map eligibility outlines. At most eight captures share `XFEarthWorkQueue` with
-geographic work, using the existing `earthRoadStepsPerTick` / `earthRoadTickMillis`
-budget. These captures run on server ticks, not worker threads, and never publish
-ownership. They can still scan whole columns and report dry/filled, platform,
-water and submerged counts through `ClaimTerrainClassifier`. The bounded runtime
-cache holds at most 4,096 records per world. Evidence persists in the existing
-Stage 8 schema as `xf:connected-surface`, revision 1; saved evidence is not fresh
-after restart. `claimTerrainMaxAgeTicks` (default 100) and
-`claimTerrainRefreshNodes` (default 2 every 20 ticks) control diagnostics only.
+`ClaimTerrainService.decision` remains an optional map diagnostic API. Its bounded
+server-tick captures use the same column observer and detached
+`ClaimTerrainClassifier` water-depth rule, including early acceptance. They no
+longer scan whole columns or calculate connected components. Up to eight jobs
+share the existing geographic work budget; the cache holds at most 4,096 records
+per world. New evidence uses `xf:water-depth`, revision 1, in the existing Stage 8
+schema. Historical evidence is replaced on refresh and is not fresh after restart.
+`claimTerrainMaxAgeTicks` (default 100) and `claimTerrainRefreshNodes` (default 2
+every 20 ticks) control diagnostics only. The retained `claimTerrainMinArea`,
+`claimTerrainCoveragePercent` and `claimTerrainMaxStep` config keys are deprecated
+and ignored by both grants and diagnostics.
 
 Non-cancelled Forge block/bulk-placement, break and explosion events invalidate
-background records, as do XF road imports and the public `invalidate(world,x,z)`
-hook. Large edits invalidate the cache epoch; chunk unloads invalidate only the
-affected footprints/halos. Invalidation leaves profile and capture work to the
-tick queue. Direct section writes, custom explosions and editors bypassing these
-hooks can leave background outlines stale until refresh. Immediate grants read
-loaded blocks again, independently of those cached results and their freshness.
-World/session shutdown discards background work. Map cyan pending/unavailable,
-green eligible and red insufficient outlines remain bounded diagnostic snapshots,
-not ownership promises; opening or closing a map cannot change grant timing.
-Optional Dynmap/JourneyMap ownership layers retain their existing behavior.
+background records, as do XF road imports and `invalidate(world,x,z)`. Large edits
+invalidate the cache epoch; chunk unloads invalidate affected footprints/halos.
+Direct section writes and editors bypassing normal block writes/hooks can leave
+height data or diagnostic outlines stale; editors must maintain Minecraft height
+data and call the invalidation hook. Ordinary block writes invalidate cached
+precipitation heights even for flowing water or non-player edits. Grants always
+re-read loaded blocks and never reuse diagnostic eligibility. World/session shutdown
+discards background work. Map cyan pending/unavailable, green eligible and red
+entirely-deep-water outlines remain diagnostic snapshots rather than ownership
+promises. Optional Dynmap/JourneyMap ownership layers retain their existing behavior.
 
 **Validation:** source tracing covers founding through publication and rollback,
-shared new-grant paths, background isolation, bounds, liquid stops and component
-early exits. Offline Forge 1.7.10 compilation and Java 8 class verification are
-used for this change. No in-game placement, multiplayer synchronization, modded
-collision behavior, failure injection, save/reopen or runtime performance result
-is claimed; those remain runtime validation work.
+shared new-grant paths, background isolation, bounded water depth, seabed exclusion,
+all-column rejection, early acceptance, cache invalidation and no-charge retries.
+Offline Forge 1.7.10 `compileJava` and `verifyDevelopmentClasses` succeeded, with
+3,440 Java 8-compatible development classes verified. Direct arithmetic confirms
+256 distinct columns in a standard footprint. No in-game placement, dedicated-server
+execution, multiplayer synchronization, modded collision behavior, failure injection,
+save/reopen or runtime performance result is claimed; these remain unverified.
 
 ## Geographic overview (Stage 10)
 
@@ -1232,7 +1219,7 @@ surface-road chunk intersecting that route. This does not prove a whole feature
 was generated or survey current blocks; unloaded chunks and later edits can make
 evidence incomplete. Claims fill uses faction colors, orange safezones and red
 warzones; wilderness has no ownership fill. Terrain outlines use cyan
-pending/unavailable, green eligible and red insufficient surface, only when
+pending/unavailable, green eligible and red entirely deep water, only when
 enabled. They never recolor ownership fill or change ownership.
 
 The existing `XFEarthRoadMap` service publishes geographic/terrain layers. It snapshots loaded

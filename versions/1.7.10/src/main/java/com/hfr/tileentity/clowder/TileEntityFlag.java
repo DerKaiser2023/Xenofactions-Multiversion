@@ -401,7 +401,7 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 			previous.put(key, old); replacement.put(key, meta);
 		}
 		String notice() {
-			return "City expansion: " + granted + " nodes added; " + rejected + " rejected for insufficient connected land/platform; "
+			return "City expansion: " + granted + " nodes added; " + rejected + " rejected because every surface column is open water at least three blocks deep; "
 				+ unavailable + " unavailable to the loaded surface check; " + blocked + " occupied/protected nodes retained. "
 				+ (rejected == 0 && unavailable == 0 && blocked == 0 ? "All nodes within the radius are owned by this city."
 					: "The configured radius is a limit, not a fully granted area. Use /c city terrain retry to retry this level without another charge.");
@@ -526,7 +526,7 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 			}
 		}
 
-        terrainClaimNotice=terrainRejected==0&&terrainUnavailable==0?"":"City expansion: "+terrainRejected+" nodes rejected for insufficient connected land/platform; "+terrainUnavailable+" unavailable to the loaded surface check. Existing claims retained. Use /c city terrain to review.";
+        terrainClaimNotice=terrainRejected==0&&terrainUnavailable==0?"":"City expansion: "+terrainRejected+" nodes rejected because every surface column is open water at least three blocks deep; "+terrainUnavailable+" unavailable to the loaded surface check. Existing claims retained. Use /c city terrain to review.";
 	}
 
     public String terrainClaimNotice="";

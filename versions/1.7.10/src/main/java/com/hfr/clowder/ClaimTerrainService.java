@@ -5,17 +5,11 @@ import com.hfr.clowder.ClaimNodeSystem.*;
 import com.hfr.clowder.ClowderTerritory.*;
 import com.hfr.config.XFConfig;
 import com.hfr.data.ClowderData;
-import com.hfr.world.earth.*;
 import com.hfr.world.earth.roads.XFEarthWorkQueue;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import net.minecraft.block.Block;
-import net.minecraft.block.material.Material;
-import net.minecraft.init.Blocks;
-import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.world.World;
 import net.minecraft.world.ChunkPosition;
-import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.event.world.*;
 
@@ -42,7 +36,7 @@ public final class ClaimTerrainService {
     public static final class Decision {
         public final Eligibility eligibility;public final String reason;
         Decision(Eligibility eligibility,String reason){this.eligibility=eligibility;this.reason=reason;}
-        public String rejection(){return (eligibility==Eligibility.INELIGIBLE?"Claim rejected: insufficient connected land/platform surface. ":"Claim unavailable: ")+reason;}
+        public String rejection(){return (eligibility==Eligibility.INELIGIBLE?"Claim rejected: ":"Claim unavailable: ")+reason;}
     }
     private static State state(World world){
         Store store=ClaimNodeSystem.store(world);store.worldIdentity();State state=worlds.get(world);
@@ -56,9 +50,7 @@ public final class ClaimTerrainService {
         }record=new Record(key);state.records.put(record.key,record);return record;
     }
     private static String policy(World world){
-        XFEarthProfile profile=XFEarthProfileLoader.forWorld(world);
-        return XFConfig.claimTerrainMinArea+":"+XFConfig.claimTerrainCoveragePercent+":"+XFConfig.claimTerrainMaxStep+":"
-            +(profile==null?"ordinary:0:"+(world.getHeight()-1):profile.getProfile()+":"+profile.getMinimumY()+":"+profile.getMaximumY()+":"+profile.getSeaLevel()+":"+profile.getHeightImplementation());
+        return ClaimTerrainClassifier.ALGORITHM+":"+ClaimTerrainClassifier.REVISION+":"+world.getHeight();
     }
     private static boolean fresh(State s,Record r,String policy){return r.result!=null&&r.epoch==s.epoch&&r.policy.equals(policy)&&ticks>=r.observed&&ticks-r.observed<=XFConfig.claimTerrainMaxAgeTicks;}
     public static Decision decision(World world,CoordPair key){
@@ -67,7 +59,6 @@ public final class ClaimTerrainService {
             State s=state(world);Record r=record(s,key);if(r==null)return new Decision(Eligibility.UNCLASSIFIED,"Bounded terrain queue is full; retry shortly");
             String policy=policy(world);if(fresh(s,r,policy))return new Decision(r.result.classification.eligibility,r.result.description());
             if(!r.running&&!r.queued&&ticks>=r.nextTry){
-                if(!loaded(world,s.store.snapshot(key).geometry)){r.reason="Required terrain chunks are not loaded";r.nextTry=ticks+40;return new Decision(Eligibility.UNCLASSIFIED,r.reason);}
                 r.queued=true;s.waiting.add(r);r.reason="Background terrain sampling queued";unknown(s,r.key);
             }
             return new Decision(Eligibility.UNCLASSIFIED,r.reason);
@@ -129,58 +120,36 @@ public final class ClaimTerrainService {
     }
     private static final class Job implements XFEarthWorkQueue.Step {
         final State s;final Record r;final long version,epoch;final Identity identity;final Geometry geometry;
-        ClaimTerrainClassifier.Terrain terrain;String policy;int minY,maxY,column,y,x,z;
-        boolean water,submerged,candidate;boolean started;
-        final List<AxisAlignedBB> boxes=new ArrayList<AxisAlignedBB>();
-        Job(State s,Record r){this.s=s;this.r=r;version=r.version;epoch=s.epoch;Snapshot n=s.store.snapshot(r.key);identity=n.identity;geometry=n.geometry;}
+        ClaimTerrainClassifier.Terrain terrain;String policy;int column;
+        final ClaimSurfaceCheck surface;
+        Job(State s,Record r){this.s=s;this.r=r;version=r.version;epoch=s.epoch;Snapshot n=s.store.snapshot(r.key);identity=n.identity;geometry=n.geometry;surface=new ClaimSurfaceCheck(s.world);}
         public boolean run(){
             if(s.closed||!ClowderData.isActiveClaimNodeStore(s.store))return true;
             if(version!=r.version||epoch!=s.epoch)return defer("Terrain changed during sampling; retry",true);
             try{
-                if(!started){XFEarthProfile p=XFEarthProfileLoader.forWorld(s.world);minY=p==null?0:p.getMinimumY();maxY=p==null?s.world.getHeight()-1:p.getMaximumY();
-                    if(p!=null)p.requireGameplayHeight();if(minY!=0||maxY>255||maxY<1)return defer("Active height implementation has no supported terrain capture path");
+                if(terrain==null){
+                    if(s.world.getHeight()<1||s.world.getHeight()>256)return defer("Unsupported loaded terrain height");
                     if(geometry.minX<=-30000000||geometry.maxX>=30000000||geometry.minZ<=-30000000||geometry.maxZ>=30000000)return defer("Node footprint exceeds supported world coordinates");
-                    if(!loaded(s.world,geometry))return defer("Required node/one-block-halo chunks are not loaded; stay nearby and retry");
-                    policy=policy(s.world);terrain=new ClaimTerrainClassifier.Terrain((int)(geometry.maxX-geometry.minX),(int)(geometry.maxZ-geometry.minZ),XFConfig.claimTerrainMinArea,XFConfig.claimTerrainCoveragePercent,XFConfig.claimTerrainMaxStep,policy,ticks);
-                    started=true;beginColumn();return false;
+                    policy=policy(s.world);terrain=new ClaimTerrainClassifier.Terrain((int)(geometry.maxX-geometry.minX),(int)(geometry.maxZ-geometry.minZ),policy,ticks);
+                    return false;
                 }
-                if(!loaded(s.world,geometry))return defer("Required terrain unloaded during sampling; stay nearby and retry");
                 if(column==terrain.kind.length){
-                    if(!policy.equals(policy(s.world)))return defer("Terrain policy or active profile changed");
+                    if(!policy.equals(policy(s.world)))return defer("Terrain policy or supported height changed");
                     r.result=classifier.evaluate(identity,geometry,terrain);r.observed=ticks;r.epoch=s.epoch;r.policy=policy;r.reason=r.result.description();
                     // Persist the completion tick, not the beginning of a multi-tick capture.
                     Classification c=r.result.classification;s.store.apply(identity,new Classification(c.eligibility,c.algorithm,c.revision,Math.max(0,s.world.getTotalWorldTime()),c.evidence));
                     return true;
                 }
-                if(y<minY){finishColumn();return false;}
-                Block block=s.world.getBlock(x,y,z);Material material=block.getMaterial();
-                if(block==Blocks.air){y--;return false;}
-                if(material.isLiquid()){
-                    if(candidate){terrain.kind[column]=material==Material.water?ClaimTerrainClassifier.PLATFORM:ClaimTerrainClassifier.LAND;finishColumn();return false;}
-                    water=true;y--;return false;
-                }
-                boxes.clear();
-                block.addCollisionBoxesToList(s.world,x,y,z,AxisAlignedBB.getBoundingBox(x,y,z,x+1,y+2,z+1),boxes,null);
-                boolean solid=ClaimSurfaceCheck.solid(s.world,block,x,y,z);
-                double top=solid?ClaimSurfaceCheck.top(boxes,x,y,z):Double.NEGATIVE_INFINITY;
-                if(candidate&&solid&&!boxes.isEmpty()){terrain.kind[column]=ClaimTerrainClassifier.LAND;finishColumn();return false;}
-                if(water&&solid&&!boxes.isEmpty()){submerged=true;finishColumn();return false;}
-                if(!candidate&&!water&&Double.isFinite(top)){candidate=true;terrain.top[column]=top;}
-                y--;return false;
+                byte kind=surface.column((int)geometry.minX+column%terrain.width,(int)geometry.minZ+column/terrain.width);
+                terrain.kind[column++]=kind;
+                // Diagnostics use exactly the grant rule and need no further observations once eligible.
+                if(kind==ClaimTerrainClassifier.ELIGIBLE)column=terrain.kind.length;
+                return false;
             }catch(RuntimeException unsupported){return defer("Terrain/block collision query unavailable: "+unsupported.getClass().getSimpleName());}
         }
-        private void beginColumn(){if(column==terrain.kind.length)return;x=(int)geometry.minX+column%terrain.width;z=(int)geometry.minZ+column/terrain.width;
-            Chunk chunk=s.world.getChunkFromChunkCoords(x>>4,z>>4);y=Math.min(maxY,chunk.getTopFilledSegment()+15);water=submerged=candidate=false;}
-        private void finishColumn(){if(terrain.kind[column]==0)terrain.kind[column]=candidate?ClaimTerrainClassifier.LAND:submerged?ClaimTerrainClassifier.SUBMERGED:water?ClaimTerrainClassifier.WATER:ClaimTerrainClassifier.EMPTY;
-            column++;if(column%16==0)r.reason="Terrain sampling in progress: "+column+"/"+terrain.kind.length+" columns";beginColumn();}
         private boolean defer(String reason){return defer(reason,false);}
         private boolean defer(String reason,boolean retry){r.result=null;r.reason=reason;r.nextTry=ticks+40;
             if(retry&&!r.queued){r.queued=true;s.waiting.add(r);}return true;}
-    }
-    private static boolean loaded(World world,Geometry geometry){
-        for(int cx=((int)geometry.minX-1)>>4;cx<=((int)geometry.maxX)>>4;cx++)for(int cz=((int)geometry.minZ-1)>>4;cz<=((int)geometry.maxZ)>>4;cz++)
-            if(!world.getChunkProvider().chunkExists(cx,cz))return false;
-        return true;
     }
     @SubscribeEvent(priority=EventPriority.LOWEST) public void place(BlockEvent.PlaceEvent e){if(e.world.isRemote||e.isCanceled())return;
         // The item validates and commits this provisional block after all placement listeners return.

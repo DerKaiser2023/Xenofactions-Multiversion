@@ -145,15 +145,16 @@ public class Flag extends BlockContainer {
         try {
             // Resolve the center and all available eligible neighbors before charging founding costs.
             flag.restoreOwnerForRelocation(faction);flag.setMode(1);flag.isClaimed=true;
-            java.util.Set<CoordPair> claims=ClowderTerritory.rebuildCityClaims(world,ClowderTerritory.territories,faction,flag.getCityId(),
+            ClowderTerritory.CityClaimResult claims=ClowderTerritory.rebuildCityClaimsWithTerrain(world,ClowderTerritory.territories,faction,flag.getCityId(),
                 world.provider.dimensionId,x,y,z,flag.name,flag.cityLevel.ordinal(),flag.getRadius());
             flag.restoreOwnerForRelocation(null);flag.setOwner(faction);
             faction.addPrestige(-cost,world);faction.markCityFounded(world);
             if(!faction.capitalDesignated){faction.capitalCityId=flag.getCityId();faction.capitalDesignated=true;}
             faction.save(world);flag.markDirty();com.hfr.dynmap.XFDynmapIntegration.markDirty();
             com.hfr.clowder.ClaimTerrainService.invalidate(world,x,z);world.markBlockForUpdate(x,y,z);
-            int excluded=ClowderTerritory.getCityClaimCoordinates(world.provider.dimensionId,x,z,flag.getRadius()).size()-claims.size();
-            if(excluded>0)player.addChatMessage(new ChatComponentText("City expansion: "+excluded+" nodes lack confirmed loaded land/platform surface."));
+            if(claims.rejected>0||claims.unavailable>0)player.addChatMessage(new ChatComponentText("City expansion: "+claims.claims.size()
+                +" nodes added; "+claims.rejected+" rejected because every surface column is open water at least three blocks deep; "
+                +claims.unavailable+" unavailable to the loaded surface check. Use /c city terrain retry to resume this radius without another charge."));
         } catch(RuntimeException failure) {
             // Avoid setOwner(null), which applies the intentional city-loss prestige penalty.
             flag.restoreOwnerForRelocation(null);flag.isClaimed=false;

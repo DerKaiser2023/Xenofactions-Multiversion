@@ -253,7 +253,7 @@ public class TileEntityFlagBig extends TileEntityMachineBase implements ITerrito
 			else
 				ClowderTerritory.removeZoneForCoord(worldObj, coords);
 		}
-        terrainClaimNotice=rejected==0&&unavailable==0?"":"Selection: "+rejected+" nodes rejected for insufficient connected surface; "+unavailable+" unavailable to the loaded surface check. Existing claims retained.";
+        terrainClaimNotice=rejected==0&&unavailable==0?"":"Selection: "+rejected+" nodes rejected because every surface column is open water at least three blocks deep; "+unavailable+" unavailable to the loaded surface check. Existing claims retained.";
 	}
 
     public String terrainClaimNotice="";

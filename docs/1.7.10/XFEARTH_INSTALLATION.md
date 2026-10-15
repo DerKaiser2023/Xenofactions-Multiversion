@@ -535,21 +535,24 @@ client/server versions for the Map styles and claim subscription protocol. Claim
 shows the complete public territorial snapshot, independently of geographic data,
 viewport limits and zoom. Terrain is disabled by default; enabling it shows up to
 64 tracked diagnostic outlines: cyan pending/unavailable, green eligible and red
-insufficient surface. The open Map refreshes geographic/terrain views every 40
+entirely deep water. The open Map refreshes geographic/terrain views every 40
 client ticks. Ownership refreshes through the existing debounced claim-change
 notifications, including faction colors. These background diagnostics do not gate
 ownership. New claims immediately check loaded terrain; existing ownership is
 not reset. No extended-height mode is enabled.
 
-In `XENOFACTIONS_05_CLAIMS_CITIES`, surface defaults remain
-`claimTerrainMinArea=64`, `claimTerrainCoveragePercent=25` and
-`claimTerrainMaxStep=1`. Placement checks loaded height/surface data in bounded
-windows and stops as soon as enough connected land/platform is confirmed. It
-resolves available neighbors during the action, without terrain-sampling waits
-or any road/profile/dataset/map prerequisite. Open liquid and underwater seabed
-cannot count; ocean neighbors must qualify separately. Required terrain and its
-collision halo must already be loaded; unsupported/unconfirmed columns are not
-assumed eligible. Protected/rejected placements retain the item and do not charge
+New claims are rejected only when every surface column is open water at least
+three consecutive water blocks deep, counting still and flowing water downward
+from the surface. Any exposed solid land, solid platform above water or shallower
+water column allows the node. Submerged seabed, leaves, plants and floating items
+do not count as exposed land. No minimum coverage, connected area, step height or
+Ocean biome restriction applies; rivers and lakes follow the same rule. The old
+`claimTerrainMinArea`, `claimTerrainCoveragePercent` and `claimTerrainMaxStep` keys
+in `XENOFACTIONS_05_CLAIMS_CITIES` remain readable but are deprecated and ignored.
+Placement uses bounded loaded terrain reads with immediate early acceptance,
+without a sampling wait or road/profile/dataset/map prerequisite. Unavailable
+terrain is reported separately from water rejection; no chunk is loaded or
+generated. Protected/rejected placements retain the item and do not charge
 founding prestige. The existing Forge approval and founding rollback are retained.
 
 `claimTerrainMaxAgeTicks=100` and `claimTerrainRefreshNodes=2` now affect only
