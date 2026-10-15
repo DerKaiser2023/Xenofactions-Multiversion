@@ -1137,9 +1137,18 @@ cannot. Larger zero-coordinate footprints need larger decks. Each neighboring
 ocean node must independently pass; adjacency to an eligible rig never unlocks it.
 This deliberately clips city-radius/flag-selection grants to eligible nodes.
 
-New City Center placement checks eligibility before placing/consuming its item,
-then checks again before charging founding costs. Unknown/stale terrain produces
-an explicit deferred message; retry the item after sampling. Expansion, legacy
+New City Center placement checks faction membership, territory/spacing, foundation,
+war/relocation and affordability before requesting terrain. Unknown/stale terrain
+produces a temporary queued/in-progress message; wait nearby and retry the item
+after sampling. Unavailable chunks and capture failures report their own reasons.
+Repeated attempts share one pending capture per world/dimension/node. A completed
+sample is reused within the existing freshness window unless relevant terrain or
+policy changes. Placement posts Forge protection approval before committing city
+claims or charging prestige, then rechecks founding requirements. Rejection restores
+the replaced block and retains the item; the item is consumed only on success.
+The provisional City Center's own placement event does not invalidate the sample
+being checked; accepted placement invalidates it after the city is committed.
+Expansion, legacy
 capital flags and conquest-flag selections use the central territorial grant gate.
 Deferred grants carry bounded, transient intents; on completion they recheck the
 same tile/location, active faction owner, intended radius/selection, existing
@@ -1184,7 +1193,8 @@ Forge non-cancelled break/place/multi-place events invalidate affected nodes and
 their one-block collision neighborhood. Standard Forge detonation invalidates
 affected positions, coalescing node keys. Over 4,096 blocks or 256 distinct
 affected nodes invalidate the world's cache epoch without scanning every node.
-Chunk unloads also invalidate that epoch. XF live
+Chunk unloads invalidate only nodes whose footprint or one-block halo touches the
+unloaded chunk; unrelated unloads neither restart captures nor expire results. XF live
 road/feature imports call `invalidate(world,x,z)` explicitly after each edit.
 Other owning-thread bulk editors can use that public hook. WorldEdit/FAWE, direct
 chunk/section writes, custom explosions bypassing Forge, fluid changes and other

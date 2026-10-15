@@ -19,7 +19,6 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
 
@@ -97,84 +96,75 @@ public class Flag extends BlockContainer {
 			world.setBlockMetadataWithNotify(x, y, z, 4, 2);
 		}
 
-		if(player instanceof EntityPlayer && !world.isRemote) {
-			TileEntity tile = world.getTileEntity(x, y, z);
-			if(!(tile instanceof TileEntityFlag)) {
-				world.setBlockToAir(x, y, z);
-				return;
-			}
-
-			TileEntityFlag flag = (TileEntityFlag)tile;
-			EntityPlayer entityPlayer = (EntityPlayer)player;
-
-			Clowder clowder = Clowder.getClowderFromPlayer(entityPlayer);
-			if(clowder == null) {
-				world.setBlockToAir(x, y, z);
-				entityPlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "City Centers require a faction. Use /c create first, then /c claim <city name>."));
-				return;
-			}
-
-			String cityName = itemStack.hasTagCompound() ? itemStack.stackTagCompound.getString("cityName") : "";
-			CoordPair cityChunk = ClowderTerritory.getCoordPair(x, z);
-			String cityError = ClowderTerritory.getCityPlacementError(world, cityChunk.x, cityChunk.z);
-
-			if(cityName == null || cityName.trim().isEmpty()) {
-				world.setBlockToAir(x, y, z);
-				entityPlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "City Centers require a name. Use /c claim <city name>."));
-				return;
-			}
-			cityName = cityName.trim();
-			if(!ClowderTerritory.isCityNameAvailable(cityName, null)) {
-				world.setBlockToAir(x, y, z);
-				entityPlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "A city named " + cityName + " already exists."));
-				return;
-			}
-			if(cityError != null) {
-				world.setBlockToAir(x, y, z);
-				entityPlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + cityError));
-				return;
-			}
-
-			if(flag.canSeeSky()) {
-                com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.decision(world,ClowderTerritory.getCoordPair(world,x,z));
-                if(terrain.eligibility!=com.hfr.clowder.ClaimNodeSystem.Eligibility.ELIGIBLE){
-                    world.setBlockToAir(x,y,z);entityPlayer.addChatMessage(new ChatComponentText(terrain.rejection()));return;
-                }
-				boolean firstCity = clowder.getOwnedCityCount() == 0;
-				float foundingCost = firstCity ? 0F : clowder.getCityFoundingCost();
-				float foundingUpkeep = XFConfig.cityUpkeep(CityLevel.SETTLEMENT);
-				if(!clowder.activeWars.isEmpty() || CityCenterRelocationManager.hasPending(clowder) || clowder.getPrestige() < foundingCost || (!firstCity && clowder.getPrestigeReq() + foundingUpkeep > clowder.getPrestige() - foundingCost)) {
-					world.setBlockToAir(x, y, z);
-					entityPlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Founding a City Center requires " + foundingCost + " prestige and " + foundingUpkeep + " upkeep capacity."));
-					return;
-				}
-				clowder.addPrestige(-foundingCost, world);
-				clowder.markCityFounded(world);
-				flag.name = cityName;
-				flag.createCityId();
-				flag.setOwner(clowder);
-				flag.setMode(1);
-				flag.isClaimed = true;
-				flag.generateClaim();
-                if(!flag.terrainClaimNotice.isEmpty())entityPlayer.addChatMessage(new ChatComponentText(flag.terrainClaimNotice));
-                if (!clowder.capitalDesignated) {
-                    clowder.capitalCityId = flag.getCityId(); clowder.capitalDesignated = true;
-                    clowder.save(world);
-                }
-			} else {
-				flag.height = 0.0F;
-				entityPlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "You won't be able to raise this flag. This may be due to:"));
-				entityPlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "-The flag lacking a solid 5x5 block foundation"));
-				entityPlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "-The flag's foundation not having sky access"));
-				entityPlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "-You not being in any faction"));
-				entityPlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "-The flag being below Y:45 or above Y:200"));
-			}
-
-			flag.markDirty();
-		}
+        // The item commits founding after Forge accepts the provisional block.
 
 		super.onBlockPlacedBy(world, x, y, z, player, itemStack);
 	}
+
+    /** Rechecked on every retry and after all Forge placement listeners, before any faction mutation. */
+    public static String foundingError(World world, int x, int y, int z, EntityPlayer player, ItemStack stack) {
+        Clowder faction=Clowder.getClowderFromPlayer(player);
+        if(faction==null || !Clowder.clowders.contains(faction))
+            return "City Centers require a faction. Use /c create first, then /c claim <city name>.";
+        // Founding has always required membership, without a leader/officer rank restriction.
+        if(!XFConfig.canClaimInDimension(world.provider.dimensionId))return "City claims are disabled in this dimension.";
+        String name=stack.hasTagCompound()?stack.stackTagCompound.getString("cityName").trim():"";
+        if(name.isEmpty())return "City Centers require a name. Use /c claim <city name>.";
+        if(!ClowderTerritory.isCityNameAvailable(name,null))return "A city named "+name+" already exists.";
+        CoordPair center=ClowderTerritory.getCoordPair(world,x,z);
+        String spacing=ClowderTerritory.getCityPlacementError(world,center.x,center.z);
+        if(spacing!=null)return spacing;
+        for(CoordPair key:ClowderTerritory.getCityClaimCoordinates(world.provider.dimensionId,x,z,XFConfig.cityRadius(CityLevel.SETTLEMENT))) {
+            ClowderTerritory.TerritoryMeta meta=ClowderTerritory.territories.get(key);
+            if(meta!=null)return "The City Center radius intersects existing territory or a protected zone.";
+        }
+        if(!faction.activeWars.isEmpty())return "A City Center cannot be founded while your faction is at war.";
+        if(CityCenterRelocationManager.hasPending(faction))return "Complete or cancel your faction's pending City Center relocation first.";
+        boolean first=faction.getOwnedCityCount()==0;
+        float cost=first?0F:faction.getCityFoundingCost(),upkeep=XFConfig.cityUpkeep(CityLevel.SETTLEMENT);
+        if(faction.getPrestige()<cost || (!first && faction.getPrestigeReq()+upkeep>faction.getPrestige()-cost))
+            return "Founding a City Center requires "+cost+" prestige and "+upkeep+" upkeep capacity.";
+        if(y<45 || y>200)return "City Centers must be between Y 45 and Y 200.";
+        for(int cx=(x-2)>>4;cx<=(x+2)>>4;cx++)for(int cz=(z-2)>>4;cz<=(z+2)>>4;cz++)
+            if(!world.getChunkProvider().chunkExists(cx,cz))return "Required foundation chunks are not loaded; stay nearby and retry.";
+        for(int dx=-2;dx<=2;dx++)for(int dz=-2;dz<=2;dz++)
+            if(!world.canBlockSeeTheSky(x+dx,y+1,z+dz) || !world.getBlock(x+dx,y-1,z+dz).isSideSolid(world,x+dx,y-1,z+dz,net.minecraftforge.common.util.ForgeDirection.UP))
+                return "The City Center requires a solid, sky-accessible 5 by 5 foundation.";
+        com.hfr.clowder.ClaimTerrainService.Decision terrain=com.hfr.clowder.ClaimTerrainService.decision(world,center);
+        return terrain.eligibility==com.hfr.clowder.ClaimNodeSystem.Eligibility.ELIGIBLE?null:terrain.rejection();
+    }
+
+    /** Called synchronously after placement approval and foundingError; the item owns block rollback. */
+    public static void foundCity(World world, int x, int y, int z, EntityPlayer player, ItemStack stack, TileEntityFlag flag) {
+        Clowder faction=Clowder.getClowderFromPlayer(player);
+        float cost=faction.getOwnedCityCount()==0?0F:faction.getCityFoundingCost();
+        float prestige=faction.getPrestige(),generation=faction.getPrestigeGen(),upkeep=faction.getPrestigeReq();
+        int flags=faction.flags,founded=faction.citiesFounded;
+        String capital=faction.capitalCityId;boolean designated=faction.capitalDesignated;
+        flag.name=stack.stackTagCompound.getString("cityName").trim();flag.createCityId();
+        try {
+            // The existing atomic rebuild requires the center sample and only grants eligible neighbors.
+            flag.restoreOwnerForRelocation(faction);flag.setMode(1);flag.isClaimed=true;
+            java.util.Set<CoordPair> claims=ClowderTerritory.rebuildCityClaims(world,ClowderTerritory.territories,faction,flag.getCityId(),
+                world.provider.dimensionId,x,y,z,flag.name,flag.cityLevel.ordinal(),flag.getRadius());
+            flag.restoreOwnerForRelocation(null);flag.setOwner(faction);
+            faction.addPrestige(-cost,world);faction.markCityFounded(world);
+            if(!faction.capitalDesignated){faction.capitalCityId=flag.getCityId();faction.capitalDesignated=true;}
+            faction.save(world);flag.markDirty();com.hfr.dynmap.XFDynmapIntegration.markDirty();
+            com.hfr.clowder.ClaimTerrainService.invalidate(world,x,z);world.markBlockForUpdate(x,y,z);
+            int deferred=ClowderTerritory.getCityClaimCoordinates(world.provider.dimensionId,x,z,flag.getRadius()).size()-claims.size();
+            if(deferred>0)player.addChatMessage(new ChatComponentText("City expansion: "+deferred+" nodes await terrain sampling or lack connected land/platform surface. Use /c city terrain to review or retry."));
+        } catch(RuntimeException failure) {
+            // Avoid setOwner(null), which applies the intentional city-loss prestige penalty.
+            flag.restoreOwnerForRelocation(null);flag.isClaimed=false;
+            ClowderTerritory.removeClaimsForCityId(world,flag.getCityId(),false);
+            faction.flags=flags;faction.citiesFounded=founded;faction.capitalCityId=capital;faction.capitalDesignated=designated;
+            faction.addPrestige(prestige-faction.getPrestige(),world);
+            faction.addPrestigeGen(generation-faction.getPrestigeGen(),world);
+            faction.addPrestigeReq(upkeep-faction.getPrestigeReq(),world);
+            throw failure;
+        }
+    }
 
 	public boolean noProximity(World world, int x, int y, int z) {
 

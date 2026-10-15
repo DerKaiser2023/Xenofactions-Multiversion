@@ -2,6 +2,7 @@ package com.hfr.blocks.machine;
 
 import com.hfr.blocks.ModBlocks;
 import com.hfr.shop.PlayerTraderService;
+import com.hfr.tdm.TDMServerTaskQueue;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.material.Material;
@@ -11,23 +12,26 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.Explosion;
 import net.minecraft.world.World;
 
-/** A stocked, single-offer shop. Its inventory is deliberately not exposed to automation. */
+/** An access point to the world market. Legacy inventories are sealed migration archives only. */
 public class PlayerTrader extends BlockContainer {
     public PlayerTrader() { super(Material.iron); }
-
     @Override public TileEntity createNewTileEntity(World world, int metadata) { return new Tile(); }
 
     @Override public void onBlockPlacedBy(World world, int x, int y, int z, EntityLivingBase placer, ItemStack stack) {
-        if (!world.isRemote && placer instanceof EntityPlayer) {
+        if (!world.isRemote && stack.hasTagCompound() && stack.getTagCompound().hasKey("PlayerTraderRecovery", 10)) {
             Tile tile = (Tile)world.getTileEntity(x, y, z);
-            if (tile != null) { tile.owner = ((EntityPlayer)placer).getUniqueID().toString(); tile.markDirty(); }
+            if (tile != null) {
+                NBTTagCompound recovery = stack.getTagCompound().getCompoundTag("PlayerTraderRecovery");
+                tile.legacyArchive = (NBTTagCompound)recovery.getCompoundTag("Archive").copy();
+                tile.source = recovery.getString("Source"); tile.marketMigrated = recovery.getBoolean("Migrated");
+                tile.markDirty(); PlayerTraderService.migrate(tile);
+            }
         }
     }
-
     @Override public boolean onBlockActivated(World world, int x, int y, int z, EntityPlayer player,
                                                  int side, float hitX, float hitY, float hitZ) {
         if (!world.isRemote && player instanceof EntityPlayerMP) {
@@ -36,70 +40,73 @@ public class PlayerTrader extends BlockContainer {
         }
         return true;
     }
-
+    @Override public boolean removedByPlayer(World world, EntityPlayer player, int x, int y, int z, boolean willHarvest) {
+        TileEntity tile = world.getTileEntity(x, y, z);
+        if (!world.isRemote && tile instanceof Tile && PlayerTraderService.migrate((Tile)tile) != null) return false;
+        return super.removedByPlayer(world, player, x, y, z, willHarvest);
+    }
+    @Override public void onBlockExploded(World world, int x, int y, int z, Explosion explosion) {
+        TileEntity tile = world.getTileEntity(x, y, z);
+        if (!world.isRemote && tile instanceof Tile && PlayerTraderService.migrate((Tile)tile) != null) return;
+        super.onBlockExploded(world, x, y, z, explosion);
+    }
+    @Override public void dropBlockAsItemWithChance(World world, int x, int y, int z, int metadata, float chance, int fortune) {
+        TileEntity tile = world.getTileEntity(x, y, z);
+        // Explosions ask for drops before onBlockExploded; a preserved block must not also drop a copy.
+        if (!world.isRemote && tile instanceof Tile && PlayerTraderService.migrate((Tile)tile) != null) return;
+        super.dropBlockAsItemWithChance(world, x, y, z, metadata, chance, fortune);
+    }
     @Override public void breakBlock(World world, int x, int y, int z, Block block, int metadata) {
         if (!world.isRemote) {
             TileEntity raw = world.getTileEntity(x, y, z);
             if (raw instanceof Tile) {
                 Tile tile = (Tile)raw;
+                // A direct mod/admin replacement can bypass removedByPlayer. Preserve a recoverable NBT item.
+                if (PlayerTraderService.migrate(tile) != null && tile.legacyArchive != null) {
+                    ItemStack recovery = new ItemStack(this);
+                    NBTTagCompound tag = new NBTTagCompound(), saved = new NBTTagCompound();
+                    saved.setTag("Archive", tile.legacyArchive.copy()); saved.setString("Source", tile.legacySource());
+                    saved.setBoolean("Migrated", tile.marketMigrated); tag.setTag("PlayerTraderRecovery", saved);
+                    recovery.setTagCompound(tag);
+                    world.spawnEntityInWorld(new EntityItem(world, x + .5, y + .5, z + .5, recovery));
+                }
                 PlayerTraderService.broken(tile);
-                for (ItemStack stack : tile.stock) drop(world, x, y, z, stack);
-                for (ItemStack stack : tile.payments) drop(world, x, y, z, stack);
-                tile.stock = new ItemStack[9]; tile.payments = new ItemStack[9];
             }
         }
         super.breakBlock(world, x, y, z, block, metadata);
     }
 
-    private void drop(World world, int x, int y, int z, ItemStack stack) {
-        if (stack == null || stack.stackSize <= 0) return;
-        world.spawnEntityInWorld(new EntityItem(world, x + .5, y + .5, z + .5, stack.copy()));
-    }
-
     public static class Tile extends TileEntity {
-        public String owner = "";
-        public ItemStack sale, payment;
-        public int saleQuantity = 1, paymentQuantity = 1;
-        public long offerRevision;
-        public ItemStack[] stock = new ItemStack[9], payments = new ItemStack[9];
-
+        public NBTTagCompound legacyArchive;
+        public boolean marketMigrated;
+        public String source = "", migrationProblem = "";
         @Override public boolean canUpdate() { return false; }
+        @Override public void validate() {
+            super.validate();
+            if (worldObj == null || worldObj.isRemote || legacyArchive == null) return;
+            TDMServerTaskQueue.schedule(new Runnable() { @Override public void run() {
+                if (valid() && !worldObj.isRemote) PlayerTraderService.migrate(Tile.this);
+            }});
+        }
+        public String legacySource() {
+            if (source.isEmpty() && worldObj != null) {
+                source = worldObj.provider.dimensionId + ":" + xCoord + ":" + yCoord + ":" + zCoord;
+            }
+            return source;
+        }
         @Override public void readFromNBT(NBTTagCompound tag) {
             super.readFromNBT(tag);
-            owner = tag.getString("OwnerUUID");
-            sale = tag.hasKey("Sale", 10) ? ItemStack.loadItemStackFromNBT(tag.getCompoundTag("Sale")) : null;
-            payment = tag.hasKey("Payment", 10) ? ItemStack.loadItemStackFromNBT(tag.getCompoundTag("Payment")) : null;
-            if (sale != null) sale.stackSize = 1;
-            if (payment != null) payment.stackSize = 1;
-            saleQuantity = tag.getInteger("SaleQuantity"); paymentQuantity = tag.getInteger("PaymentQuantity");
-            offerRevision = tag.getLong("OfferRevision");
-            stock = new ItemStack[9]; payments = new ItemStack[9];
-            NBTTagList items = tag.getTagList("Items", 10);
-            for (int i = 0; i < items.tagCount(); i++) {
-                NBTTagCompound entry = items.getCompoundTagAt(i);
-                int slot = entry.getByte("Slot") & 255;
-                ItemStack stack = ItemStack.loadItemStackFromNBT(entry);
-                if (stack != null && stack.stackSize > 0) {
-                    if (slot < 9) stock[slot] = stack;
-                    else if (slot < 18) payments[slot - 9] = stack;
-                }
-            }
+            legacyArchive = !tag.getBoolean("GlobalMarketTerminal") ? (NBTTagCompound)tag.copy()
+                : tag.hasKey("LegacyInventory", 10) ? (NBTTagCompound)tag.getCompoundTag("LegacyInventory").copy() : null;
+            source = tag.getString("LegacySource"); marketMigrated = tag.getBoolean("MarketMigrated");
         }
         @Override public void writeToNBT(NBTTagCompound tag) {
-            super.writeToNBT(tag);
-            tag.setString("OwnerUUID", owner);
-            if (sale != null) { NBTTagCompound n = new NBTTagCompound(); sale.writeToNBT(n); tag.setTag("Sale", n); }
-            if (payment != null) { NBTTagCompound n = new NBTTagCompound(); payment.writeToNBT(n); tag.setTag("Payment", n); }
-            tag.setInteger("SaleQuantity", saleQuantity); tag.setInteger("PaymentQuantity", paymentQuantity);
-            tag.setLong("OfferRevision", offerRevision);
-            NBTTagList items = new NBTTagList();
-            for (int i = 0; i < 18; i++) {
-                ItemStack stack = i < 9 ? stock[i] : payments[i - 9];
-                if (stack != null) { NBTTagCompound n = new NBTTagCompound(); n.setByte("Slot", (byte)i); stack.writeToNBT(n); items.appendTag(n); }
-            }
-            tag.setTag("Items", items);
+            super.writeToNBT(tag); tag.setBoolean("GlobalMarketTerminal", true);
+            tag.setBoolean("MarketMigrated", marketMigrated); tag.setString("LegacySource", legacySource());
+            if (legacyArchive != null) tag.setTag("LegacyInventory", legacyArchive.copy());
         }
-        public boolean valid() { return !isInvalid() && worldObj != null && worldObj.getBlock(xCoord, yCoord, zCoord) == ModBlocks.player_trader
+        public boolean valid() { return !isInvalid() && worldObj != null && worldObj.getChunkProvider().chunkExists(xCoord >> 4, zCoord >> 4)
+                && worldObj.getBlock(xCoord, yCoord, zCoord) == ModBlocks.player_trader
                 && worldObj.getTileEntity(xCoord, yCoord, zCoord) == this; }
     }
 }

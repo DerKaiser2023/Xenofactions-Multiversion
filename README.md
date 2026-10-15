@@ -19,6 +19,8 @@ Place only the JAR matching your Minecraft version in `mods/`. Use a separate te
 
 For full 1.7.10 configuration, commands and gameplay instructions, see [getting started](docs/1.7.10/getting-started.md), [configuration](docs/1.7.10/configuration.md), [commands](docs/1.7.10/commands.md), [admin editor](docs/1.7.10/ADMIN_EDITOR.md), and [permissions/automation](docs/1.7.10/gameplay-permissions-and-automation.md). Retained config keys, registry IDs, and logical save formats remain supported. Client and server must use the same build.
 
+On 1.7.10 every Player Trader now opens the [global player market](docs/1.7.10/gameplay-permissions-and-automation.md#global-player-market-and-rice), with multiple independently reserved offers per seller and offline availability. Legacy inventories migrate as their chunks load; see [storage, recovery and durability limits](docs/1.7.10/server-administration.md#global-player-market-storage).
+
 The native 1.16.5 target offers:
 
 - `/c`, `/c help`, `/c list`, `/c info [faction]`, `/c comrades`: faction inspection/help and your member roster. `/clowder` is an alias.

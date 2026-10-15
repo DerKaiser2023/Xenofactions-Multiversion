@@ -74,7 +74,10 @@ public final class ClaimTerrainService {
         try{
             State s=state(world);Record r=record(s,key);if(r==null)return new Decision(Eligibility.UNCLASSIFIED,"Bounded terrain queue is full; retry shortly");
             String policy=policy(world);if(fresh(s,r,policy))return new Decision(r.result.classification.eligibility,r.result.description());
-            if(!r.running&&!r.queued&&ticks>=r.nextTry){r.queued=true;s.waiting.add(r);r.reason="Terrain refresh queued; retry after sampling";unknown(s,r.key);}
+            if(!r.running&&!r.queued&&ticks>=r.nextTry){
+                if(!loaded(world,s.store.snapshot(key).geometry)){r.reason="Required terrain chunks are not loaded; stay nearby and retry";r.nextTry=ticks+40;return new Decision(Eligibility.UNCLASSIFIED,r.reason);}
+                r.queued=true;s.waiting.add(r);r.reason="Terrain sampling queued; wait nearby, then retry placement";unknown(s,r.key);
+            }
             return new Decision(Eligibility.UNCLASSIFIED,r.reason);
         }catch(IllegalStateException e){return new Decision(Eligibility.UNCLASSIFIED,e.getMessage());}
     }
@@ -122,8 +125,11 @@ public final class ClaimTerrainService {
         for(State s:worlds.values()){
             if(s.closed)continue;int left=MAX_JOBS;
             while(left-->0&&!s.waiting.isEmpty()&&jobs.size()<MAX_JOBS){Record r=s.waiting.remove();r.queued=false;
-                if(ticks<r.nextTry){r.queued=true;s.waiting.add(r);continue;}Job job=new Job(s,r);r.running=true;jobs.add(job);
-                XFEarthWorkQueue.submit(job).whenComplete((done,failure)->{jobs.remove(job);r.running=false;if(failure!=null&&!s.closed){r.nextTry=ticks+40;r.reason="Terrain queue interrupted/full; retry shortly";
+                if(ticks<r.nextTry){r.queued=true;s.waiting.add(r);continue;}
+                final Job job;
+                try{job=new Job(s,r);}catch(RuntimeException failure){r.result=null;r.intent=null;r.nextTry=ticks+40;r.reason="Terrain capture unavailable: "+failure.getClass().getSimpleName();continue;}
+                r.running=true;jobs.add(job);r.reason="Terrain sampling in progress; wait nearby, then retry placement";
+                XFEarthWorkQueue.submit(job).whenComplete((done,failure)->{jobs.remove(job);r.running=false;if(failure!=null&&!s.closed){r.result=null;r.nextTry=ticks+40;r.reason="Terrain queue interrupted/full; retry shortly";
                     if(r.intent!=null&&!r.queued){r.queued=true;s.waiting.add(r);}}});
             }
         }
@@ -145,11 +151,11 @@ public final class ClaimTerrainService {
                 if(!started){XFEarthProfile p=XFEarthProfileLoader.forWorld(s.world);minY=p==null?0:p.getMinimumY();maxY=p==null?s.world.getHeight()-1:p.getMaximumY();
                     if(p!=null)p.requireGameplayHeight();if(minY!=0||maxY>255||maxY<1)return defer("Active height implementation has no supported terrain capture path");
                     if(geometry.minX<=-30000000||geometry.maxX>=30000000||geometry.minZ<=-30000000||geometry.maxZ>=30000000)return defer("Node footprint exceeds supported world coordinates");
-                    if(!loaded())return defer("Required node/one-block-halo chunks are not loaded; no chunks were requested");
+                    if(!loaded(s.world,geometry))return defer("Required node/one-block-halo chunks are not loaded; stay nearby and retry");
                     policy=policy(s.world);terrain=new ClaimTerrainClassifier.Terrain((int)(geometry.maxX-geometry.minX),(int)(geometry.maxZ-geometry.minZ),XFConfig.claimTerrainMinArea,XFConfig.claimTerrainCoveragePercent,XFConfig.claimTerrainMaxStep,policy,ticks);
                     started=true;beginColumn();return false;
                 }
-                if(!loaded())return defer("Required terrain unloaded during sampling");
+                if(!loaded(s.world,geometry))return defer("Required terrain unloaded during sampling; stay nearby and retry");
                 if(column==terrain.kind.length){
                     if(!policy.equals(policy(s.world)))return defer("Terrain policy or active profile changed");
                     r.result=classifier.evaluate(identity,geometry,terrain);r.observed=ticks;r.epoch=s.epoch;r.policy=policy;r.reason=r.result.description();
@@ -195,11 +201,10 @@ public final class ClaimTerrainService {
                 if(covered<x+1-.000001)return Double.NEGATIVE_INFINITY;
             }return top;
         }
-        private boolean loaded(){for(int cx=((int)geometry.minX-1)>>4;cx<=((int)geometry.maxX)>>4;cx++)for(int cz=((int)geometry.minZ-1)>>4;cz<=((int)geometry.maxZ)>>4;cz++)if(!s.world.getChunkProvider().chunkExists(cx,cz))return false;return true;}
         private void beginColumn(){if(column==terrain.kind.length)return;x=(int)geometry.minX+column%terrain.width;z=(int)geometry.minZ+column/terrain.width;
             Chunk chunk=s.world.getChunkFromChunkCoords(x>>4,z>>4);y=Math.min(maxY,chunk.getTopFilledSegment()+15);water=submerged=candidate=false;}
         private void finishColumn(){if(terrain.kind[column]==0)terrain.kind[column]=candidate?ClaimTerrainClassifier.LAND:submerged?ClaimTerrainClassifier.SUBMERGED:water?ClaimTerrainClassifier.WATER:ClaimTerrainClassifier.EMPTY;
-            column++;beginColumn();}
+            column++;if(column%16==0)r.reason="Terrain sampling in progress: "+column+"/"+terrain.kind.length+" columns; retry placement when complete";beginColumn();}
         private boolean defer(String reason){return defer(reason,false);}
         private boolean defer(String reason,boolean retry){r.result=null;r.reason=reason;r.nextTry=ticks+40;
             if((r.intent!=null||retry)&&!r.queued){r.queued=true;s.waiting.add(r);}return true;}
@@ -222,7 +227,14 @@ public final class ClaimTerrainService {
             TerritoryMeta placed=ClaimNodeSystem.metadata(r.key.dimensionId,r.key.x,r.key.z);if(placed!=null&&tile instanceof TileEntityFlag){placed.cityLevel=((TileEntityFlag)tile).cityLevel.ordinal();placed.cityName=((TileEntityFlag)tile).name;}
         }
     }
+    private static boolean loaded(World world,Geometry geometry){
+        for(int cx=((int)geometry.minX-1)>>4;cx<=((int)geometry.maxX)>>4;cx++)for(int cz=((int)geometry.minZ-1)>>4;cz<=((int)geometry.maxZ)>>4;cz++)
+            if(!world.getChunkProvider().chunkExists(cx,cz))return false;
+        return true;
+    }
     @SubscribeEvent(priority=EventPriority.LOWEST) public void place(BlockEvent.PlaceEvent e){if(e.world.isRemote||e.isCanceled())return;
+        // The item validates and commits this provisional block after all placement listeners return.
+        if(!(e instanceof BlockEvent.MultiPlaceEvent)&&com.hfr.items.ItemBlockCityCenter.isFoundingPlacement(e.blockSnapshot))return;
         if(!(e instanceof BlockEvent.MultiPlaceEvent)){invalidate(e.world,e.x,e.z);return;}
         State s=worlds.get(e.world);if(s==null)return;s.store.worldIdentity();
         List<net.minecraftforge.common.util.BlockSnapshot> changes=((BlockEvent.MultiPlaceEvent)e).getReplacedBlockSnapshots();
@@ -238,7 +250,18 @@ public final class ClaimTerrainService {
         for(ChunkPosition p:e.getAffectedBlocks()){changedKeys(e.world.provider.dimensionId,p.chunkPosX,p.chunkPosZ,keys);if(keys.size()>256){s.epoch++;return;}}
         invalidateKeys(s,keys);
     }
-    @SubscribeEvent public void chunkUnload(ChunkEvent.Unload e){if(e.world.isRemote)return;State s=worlds.get(e.world);if(s!=null){s.store.worldIdentity();s.epoch++;}}
+    @SubscribeEvent public void chunkUnload(ChunkEvent.Unload e){
+        if(e.world.isRemote)return;State s=worlds.get(e.world);if(s==null)return;s.store.worldIdentity();
+        // Only footprints (including their collision halo) touching this chunk become stale.
+        // A distant player's chunk unload must not restart this player's terrain capture.
+        int x=e.getChunk().xPosition<<4,z=e.getChunk().zPosition<<4,dim=e.world.provider.dimensionId;
+        CoordPair first=ClaimNodeSystem.protectionCoordinate(dim,x-1,z-1),last=ClaimNodeSystem.protectionCoordinate(dim,x+16,z+16);
+        for(int nx=first.x;nx<=last.x;nx++)for(int nz=first.z;nz<=last.z;nz++){
+            CoordPair key=new CoordPair(dim,nx,nz);Record r=s.records.get(key);
+            if(r!=null){r.version++;r.result=null;r.nextTry=0;r.reason="Required terrain unloaded; stay nearby and retry";}
+            if(r!=null||s.store.tracked(key))unknown(s,key);
+        }
+    }
     @SubscribeEvent public void unload(WorldEvent.Unload e){if(e.world.isRemote)return;State state=worlds.remove(e.world);if(state!=null)state.closed=true;}
     public static void clear(){for(State state:worlds.values())state.closed=true;worlds.clear();jobs.clear();refreshCursor=null;ticks=0;}
 }

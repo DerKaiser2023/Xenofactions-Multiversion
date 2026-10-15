@@ -57,4 +57,4 @@ Excluded weapons, oil/RF/nuclear chains, vehicle parts, farming contracts, obsol
 
 ## Player Trader
 
-The stocked single-offer Player Trader crafts as `IRI / ECE / IRI`: four iron ingots, two redstone, two emeralds and one trapped chest. It follows `enableSurvivalRecipes`. This is distinct from the faction market recipe, which uses a normal chest. No removed material or machine is required.
+The Player Trader access point for the server-wide player market crafts as `IRI / ECE / IRI`: four iron ingots, two redstone, two emeralds and one trapped chest. It follows `enableSurvivalRecipes`. This is distinct from the faction market recipe, which uses a normal chest. No removed material or machine is required. All Player Traders share the same offers; breaking an access point does not remove offers or release their reserved items.

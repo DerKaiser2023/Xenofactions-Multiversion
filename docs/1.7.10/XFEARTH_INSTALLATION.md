@@ -542,7 +542,11 @@ In `XENOFACTIONS_05_CLAIMS_CITIES`, Stage 9 defaults are `claimTerrainMinArea=64
 `claimTerrainMaxAgeTicks=100` and `claimTerrainRefreshNodes=2`. Capture shares the
 existing `earthRoadStepsPerTick` / `earthRoadTickMillis` budget. Required chunks
 must already be loaded; first/stale placement attempts defer without consuming
-the City Center item. `/c city terrain` shows the reason/counts; an officer/leader
+the City Center item. Wait nearby while sampling, then retry placement. Retries
+share pending work; missing chunks and capture failures give specific reasons.
+Unrelated chunk unloads do not discard a completed sample. Protected/rejected
+placements retain the item and do not charge founding prestige.
+`/c city terrain` shows the reason/counts; an officer/leader
 can use `/c city terrain retry` inside their city after reclamation or to restart
 deferred expansion following a restart. Ocean neighbors must qualify separately.
 Review [exact rules and bulk-edit limits](XFEARTH_WORLD_TYPE.md#terrain-claim-eligibility-stage-9)
