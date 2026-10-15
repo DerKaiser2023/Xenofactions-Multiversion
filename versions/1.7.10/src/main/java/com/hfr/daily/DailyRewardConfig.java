@@ -64,15 +64,22 @@ public final class DailyRewardConfig {
             return tag;
         }
         public void append(NBTTagList pending) {
-            int remaining = count;
-            while (remaining > 0) {
-                ItemStack stack = template.copy();
-                stack.stackSize = Math.min(remaining, Math.min(64, stack.getMaxStackSize()));
-                NBTTagCompound tag = stack.writeToNBT(new NBTTagCompound());
-                tag.setString("Registry", Item.itemRegistry.getNameForObject(template.getItem()));
-                pending.appendTag(tag);
-                remaining -= stack.stackSize;
-            }
+            append(pending, count);
+        }
+        public NBTTagCompound preview(long multiplier) {
+            if (multiplier < 1) throw new IllegalStateException("Invalid daily multiplier");
+            NBTTagCompound tag = preview();
+            tag.setLong("baseCount", count); tag.setLong("multiplier", multiplier);
+            tag.setLong("amount", Math.multiplyExact((long)count, multiplier));
+            return tag;
+        }
+        /** One template plus an exact quantity; never materialize a stack per reward unit. */
+        public void append(NBTTagList pending, long amount) {
+            if (amount < 1) throw new IllegalStateException("Invalid daily quantity");
+            NBTTagCompound tag = template.writeToNBT(new NBTTagCompound());
+            tag.setString("Registry", Item.itemRegistry.getNameForObject(template.getItem()));
+            tag.setLong("Remaining", amount);
+            pending.appendTag(tag);
         }
     }
     private DailyRewardConfig() { }

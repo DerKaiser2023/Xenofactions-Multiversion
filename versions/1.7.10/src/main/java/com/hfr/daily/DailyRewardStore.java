@@ -32,41 +32,57 @@ public final class DailyRewardStore {
         return tag;
     }
     private static void validate(NBTTagCompound tag) {
-        if ((tag.getInteger("Version") != 1 && tag.getInteger("Version") != 2) || !tag.hasKey("Revision", 4) || tag.getLong("Revision") < 0
+        int version = tag.getInteger("Version");
+        if ((version < 1 || version > 3) || !tag.hasKey("Revision", 4) || tag.getLong("Revision") < 0
             || !tag.hasKey("Streak", 3) || tag.getInteger("Streak") < 0 || !tag.hasKey("Pending", 9)
             || !tag.hasKey("Milestones", 10)) throw new IllegalStateException("Malformed daily state");
         if (tag.hasKey("ClaimReset") && (!tag.hasKey("ClaimReset", 1) || !tag.hasKey("Day", 4)))
             throw new IllegalStateException("Malformed daily claim reset");
-        if (tag.hasKey("DeliveryDue") && (tag.getInteger("Version") != 2 || !tag.hasKey("DeliveryDue", 1)
+        if (tag.hasKey("DeliveryDue") && (version < 2 || !tag.hasKey("DeliveryDue", 1)
             || !tag.hasKey("Day") || tag.hasKey("SpinItems"))) throw new IllegalStateException("Malformed daily delivery state");
-        validateItems((NBTTagList)tag.getTag("Pending"));
+        validateItems((NBTTagList)tag.getTag("Pending"), version);
         // Version 1 claims are already complete: never recreate escrow from their result previews.
         if (tag.hasKey("SpinItems") || tag.hasKey("CompleteAt")) {
-            if (tag.getInteger("Version") != 2 || !tag.hasKey("Day") || !tag.hasKey("SpinItems", 9)
+            if (version < 2 || !tag.hasKey("Day") || !tag.hasKey("SpinItems", 9)
                 || !tag.hasKey("CompleteAt", 4) || tag.getLong("CompleteAt") <= 0)
                 throw new IllegalStateException("Malformed unfinished daily spin");
             NBTTagList spinning = (NBTTagList)tag.getTag("SpinItems");
-            validateItems(spinning);
+            validateItems(spinning, version);
             if (spinning.tagCount() == 0 || spinning.tagCount() + tag.getTagList("Pending", 10).tagCount() > 8192)
                 throw new IllegalStateException("Invalid unfinished daily escrow");
         }
         if (tag.hasKey("Day")) {
-            if (!tag.hasKey("Day", 4) || tag.getInteger("Streak") < 1 || !tag.hasKey("Claim", 8)
+            // Retain zero progress if present; debug claims floor only their multiplier at one.
+            if (!tag.hasKey("Day", 4) || !tag.hasKey("Claim", 8)
                 || !tag.hasKey("Result", 10) || !tag.hasKey("Wheel", 9)) throw new IllegalStateException("Incomplete daily claim");
             NBTTagList wheel = tag.getTagList("Wheel", 10);
             if (wheel.tagCount() < 1 || wheel.tagCount() > 16 || tag.getInteger("Selected") < 0 || tag.getInteger("Selected") >= wheel.tagCount())
                 throw new IllegalStateException("Invalid saved wheel");
             if (tag.hasKey("AvailableAfter") && (!tag.hasKey("AvailableAfter", 4) || tag.getLong("AvailableAfter") <= 0))
                 throw new IllegalStateException("Invalid daily reset instant");
+            // Absent multiplier fields mean a legacy fixed amount, even after a schema upgrade.
+            NBTTagCompound result = tag.getCompoundTag("Result");
+            if (result.hasKey("baseCount") || result.hasKey("multiplier")) {
+                if (version < 3 || !result.hasKey("baseCount", 4) || !result.hasKey("multiplier", 4)
+                    || !result.hasKey("amount", 4) || result.getLong("baseCount") < 1 || result.getLong("multiplier") < 1)
+                    throw new IllegalStateException("Malformed daily multiplied result");
+                try {
+                    if (Math.multiplyExact(result.getLong("baseCount"), result.getLong("multiplier")) != result.getLong("amount"))
+                        throw new IllegalStateException("Inconsistent daily multiplied result");
+                } catch (ArithmeticException e) { throw new IllegalStateException("Daily quantity overflow", e); }
+            }
         } else if (tag.getInteger("Streak") != 0) throw new IllegalStateException("Missing claim date");
     }
-    private static void validateItems(NBTTagList pending) {
+    private static void validateItems(NBTTagList pending, int version) {
         if (pending.tagCount() > 8192 || pending.tagCount() > 0 && pending.func_150303_d() != 10)
             throw new IllegalStateException("Malformed daily escrow");
         for (int i = 0; i < pending.tagCount(); i++) {
             NBTTagCompound item = pending.getCompoundTagAt(i);
             if (!item.hasKey("id", 2) || item.getByte("Count") <= 0 || !item.hasKey("Damage", 2) || item.getString("Registry").isEmpty())
                 throw new IllegalStateException("Malformed pending item");
+            if (item.hasKey("Remaining") && (version < 3 || !item.hasKey("Remaining", 4)
+                || item.getLong("Remaining") < 1 || item.getByte("Count") != 1))
+                throw new IllegalStateException("Malformed compact daily quantity");
         }
     }
     private static void install(EntityPlayer player, NBTTagCompound tag) {
@@ -82,7 +98,7 @@ public final class DailyRewardStore {
         NBTTagCompound persisted = player.getEntityData().getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
         NBTTagCompound old = persisted.hasKey(KEY) ? (NBTTagCompound)persisted.getCompoundTag(KEY).copy() : null;
         next.setLong("Revision", read(player).getLong("Revision") + 1);
-        next.setInteger("Version", 2);
+        next.setInteger("Version", 3);
         validate(next); install(player, next);
         try {
             NBTTagCompound full = new NBTTagCompound(); player.writeToNBT(full);

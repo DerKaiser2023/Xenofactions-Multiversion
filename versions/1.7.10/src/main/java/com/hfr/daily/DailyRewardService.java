@@ -140,9 +140,12 @@ public final class DailyRewardService {
                     }
                     DailyRewardConfig.Reward reward = table.rewards.get(selected);
                     NBTTagList pending = new NBTTagList(), wheel = new NBTTagList();
-                    for (DailyRewardConfig.Reward entry : table.rewards) wheel.appendTag(entry.preview());
-                    reward.append(pending);
                     int streak = nextStreak(saved, day);
+                    // Freeze this claim's amount, independently of later streak/reset/definition changes.
+                    long multiplier = Math.max(1L, (long)streak);
+                    for (DailyRewardConfig.Reward entry : table.rewards) wheel.appendTag(entry.preview(multiplier));
+                    NBTTagCompound result = (NBTTagCompound)wheel.getCompoundTagAt(selected).copy();
+                    reward.append(pending, result.getLong("amount"));
                     NBTTagCompound reached = saved.getCompoundTag("Milestones");
                     DailyRewardConfig.Reward bonus = table.milestones.containsKey(streak) ? table.reward(table.milestones.get(streak)) : null;
                     if (bonus != null && !reached.hasKey(Integer.toString(streak))) {
@@ -153,7 +156,7 @@ public final class DailyRewardService {
                     saved.setLong("Day", day); saved.setInteger("Streak", streak);
                     saved.removeTag("ClaimReset");
                     saved.setLong("AvailableAfter", LocalDate.ofEpochDay(day).plusDays(1).atStartOfDay(table.zone).toInstant().toEpochMilli());
-                    saved.setString("Claim", UUID.randomUUID().toString()); saved.setTag("Result", reward.preview());
+                    saved.setString("Claim", UUID.randomUUID().toString()); saved.setTag("Result", result);
                     saved.setTag("Wheel", wheel); saved.setInteger("Selected", selected);
                     saved.setTag("SpinItems", pending); saved.setTag("Milestones", reached);
                     saved.setLong("CompleteAt", System.currentTimeMillis() + DailyActionPacket.SPIN_MILLIS);
@@ -167,6 +170,8 @@ public final class DailyRewardService {
             say(player, "save_failed");
         } catch (IllegalStateException e) {
             XFLog.error("Daily rewards unavailable for " + player.getUniqueID(), e); say(player, "unavailable");
+        } catch (ArithmeticException e) {
+            XFLog.error("Daily reward quantity overflow for " + player.getUniqueID() + "; claim not accepted", e); say(player, "unavailable");
         }
         snapshot(player, session, false, spin);
     }
@@ -198,22 +203,29 @@ public final class DailyRewardService {
                 resolved.setShort("id", (short)Item.getIdFromItem((Item)Item.itemRegistry.getObject(registry)));
                 ItemStack stack = ItemStack.loadItemStackFromNBT(resolved);
                 if (stack == null) { remaining.appendTag(raw.copy()); missing = true; continue; }
-                int original = stack.stackSize;
-                for (int pass = 0; pass < 2 && stack.stackSize > 0; pass++) {
-                    for (int slot = 0; slot < before.length && stack.stackSize > 0; slot++) {
+                // Legacy stacks are fixed quantities too; neither path consults a streak or definition.
+                long quantity = raw.hasKey("Remaining") ? raw.getLong("Remaining") : stack.stackSize;
+                long original = quantity;
+                stack.stackSize = 1;
+                int limit = Math.min(64, Math.min(player.inventory.getInventoryStackLimit(), stack.getMaxStackSize()));
+                for (int pass = 0; pass < 2 && quantity > 0; pass++) {
+                    for (int slot = 0; slot < before.length && quantity > 0; slot++) {
                         ItemStack existing = player.inventory.mainInventory[slot];
                         if (pass == 0 && existing != null && existing.isItemEqual(stack) && ItemStack.areItemStackTagsEqual(existing, stack)) {
-                            int move = Math.min(stack.stackSize, Math.max(0, Math.min(64, existing.getMaxStackSize()) - existing.stackSize));
-                            existing.stackSize += move; stack.stackSize -= move;
+                            int capacity = Math.max(0, Math.min(limit, existing.getMaxStackSize()) - existing.stackSize);
+                            int move = (int)Math.min(quantity, (long)capacity);
+                            existing.stackSize += move; quantity -= move;
                         } else if (pass == 1 && existing == null) {
-                            int move = Math.min(stack.stackSize, Math.min(64, stack.getMaxStackSize()));
-                            if (move > 0) { ItemStack part = stack.copy(); part.stackSize = move; player.inventory.mainInventory[slot] = part; stack.stackSize -= move; }
+                            int move = (int)Math.min(quantity, (long)Math.max(0, limit));
+                            if (move > 0) { ItemStack part = stack.copy(); part.stackSize = move; player.inventory.mainInventory[slot] = part; quantity -= move; }
                         }
                     }
                 }
-                changed |= stack.stackSize != original;
-                if (stack.stackSize > 0) {
-                    NBTTagCompound leftover = stack.writeToNBT(new NBTTagCompound()); leftover.setString("Registry", registry);
+                changed |= quantity != original;
+                if (quantity > 0) {
+                    NBTTagCompound leftover = (NBTTagCompound)raw.copy();
+                    // Preserve all item data, normalizing only the template count for compact storage.
+                    leftover.setByte("Count", (byte)1); leftover.setLong("Remaining", quantity);
                     remaining.appendTag(leftover);
                 }
             }
@@ -260,6 +272,7 @@ public final class DailyRewardService {
                 ? saved.getInteger("Streak") : 0;
             out.setInteger("streak", current);
             out.setInteger("nextStreak", eligible ? nextStreak(saved, day) : current == Integer.MAX_VALUE ? current : current + 1);
+            out.setLong("nextMultiplier", Math.max(1L, (long)out.getInteger("nextStreak")));
             out.setBoolean("eligible", !unfinished && eligible && DailyRewardConfig.ready());
             out.setInteger("pending", saved.getTagList("Pending", 10).tagCount());
             out.setBoolean("disabled", !DailyRewardConfig.ready());
@@ -271,9 +284,13 @@ public final class DailyRewardService {
             if (saved.hasKey("Day") && (unfinished || !eligible || saved.getTagList("Pending", 10).tagCount() > 0)) {
                 wheel = saved.getTagList("Wheel", 10); out.setInteger("selected", saved.getInteger("Selected"));
             } else {
-                for (DailyRewardConfig.Reward reward : table.rewards) wheel.appendTag(reward.preview());
+                for (DailyRewardConfig.Reward reward : table.rewards) wheel.appendTag(reward.preview(out.getLong("nextMultiplier")));
                 out.setInteger("selected", -1);
             }
+            // The saved wheel keeps its accepted multiplier, including during animation and resets.
+            long multiplier = out.getInteger("selected") >= 0
+                ? Math.max(1L, saved.getCompoundTag("Result").getLong("multiplier")) : out.getLong("nextMultiplier");
+            out.setLong("wheelMultiplier", multiplier);
             out.setTag("wheel", wheel);
             for (Map.Entry<Integer, String> milestone : table.milestones.entrySet()) {
                 if (milestone.getKey() > current && !saved.getCompoundTag("Milestones").hasKey(milestone.getKey().toString())) {

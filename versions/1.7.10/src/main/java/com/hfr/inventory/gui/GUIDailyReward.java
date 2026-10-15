@@ -85,10 +85,10 @@ public final class GUIDailyReward extends GuiScreen {
         if (!closed && mc.currentScreen == this && mc.thePlayer != null) mc.thePlayer.playSound(sound, volume, 1.0F);
     }
     @Override public void initGui() {
-        panelWidth = Math.min(420, width - 8); left = (width - panelWidth) / 2; top = (height - 232) / 2;
+        panelWidth = Math.min(420, width - 8); left = (width - panelWidth) / 2; top = (height - 252) / 2;
         buttonList.clear();
-        spin = new GuiButton(1, left + 6, top + 206, (panelWidth - 18) / 2, 20, I18n.format("gui.hfr.daily.spin"));
-        collect = new GuiButton(2, left + 12 + (panelWidth - 18) / 2, top + 206, (panelWidth - 18) / 2, 20, I18n.format("gui.hfr.daily.collect"));
+        spin = new GuiButton(1, left + 6, top + 226, (panelWidth - 18) / 2, 20, I18n.format("gui.hfr.daily.spin"));
+        collect = new GuiButton(2, left + 12 + (panelWidth - 18) / 2, top + 226, (panelWidth - 18) / 2, 20, I18n.format("gui.hfr.daily.collect"));
         buttonList.add(spin); buttonList.add(collect); buttons();
     }
     private void buttons() {
@@ -120,7 +120,18 @@ public final class GUIDailyReward extends GuiScreen {
     }
     private String reward(NBTTagCompound preview) {
         ItemStack stack = item(preview);
-        return I18n.format("gui.hfr.daily.reward", preview.getInteger("amount"), stack == null ? I18n.format("gui.hfr.daily.unknown") : stack.getDisplayName());
+        return I18n.format("gui.hfr.daily.reward", number(preview.getLong("amount")), stack == null ? I18n.format("gui.hfr.daily.unknown") : stack.getDisplayName());
+    }
+    private String number(long amount) { return String.format(java.util.Locale.ROOT, "%,d", amount); }
+    private String calculation(NBTTagCompound preview) {
+        return preview.hasKey("multiplier") ? I18n.format("gui.hfr.daily.calculation", number(preview.getLong("baseCount")),
+            number(preview.getLong("multiplier")), number(preview.getLong("amount"))) : I18n.format("gui.hfr.daily.fixed");
+    }
+    /** Keep every digit, fitting the entire count line rather than abbreviating large rewards. */
+    private void fitted(String text, int x, int y, int maxWidth, int color) {
+        float scale = Math.min(1F, (float)maxWidth / Math.max(1, fontRendererObj.getStringWidth(text)));
+        GL11.glPushMatrix(); GL11.glTranslatef(x, y, 0); GL11.glScalef(scale, scale, 1);
+        fontRendererObj.drawString(text, 0, 0, color); GL11.glPopMatrix();
     }
     private void text(String text, int x, int y, int maxWidth, int color) { fontRendererObj.drawSplitString(text, x, y, maxWidth, color); }
     private void icon(NBTTagCompound preview, int x, int y, int mouseX, int mouseY) {
@@ -170,7 +181,7 @@ public final class GUIDailyReward extends GuiScreen {
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         boolean wheelStopped = !animating();
         drawDefaultBackground(); hover = null; buttons();
-        drawRect(left, top, left + panelWidth, top + 232, 0xEE17202B);
+        drawRect(left, top, left + panelWidth, top + 252, 0xEE17202B);
         drawCenteredString(fontRendererObj, I18n.format("gui.hfr.daily.title"), width / 2, top + 6, 0xFFFFFF);
         wheel(mouseX, mouseY);
         int x = left + 146, w = panelWidth - 152;
@@ -178,11 +189,14 @@ public final class GUIDailyReward extends GuiScreen {
             : waiting ? "waiting" : data.getBoolean("unfinished") ? "spinning" : data.getBoolean("eligible") ? "eligible" : "claimed";
         text(I18n.format("gui.hfr.daily." + status), x, top + 24, w, 0xFFD780);
         text(I18n.format("gui.hfr.daily.streak", data.getInteger("streak"), data.getInteger("nextStreak")), x, top + 48, w, 0xFFFFFF);
+        fitted(I18n.format("gui.hfr.daily." + (data.getBoolean("unfinished") ? "spin_multiplier" : "next_multiplier"),
+            number(data.getLong(data.getBoolean("unfinished") ? "wheelMultiplier" : "nextMultiplier"))), x, top + 70, w, 0xFFFFFF);
         String next = data.hasKey("milestoneReward") ? I18n.format("gui.hfr.daily.milestone", data.getInteger("milestone"), reward(data.getCompoundTag("milestoneReward"))) : I18n.format("gui.hfr.daily.no_milestone");
-        text(next, x, top + 70, w, 0xB6D8FF);
+        text(next, x, top + 88, w, 0xB6D8FF);
         if (!data.getBoolean("unfinished") && !animating() && data.hasKey("result")) {
-            text(I18n.format("gui.hfr.daily.result", reward(data.getCompoundTag("result"))), x, top + 101, w, 0xA0F0A0);
-            if (data.hasKey("bonus")) text(I18n.format("gui.hfr.daily.bonus", reward(data.getCompoundTag("bonus"))), x, top + 123, w, 0xA0F0A0);
+            fitted(I18n.format("gui.hfr.daily.result", reward(data.getCompoundTag("result"))), x, top + 116, w, 0xA0F0A0);
+            fitted(calculation(data.getCompoundTag("result")), x, top + 132, w, 0xA0F0A0);
+            if (data.hasKey("bonus")) fitted(I18n.format("gui.hfr.daily.bonus", reward(data.getCompoundTag("bonus"))), x, top + 150, w, 0xA0F0A0);
             if (closeAt == 0 && !closed && animationClaim.equals(data.getString("claim"))) {
                 closeClaim = animationClaim; closeAt = System.nanoTime() + RESULT_NANOS;
             }
@@ -196,11 +210,11 @@ public final class GUIDailyReward extends GuiScreen {
                 PacketDispatcher.wrapper.sendToServer(new DailyActionPacket(token(), data.getLong("revision"), 4, animationClaim));
             }
         }
-        text(I18n.format("gui.hfr.daily.pending", data.getInteger("pending")), x, top + 147, w, 0xDDDDDD);
-        text(I18n.format("gui.hfr.daily.reset", data.getString("reset")), left + 6, top + 174, panelWidth - 12, 0xDDDDDD);
-        text(I18n.format("gui.hfr.daily.rules"), left + 6, top + 187, panelWidth - 12, 0xAAAAAA);
+        text(I18n.format("gui.hfr.daily.pending", data.getInteger("pending")), x, top + 174, w, 0xDDDDDD);
+        text(I18n.format("gui.hfr.daily.reset", data.getString("reset")), left + 6, top + 194, panelWidth - 12, 0xDDDDDD);
+        text(I18n.format("gui.hfr.daily.rules"), left + 6, top + 207, panelWidth - 12, 0xAAAAAA);
         super.drawScreen(mouseX, mouseY, partialTicks);
-        if (hover != null) func_146283_a(Arrays.asList(reward(hover)), mouseX, mouseY);
+        if (hover != null) func_146283_a(Arrays.asList(reward(hover), calculation(hover)), mouseX, mouseY);
         // Acknowledge only after actually drawing the stopped wheel, including after a render stall.
         if (!closed && data.getBoolean("unfinished") && wheelStopped && !acknowledged && animationClaim.equals(data.getString("claim"))) {
             acknowledged = true;
