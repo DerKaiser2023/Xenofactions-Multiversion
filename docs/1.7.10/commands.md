@@ -313,6 +313,8 @@ See also [chat reward phrases](#chat-reward-phrases-forge-1710) for administrato
 
 `/xdaily` (alias `/daily`, permission level 0) opens the custom daily wheel. **Spin daily wheel** accepts one server-selected item reward per UUID per server calendar date. **Collect saved items** retries pending item delivery after making inventory space. Closing the GUI leaves unclaimed eligibility available and preserves accepted results. Consecutive claim dates advance the streak; missing a date restarts the next claim at one. Streak milestone bonuses are granted once per day-number milestone per UUID. See [daily reward configuration and persistence](configuration.md#daily-reward-wheel).
 
+The new reward and streak bonus become collectible only after the saved server deadline and the displayed wheel's stop. Automatic delivery follows the final result display, then that daily screen closes after 1.5 seconds. Collect can still deliver unrelated ready items during animation. Closing or disconnecting retains the accepted claim and deadline; reconnect/restart resumes it without rerolling or regranting completed rewards. An unfinished spin must complete before another spin, including after an admin reset.
+
 Administrators use the existing level-3 `/xc` namespace (`/xclowder` alias). `/xc daily`, `/xc daily help` and `/xc help 2` expose the commands; completion is permission checked. Console senders can use every command except held-item capture.
 
 | Admin command | Effect |

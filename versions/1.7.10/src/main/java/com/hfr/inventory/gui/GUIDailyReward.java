@@ -17,20 +17,26 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import org.lwjgl.opengl.GL11;
 
-/** Cosmetic clock only; the server has already saved the claim before spin=true arrives. */
+/** Cosmetic animation acknowledges its stop; only the server can complete or deliver a claim. */
 @SideOnly(Side.CLIENT)
 public final class GUIDailyReward extends GuiScreen {
     private static final double TAU = Math.PI * 2;
-    private static final long SPIN_NANOS = 4200000000L;
+    private static final long RESULT_NANOS = 1500000000L;
     private final RenderItem itemRenderer = new RenderItem();
     private NBTTagCompound data, hover;
     private int left, top, panelWidth;
     private boolean waiting;
-    private long animationStart;
+    private long animationStart, animationDuration, closeAt;
+    private String animationClaim = "", closeClaim = "";
+    private boolean acknowledged, resultAcknowledged, closed;
     private double startAngle, endAngle;
     private GuiButton spin, collect;
 
-    public GUIDailyReward(NBTTagCompound data) { this.data = data; settle(); }
+    public GUIDailyReward(NBTTagCompound data) {
+        this.data = data; settle();
+        if (data.getBoolean("unfinished")) startAnimation(0);
+        else if (data.getBoolean("deliveryDue")) animationClaim = data.getString("claim");
+    }
     public String token() { return data.getString("token"); }
     private int segments() { return data.getTagList("wheel", 10).tagCount(); }
     private void settle() {
@@ -41,23 +47,31 @@ public final class GUIDailyReward extends GuiScreen {
     public void receive(NBTTagCompound next) {
         if (next.getLong("revision") <= data.getLong("revision")) return;
         double previous = angle(); String claim = data.getString("claim");
-        if (animating() && next.getString("claim").equals(claim)) {
+        if ((data.getBoolean("unfinished") || animationClaim.equals(claim)) && next.getString("claim").equals(claim)) {
             next.setTag("wheel", data.getTag("wheel").copy());
             next.setInteger("selected", data.getInteger("selected"));
         }
         data = next; waiting = false;
-        if (next.getBoolean("spin") && !next.getString("claim").equals(claim) && segments() > 0) {
-            startAngle = previous % TAU;
-            double stop = -(next.getInteger("selected") + .5) * TAU / segments();
-            endAngle = startAngle + 5 * TAU + ((stop - startAngle) % TAU + TAU) % TAU;
-            animationStart = System.nanoTime();
-        } else if (!animating()) settle();
+        if (!next.getString("claim").equals(claim)) { closeAt = 0; closeClaim = ""; }
+        if (next.getBoolean("unfinished") && !next.getString("claim").equals(animationClaim)) startAnimation(previous);
+        else if (!animating()) settle();
         initGui();
     }
-    private boolean animating() { return animationStart != 0 && System.nanoTime() - animationStart < SPIN_NANOS; }
+    private void startAnimation(double previous) {
+        animationClaim = data.getString("claim"); acknowledged = false; resultAcknowledged = false;
+        closeAt = 0; closeClaim = "";
+        animationDuration = (data.getBoolean("spin") ? DailyActionPacket.SPIN_MILLIS
+            : Math.max(0, Math.min(DailyActionPacket.SPIN_MILLIS, data.getLong("remainingMillis")))) * 1000000L;
+        if (segments() == 0 || animationDuration == 0) { settle(); return; }
+        startAngle = previous % TAU;
+        double stop = -(data.getInteger("selected") + .5) * TAU / segments();
+        endAngle = startAngle + 5 * TAU + ((stop - startAngle) % TAU + TAU) % TAU;
+        animationStart = System.nanoTime();
+    }
+    private boolean animating() { return animationStart != 0 && System.nanoTime() - animationStart < animationDuration; }
     private double angle() {
         if (animationStart == 0) return endAngle;
-        double elapsed = Math.min(1, (double)(System.nanoTime() - animationStart) / SPIN_NANOS);
+        double elapsed = Math.min(1, (double)(System.nanoTime() - animationStart) / animationDuration);
         return startAngle + (endAngle - startAngle) * (1 - Math.pow(1 - elapsed, 3));
     }
     @Override public void initGui() {
@@ -68,15 +82,23 @@ public final class GUIDailyReward extends GuiScreen {
         buttonList.add(spin); buttonList.add(collect); buttons();
     }
     private void buttons() {
-        spin.enabled = !waiting && !animating() && data.getBoolean("eligible") && data.getInteger("pending") == 0;
-        collect.enabled = !waiting && !animating() && data.getInteger("pending") > 0;
+        spin.enabled = !waiting && !data.getBoolean("unfinished") && data.getBoolean("eligible") && data.getInteger("pending") == 0;
+        collect.enabled = !waiting && data.getInteger("pending") > 0;
     }
     @Override protected void actionPerformed(GuiButton button) {
         if (!button.enabled || waiting) return;
         waiting = true; buttons();
         PacketDispatcher.wrapper.sendToServer(new DailyActionPacket(token(), data.getLong("revision"), button.id));
     }
-    @Override public void onGuiClosed() { PacketDispatcher.wrapper.sendToServer(new DailyActionPacket(token(), data.getLong("revision"), 0)); }
+    @Override public void updateScreen() {
+        if (closed || mc.currentScreen != this) return;
+        if (closeAt != 0 && System.nanoTime() >= closeAt && closeClaim.equals(data.getString("claim"))
+            && !data.getBoolean("unfinished")) mc.displayGuiScreen(null);
+    }
+    @Override public void onGuiClosed() {
+        closed = true; closeAt = 0; closeClaim = "";
+        PacketDispatcher.wrapper.sendToServer(new DailyActionPacket(token(), data.getLong("revision"), 0));
+    }
     @Override public boolean doesGuiPauseGame() { return false; }
     private ItemStack item(NBTTagCompound preview) {
         String registry = preview.getString("registry");
@@ -127,25 +149,38 @@ public final class GUIDailyReward extends GuiScreen {
         drawCenteredString(fontRendererObj, I18n.format("gui.hfr.daily.wheel"), cx, top + 159, 0xDDDDDD);
     }
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        boolean wheelStopped = !animating();
         drawDefaultBackground(); hover = null; buttons();
         drawRect(left, top, left + panelWidth, top + 232, 0xEE17202B);
         drawCenteredString(fontRendererObj, I18n.format("gui.hfr.daily.title"), width / 2, top + 6, 0xFFFFFF);
         wheel(mouseX, mouseY);
         int x = left + 146, w = panelWidth - 152;
         String status = data.getBoolean("unavailable") ? "unavailable" : data.getBoolean("empty") ? "empty" : data.getBoolean("disabled") ? "disabled"
-            : waiting ? "waiting" : animating() ? "spinning" : data.getBoolean("eligible") ? "eligible" : "claimed";
+            : waiting ? "waiting" : data.getBoolean("unfinished") ? "spinning" : data.getBoolean("eligible") ? "eligible" : "claimed";
         text(I18n.format("gui.hfr.daily." + status), x, top + 24, w, 0xFFD780);
         text(I18n.format("gui.hfr.daily.streak", data.getInteger("streak"), data.getInteger("nextStreak")), x, top + 48, w, 0xFFFFFF);
         String next = data.hasKey("milestoneReward") ? I18n.format("gui.hfr.daily.milestone", data.getInteger("milestone"), reward(data.getCompoundTag("milestoneReward"))) : I18n.format("gui.hfr.daily.no_milestone");
         text(next, x, top + 70, w, 0xB6D8FF);
-        if (!animating() && data.hasKey("result")) {
+        if (!data.getBoolean("unfinished") && !animating() && data.hasKey("result")) {
             text(I18n.format("gui.hfr.daily.result", reward(data.getCompoundTag("result"))), x, top + 101, w, 0xA0F0A0);
             if (data.hasKey("bonus")) text(I18n.format("gui.hfr.daily.bonus", reward(data.getCompoundTag("bonus"))), x, top + 123, w, 0xA0F0A0);
+            if (closeAt == 0 && !closed && animationClaim.equals(data.getString("claim"))) {
+                closeClaim = animationClaim; closeAt = System.nanoTime() + RESULT_NANOS;
+            }
+            if (!closed && !resultAcknowledged && animationClaim.equals(data.getString("claim"))) {
+                resultAcknowledged = true;
+                PacketDispatcher.wrapper.sendToServer(new DailyActionPacket(token(), data.getLong("revision"), 4, animationClaim));
+            }
         }
         text(I18n.format("gui.hfr.daily.pending", data.getInteger("pending")), x, top + 147, w, 0xDDDDDD);
         text(I18n.format("gui.hfr.daily.reset", data.getString("reset")), left + 6, top + 174, panelWidth - 12, 0xDDDDDD);
         text(I18n.format("gui.hfr.daily.rules"), left + 6, top + 187, panelWidth - 12, 0xAAAAAA);
         super.drawScreen(mouseX, mouseY, partialTicks);
         if (hover != null) func_146283_a(Arrays.asList(reward(hover)), mouseX, mouseY);
+        // Acknowledge only after actually drawing the stopped wheel, including after a render stall.
+        if (!closed && data.getBoolean("unfinished") && wheelStopped && !acknowledged && animationClaim.equals(data.getString("claim"))) {
+            acknowledged = true;
+            PacketDispatcher.wrapper.sendToServer(new DailyActionPacket(token(), data.getLong("revision"), animationClaim));
+        }
     }
 }

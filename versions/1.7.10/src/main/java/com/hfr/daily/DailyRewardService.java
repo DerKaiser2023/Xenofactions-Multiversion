@@ -1,6 +1,7 @@
 package com.hfr.daily;
 
 import com.hfr.packet.PacketDispatcher;
+import com.hfr.packet.daily.DailyActionPacket;
 import com.hfr.packet.daily.DailySnapshotPacket;
 import com.hfr.tdm.TDMAdminKitEdit;
 import com.hfr.tdm.TDMManager;
@@ -12,6 +13,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
@@ -29,11 +31,24 @@ import net.minecraft.util.ChatComponentTranslation;
 public final class DailyRewardService {
     private static final Map<EntityPlayerMP, Session> SESSIONS = new WeakHashMap<EntityPlayerMP, Session>();
     private static final Map<EntityPlayer, Boolean> BLOCKED = new WeakHashMap<EntityPlayer, Boolean>();
+    private static final Map<EntityPlayerMP, Completion> COMPLETIONS = new WeakHashMap<EntityPlayerMP, Completion>();
     private static final Random RANDOM = new Random();
     private int ticks;
     private static final class Session {
         final String token = UUID.randomUUID().toString();
         long revision, day, unlockAt;
+        String animationClaim = "";
+        boolean animationFinished, resultAvailable, resultShown;
+    }
+    private static final class Completion {
+        long checkAt;
+        boolean failureReported;
+        Completion(long checkAt) { this.checkAt = checkAt; }
+    }
+    private static boolean unfinished(NBTTagCompound saved) { return saved.hasKey("SpinItems"); }
+    private static void schedule(EntityPlayerMP player, NBTTagCompound saved) {
+        if ((unfinished(saved) || saved.getBoolean("DeliveryDue")) && !COMPLETIONS.containsKey(player))
+            COMPLETIONS.put(player, new Completion(unfinished(saved) ? saved.getLong("CompleteAt") : 0));
     }
     private static long today() { return LocalDate.now(DailyRewardConfig.active().zone).toEpochDay(); }
     private static long availableAfter(NBTTagCompound state) {
@@ -57,7 +72,7 @@ public final class DailyRewardService {
         if (BLOCKED.containsKey(player)) throw new IllegalStateException("Daily player data failed to load");
         return DailyRewardStore.read(player);
     }
-    public static void clear() { SESSIONS.clear(); BLOCKED.clear(); }
+    public static void clear() { SESSIONS.clear(); BLOCKED.clear(); COMPLETIONS.clear(); }
     public static int reset(String administrator, EntityPlayerMP player) throws IOException {
         NBTTagCompound saved = state(player);
         if (saved.hasKey("Day")) saved.setBoolean("ClaimReset", true);
@@ -91,10 +106,20 @@ public final class DailyRewardService {
         return !player.isDead && MinecraftServer.getServer().getConfigurationManager().playerEntityList.contains(player)
             && player.playerNetServerHandler.netManager.isChannelOpen();
     }
-    public static void action(EntityPlayerMP player, String token, long revision, int action) {
+    public static void action(EntityPlayerMP player, String token, long revision, int action, String claim) {
         Session session = SESSIONS.get(player);
         if (session == null || !session.token.equals(token) || !online(player)) return;
         if (action == 0) { SESSIONS.remove(player); return; }
+        // An acknowledgement only releases this session's animation gate. The durable server
+        // deadline remains mandatory; revisions may change while the same wheel is on screen.
+        if (action == 3) {
+            if (session.animationClaim.equals(claim)) session.animationFinished = true;
+            return;
+        }
+        if (action == 4) {
+            if (session.resultAvailable && session.animationClaim.equals(claim)) session.resultShown = true;
+            return;
+        }
         if (revision != session.revision) { snapshot(player, session, false, false); return; }
         session.revision++; // Every intent is single use, even a rejected claim or failed save.
         boolean spin = false;
@@ -105,7 +130,7 @@ public final class DailyRewardService {
                 DailyRewardConfig.Table table = DailyRewardConfig.active();
                 if (table.rewards.isEmpty()) say(player, "empty");
                 else if (!DailyRewardConfig.ready()) say(player, "disabled");
-                else if (!eligible(saved, day)) say(player, "claimed");
+                else if (unfinished(saved) || !eligible(saved, day)) say(player, "claimed");
                 else if (saved.getTagList("Pending", 10).tagCount() > 0) say(player, "collect_first");
                 else {
                     int chosen = RANDOM.nextInt(table.totalWeight), selected = 0;
@@ -114,7 +139,7 @@ public final class DailyRewardService {
                         if (chosen < 0) break;
                     }
                     DailyRewardConfig.Reward reward = table.rewards.get(selected);
-                    NBTTagList pending = saved.getTagList("Pending", 10), wheel = new NBTTagList();
+                    NBTTagList pending = new NBTTagList(), wheel = new NBTTagList();
                     for (DailyRewardConfig.Reward entry : table.rewards) wheel.appendTag(entry.preview());
                     reward.append(pending);
                     int streak = nextStreak(saved, day);
@@ -130,10 +155,11 @@ public final class DailyRewardService {
                     saved.setLong("AvailableAfter", LocalDate.ofEpochDay(day).plusDays(1).atStartOfDay(table.zone).toInstant().toEpochMilli());
                     saved.setString("Claim", UUID.randomUUID().toString()); saved.setTag("Result", reward.preview());
                     saved.setTag("Wheel", wheel); saved.setInteger("Selected", selected);
-                    saved.setTag("Pending", pending); saved.setTag("Milestones", reached);
+                    saved.setTag("SpinItems", pending); saved.setTag("Milestones", reached);
+                    saved.setLong("CompleteAt", System.currentTimeMillis() + DailyActionPacket.SPIN_MILLIS);
                     // Acceptance is durable BEFORE any inventory grant or client animation.
                     DailyRewardStore.commit(player, saved); spin = true;
-                    deliver(player);
+                    schedule(player, saved);
                 }
             } else if (action == 2) deliver(player);
         } catch (IOException e) {
@@ -147,9 +173,15 @@ public final class DailyRewardService {
     /** Never use vanilla addItemStackToInventory: creative mode can consume leftovers there. */
     private static void deliver(EntityPlayerMP player) throws IOException {
         NBTTagCompound saved = state(player); NBTTagList pending = saved.getTagList("Pending", 10);
-        if (pending.tagCount() == 0) return;
+        boolean deliveryDue = saved.getBoolean("DeliveryDue");
+        saved.removeTag("DeliveryDue");
+        if (pending.tagCount() == 0) {
+            if (deliveryDue) DailyRewardStore.commit(player, saved);
+            return;
+        }
         if (TDMAdminKitEdit.isEditing(player) || TDMManager.isEnabled(player.worldObj)
             || player.openContainer != player.inventoryContainer || player.inventory.getItemStack() != null) {
+            if (deliveryDue) DailyRewardStore.commit(player, saved);
             say(player, "delivery_deferred"); return;
         }
         ItemStack[] before = new ItemStack[player.inventory.mainInventory.length];
@@ -185,7 +217,7 @@ public final class DailyRewardService {
                     remaining.appendTag(leftover);
                 }
             }
-            if (changed) {
+            if (changed || deliveryDue) {
                 saved.setTag("Pending", remaining);
                 // Both the inventory afterimage and reduced escrow become visible in one atomic file replacement.
                 DailyRewardStore.commit(player, saved);
@@ -206,6 +238,19 @@ public final class DailyRewardService {
         long reset = LocalDate.ofEpochDay(day).plusDays(1).atStartOfDay(table.zone).toInstant().toEpochMilli();
         try {
             NBTTagCompound saved = state(player);
+            boolean unfinished = unfinished(saved);
+            schedule(player, saved);
+            out.setBoolean("unfinished", unfinished);
+            out.setBoolean("deliveryDue", saved.getBoolean("DeliveryDue"));
+            session.resultAvailable = !unfinished && saved.getBoolean("DeliveryDue");
+            if (session.resultAvailable && session.animationClaim.isEmpty()) session.animationClaim = saved.getString("Claim");
+            if (unfinished) {
+                out.setLong("remainingMillis", Math.max(0, Math.min(DailyActionPacket.SPIN_MILLIS,
+                    saved.getLong("CompleteAt") - System.currentTimeMillis())));
+                if (!session.animationClaim.equals(saved.getString("Claim"))) {
+                    session.animationClaim = saved.getString("Claim"); session.animationFinished = false; session.resultShown = false;
+                }
+            }
             long available = availableAfter(saved);
             if (!saved.getBoolean("ClaimReset") && available > System.currentTimeMillis()) session.unlockAt = available;
             boolean eligible = eligible(saved, day);
@@ -215,15 +260,15 @@ public final class DailyRewardService {
                 ? saved.getInteger("Streak") : 0;
             out.setInteger("streak", current);
             out.setInteger("nextStreak", eligible ? nextStreak(saved, day) : current == Integer.MAX_VALUE ? current : current + 1);
-            out.setBoolean("eligible", eligible && DailyRewardConfig.ready());
+            out.setBoolean("eligible", !unfinished && eligible && DailyRewardConfig.ready());
             out.setInteger("pending", saved.getTagList("Pending", 10).tagCount());
             out.setBoolean("disabled", !DailyRewardConfig.ready());
             out.setBoolean("empty", table.rewards.isEmpty());
             out.setString("claim", saved.getString("Claim"));
-            if (saved.hasKey("Result")) out.setTag("result", saved.getTag("Result").copy());
-            if (saved.hasKey("Bonus")) out.setTag("bonus", saved.getTag("Bonus").copy());
+            if (!unfinished && saved.hasKey("Result")) out.setTag("result", saved.getTag("Result").copy());
+            if (!unfinished && saved.hasKey("Bonus")) out.setTag("bonus", saved.getTag("Bonus").copy());
             NBTTagList wheel = new NBTTagList();
-            if (saved.hasKey("Day") && (!eligible || saved.getTagList("Pending", 10).tagCount() > 0)) {
+            if (saved.hasKey("Day") && (unfinished || !eligible || saved.getTagList("Pending", 10).tagCount() > 0)) {
                 wheel = saved.getTagList("Wheel", 10); out.setInteger("selected", saved.getInteger("Selected"));
             } else {
                 for (DailyRewardConfig.Reward reward : table.rewards) wheel.appendTag(reward.preview());
@@ -248,19 +293,64 @@ public final class DailyRewardService {
         if (!(event.player instanceof EntityPlayerMP)) return;
         try {
             NBTTagCompound saved = state(event.player);
-            if (DailyRewardConfig.ready() && eligible(saved, today())) say(event.player, "login");
+            schedule((EntityPlayerMP)event.player, saved);
+            if (!unfinished(saved) && DailyRewardConfig.ready() && eligible(saved, today())) say(event.player, "login");
             if (saved.getTagList("Pending", 10).tagCount() > 0) say(event.player, "pending");
         } catch (IllegalStateException e) { say(event.player, "unavailable"); }
     }
-    @SubscribeEvent public void logout(PlayerEvent.PlayerLoggedOutEvent event) { SESSIONS.remove(event.player); BLOCKED.remove(event.player); }
+    @SubscribeEvent public void logout(PlayerEvent.PlayerLoggedOutEvent event) {
+        SESSIONS.remove(event.player); BLOCKED.remove(event.player); COMPLETIONS.remove(event.player);
+    }
     @SubscribeEvent public void dimension(PlayerEvent.PlayerChangedDimensionEvent event) { SESSIONS.remove(event.player); }
     @SubscribeEvent public void clone(net.minecraftforge.event.entity.player.PlayerEvent.Clone event) {
         SESSIONS.remove(event.original);
+        COMPLETIONS.remove(event.original);
         if (BLOCKED.containsKey(event.original)) BLOCKED.put(event.entityPlayer, true);
         // Forge clonePlayer already carries PlayerPersisted, including escrow and milestone receipts.
+        if (event.entityPlayer instanceof EntityPlayerMP && !BLOCKED.containsKey(event.entityPlayer))
+            schedule((EntityPlayerMP)event.entityPlayer, state(event.entityPlayer));
+    }
+    /** Move escrow exactly once before attempting the existing atomic inventory/escrow transaction. */
+    private static boolean complete(EntityPlayerMP player, long now) throws IOException {
+        NBTTagCompound saved = state(player);
+        Session session = SESSIONS.get(player);
+        if (unfinished(saved)) {
+            if (now < saved.getLong("CompleteAt")) return false;
+            if (session != null && session.animationClaim.equals(saved.getString("Claim")) && !session.animationFinished) return false;
+            NBTTagList pending = saved.getTagList("Pending", 10), spinning = saved.getTagList("SpinItems", 10);
+            for (int i = 0; i < spinning.tagCount(); i++) pending.appendTag(spinning.getCompoundTagAt(i).copy());
+            saved.setTag("Pending", pending); saved.removeTag("SpinItems"); saved.removeTag("CompleteAt");
+            saved.setBoolean("DeliveryDue", true);
+            DailyRewardStore.commit(player, saved);
+            // Wait for a rendered result before sending inventory/message packets to an open wheel.
+            if (session != null) snapshot(player, session, false, false);
+        }
+        if (!saved.getBoolean("DeliveryDue")) return true;
+        if (session != null && session.animationClaim.equals(saved.getString("Claim")) && !session.resultShown) return false;
+        // Failure here leaves completed, collectible items; it must never recreate the spin escrow.
+        try { deliver(player); }
+        finally { if (session != null) snapshot(player, session, false, false); }
+        return true;
     }
     @SubscribeEvent public void tick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || ++ticks % 20 != 0 || SESSIONS.isEmpty()) return;
+        if (event.phase != TickEvent.Phase.END) return;
+        long now = System.currentTimeMillis();
+        Iterator<Map.Entry<EntityPlayerMP, Completion>> iterator = COMPLETIONS.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<EntityPlayerMP, Completion> entry = iterator.next();
+            EntityPlayerMP player = entry.getKey(); Completion completion = entry.getValue();
+            if (now < completion.checkAt || !online(player)) continue;
+            try { if (complete(player, now)) iterator.remove(); }
+            catch (IOException | RuntimeException e) {
+                completion.checkAt = now + 5000;
+                if (!completion.failureReported) {
+                    completion.failureReported = true;
+                    XFLog.error("Daily completion/delivery failed for " + player.getUniqueID() + "; saved escrow retained", e);
+                    say(player, e instanceof IOException ? "save_failed" : "unavailable");
+                }
+            }
+        }
+        if (++ticks % 20 != 0 || SESSIONS.isEmpty()) return;
         long day = today();
         for (Map.Entry<EntityPlayerMP, Session> entry : SESSIONS.entrySet())
             if ((entry.getValue().day != day || entry.getValue().unlockAt > 0 && entry.getValue().unlockAt <= System.currentTimeMillis())

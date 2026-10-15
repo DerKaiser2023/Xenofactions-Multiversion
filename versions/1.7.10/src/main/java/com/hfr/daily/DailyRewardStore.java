@@ -32,18 +32,23 @@ public final class DailyRewardStore {
         return tag;
     }
     private static void validate(NBTTagCompound tag) {
-        if (tag.getInteger("Version") != 1 || !tag.hasKey("Revision", 4) || tag.getLong("Revision") < 0
+        if ((tag.getInteger("Version") != 1 && tag.getInteger("Version") != 2) || !tag.hasKey("Revision", 4) || tag.getLong("Revision") < 0
             || !tag.hasKey("Streak", 3) || tag.getInteger("Streak") < 0 || !tag.hasKey("Pending", 9)
             || !tag.hasKey("Milestones", 10)) throw new IllegalStateException("Malformed daily state");
         if (tag.hasKey("ClaimReset") && (!tag.hasKey("ClaimReset", 1) || !tag.hasKey("Day", 4)))
             throw new IllegalStateException("Malformed daily claim reset");
-        NBTTagList pending = (NBTTagList)tag.getTag("Pending");
-        if (pending.tagCount() > 8192 || pending.tagCount() > 0 && pending.func_150303_d() != 10)
-            throw new IllegalStateException("Malformed daily escrow");
-        for (int i = 0; i < pending.tagCount(); i++) {
-            NBTTagCompound item = pending.getCompoundTagAt(i);
-            if (!item.hasKey("id", 2) || item.getByte("Count") <= 0 || !item.hasKey("Damage", 2) || item.getString("Registry").isEmpty())
-                throw new IllegalStateException("Malformed pending item");
+        if (tag.hasKey("DeliveryDue") && (tag.getInteger("Version") != 2 || !tag.hasKey("DeliveryDue", 1)
+            || !tag.hasKey("Day") || tag.hasKey("SpinItems"))) throw new IllegalStateException("Malformed daily delivery state");
+        validateItems((NBTTagList)tag.getTag("Pending"));
+        // Version 1 claims are already complete: never recreate escrow from their result previews.
+        if (tag.hasKey("SpinItems") || tag.hasKey("CompleteAt")) {
+            if (tag.getInteger("Version") != 2 || !tag.hasKey("Day") || !tag.hasKey("SpinItems", 9)
+                || !tag.hasKey("CompleteAt", 4) || tag.getLong("CompleteAt") <= 0)
+                throw new IllegalStateException("Malformed unfinished daily spin");
+            NBTTagList spinning = (NBTTagList)tag.getTag("SpinItems");
+            validateItems(spinning);
+            if (spinning.tagCount() == 0 || spinning.tagCount() + tag.getTagList("Pending", 10).tagCount() > 8192)
+                throw new IllegalStateException("Invalid unfinished daily escrow");
         }
         if (tag.hasKey("Day")) {
             if (!tag.hasKey("Day", 4) || tag.getInteger("Streak") < 1 || !tag.hasKey("Claim", 8)
@@ -54,6 +59,15 @@ public final class DailyRewardStore {
             if (tag.hasKey("AvailableAfter") && (!tag.hasKey("AvailableAfter", 4) || tag.getLong("AvailableAfter") <= 0))
                 throw new IllegalStateException("Invalid daily reset instant");
         } else if (tag.getInteger("Streak") != 0) throw new IllegalStateException("Missing claim date");
+    }
+    private static void validateItems(NBTTagList pending) {
+        if (pending.tagCount() > 8192 || pending.tagCount() > 0 && pending.func_150303_d() != 10)
+            throw new IllegalStateException("Malformed daily escrow");
+        for (int i = 0; i < pending.tagCount(); i++) {
+            NBTTagCompound item = pending.getCompoundTagAt(i);
+            if (!item.hasKey("id", 2) || item.getByte("Count") <= 0 || !item.hasKey("Damage", 2) || item.getString("Registry").isEmpty())
+                throw new IllegalStateException("Malformed pending item");
+        }
     }
     private static void install(EntityPlayer player, NBTTagCompound tag) {
         NBTTagCompound persisted = player.getEntityData().getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
@@ -68,6 +82,7 @@ public final class DailyRewardStore {
         NBTTagCompound persisted = player.getEntityData().getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
         NBTTagCompound old = persisted.hasKey(KEY) ? (NBTTagCompound)persisted.getCompoundTag(KEY).copy() : null;
         next.setLong("Revision", read(player).getLong("Revision") + 1);
+        next.setInteger("Version", 2);
         validate(next); install(player, next);
         try {
             NBTTagCompound full = new NBTTagCompound(); player.writeToNBT(full);
