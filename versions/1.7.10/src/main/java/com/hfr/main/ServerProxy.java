@@ -23,6 +23,7 @@ public class ServerProxy
 
 
 	public void effectNT(NBTTagCompound nbt) { }
+    public void receiveDailyReward(NBTTagCompound data) { }
 	public void receiveClaimOverlay(long subscription, int dimension, int generation, int part, int parts, List<Claim> claims) { }
 	public void openWallArtGui(TileEntityWallImage tile) { }
 	public void openEarthMap() { }

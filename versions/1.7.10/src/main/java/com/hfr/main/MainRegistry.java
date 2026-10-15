@@ -350,6 +350,9 @@ public class MainRegistry
 
 		MainRegistry.loadCustomDrops();
 		com.hfr.tdm.AdminEditorLifecycle adminEditorLifecycle = new com.hfr.tdm.AdminEditorLifecycle();
+        com.hfr.daily.DailyRewardService dailyRewards = new com.hfr.daily.DailyRewardService();
+        MinecraftForge.EVENT_BUS.register(dailyRewards);
+        FMLCommonHandler.instance().bus().register(dailyRewards);
 		MinecraftForge.EVENT_BUS.register(adminEditorLifecycle);
 		FMLCommonHandler.instance().bus().register(adminEditorLifecycle);
 		if(XFConfig.enableTDM) {
@@ -639,6 +642,7 @@ public class MainRegistry
 		//in postload, long after all blocks have been registered, the buffered config is being evaluated and processed.
 
 		com.hfr.ender.EnderChestRestrictions.validateRegistry();
+        com.hfr.daily.DailyRewardConfig.validate();
 		HbmStoneDropIntegration.seedDefaultsIfAvailable(stoneDropLoadState);
 		XFGuideBook.register();
 		StoneDropSnapshotSync.sendToAll();
@@ -657,6 +661,8 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStarting(FMLServerStartingEvent event) {
+        com.hfr.daily.DailyRewardService.clear();
+        event.registerServerCommand(new com.hfr.command.CommandXDaily());
 		XFDynmapIntegration.resetServerSession();
 		com.hfr.clowder.PlayerIdentityService.initialize(MinecraftServer.getServer());
 		com.hfr.clowder.flag.CustomFlagService.startServerSession(MinecraftServer.getServer());
@@ -701,6 +707,7 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStopping(FMLServerStoppingEvent event) {
+        com.hfr.daily.DailyRewardService.clear();
         com.hfr.clowder.ClaimTerrainService.clear();
 		com.hfr.world.earth.geo.XFEarthGeoImportJob.shutdown();
 		com.hfr.world.earth.roads.XFEarthRoadImport.cancelAll();

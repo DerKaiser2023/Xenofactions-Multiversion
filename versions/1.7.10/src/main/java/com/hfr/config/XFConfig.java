@@ -212,6 +212,7 @@ public final class XFConfig {
 	public static String[] tdmBombPlantedSounds = DEFAULT_TDM_BOMB_PLANTED_SOUNDS;
 
 	public static void load(Configuration config) {
+        com.hfr.daily.DailyRewardConfig.configure(config);
         com.hfr.ender.EnderChestRestrictions.load(config);
 		commentCategories(config);
 		migrateTdmSoundConfig(config);

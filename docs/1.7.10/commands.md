@@ -288,3 +288,7 @@ Administrator commands:
 `/tdm help` is task-oriented and permission-aware. Player pages cover Match & Voting, Teams, Kits & Loadouts, and Maps. Operators additionally see administration pages, including `[Admin] /tdm teamless`, Kits, Utility & Killstreaks, and Map Configuration.
 
 Alliance targets resolve a faction name first, otherwise a player and their current faction. Pending offers belong to the sending faction UUID; resolvable historical faction/player keys remain accepted. Only the matching incoming offer is removed after both alliance records are saved.
+
+## Daily rewards (Forge 1.7.10)
+
+`/xdaily` (alias `/daily`, permission level 0) opens the custom daily wheel. **Spin daily wheel** accepts one server-selected item reward per UUID per server calendar date. **Collect saved items** retries pending item delivery after making inventory space. Closing the GUI leaves unclaimed eligibility available and preserves accepted results. Consecutive claim dates advance the streak; missing a date restarts the next claim at one. Streak milestone bonuses are granted once per day-number milestone per UUID. See [daily reward configuration and persistence](configuration.md#daily-reward-wheel).

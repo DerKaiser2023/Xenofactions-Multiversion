@@ -94,6 +94,8 @@ public class PacketDispatcher {
         wrapper.registerMessage(com.hfr.packet.client.EarthRoadRequestPacket.Handler.class, com.hfr.packet.client.EarthRoadRequestPacket.class, i++, Side.SERVER);
         wrapper.registerMessage(com.hfr.packet.effect.EarthRoadSnapshotPacket.Handler.class, com.hfr.packet.effect.EarthRoadSnapshotPacket.class, i++, Side.CLIENT);
 		wrapper.registerMessage(ClaimOverlayPacket.RequestHandler.class, ClaimOverlayPacket.Request.class, i++, Side.SERVER);
+        wrapper.registerMessage(com.hfr.packet.daily.DailyActionPacket.Handler.class, com.hfr.packet.daily.DailyActionPacket.class, i++, Side.SERVER);
+        wrapper.registerMessage(com.hfr.packet.daily.DailySnapshotPacket.Handler.class, com.hfr.packet.daily.DailySnapshotPacket.class, i++, Side.CLIENT);
 
 	}
 	
