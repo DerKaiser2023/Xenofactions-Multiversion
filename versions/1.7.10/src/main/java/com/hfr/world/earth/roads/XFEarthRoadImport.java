@@ -28,7 +28,7 @@ public final class XFEarthRoadImport implements Runnable {
     private final XFEarthRoadSource.Policy policy;
     private final XFEarthFeatureSource.Policy featurePolicy;
     private final boolean featuresOnly;
-    private final File source;
+    private final File save;
     private final int x0,z0,x1,z1;
     private final List<Reviewed> preview=new ArrayList<Reviewed>();
     private final String token=UUID.randomUUID().toString();
@@ -45,9 +45,9 @@ public final class XFEarthRoadImport implements Runnable {
         world=(WorldServer)player.worldObj;operator=player.getUniqueID();XFEarthProfile current=XFEarthProfileLoader.forWorld(world);
         profile=current==null?null:new com.google.gson.Gson().fromJson(new com.google.gson.Gson().toJson(current),XFEarthProfile.class);
         if(profile==null)throw new IOException("An adopted Earth overworld is required");profile.validate("1.7.10");profile.requireGameplayHeight();
-        this.x0=x0;this.z0=z0;this.x1=x1;this.z1=z1;source=XFEarthRoadSource.configuredDirectory();policy=new XFEarthRoadSource.Policy();
+        this.x0=x0;this.z0=z0;this.x1=x1;this.z1=z1;save=world.getSaveHandler().getWorldDirectory();policy=new XFEarthRoadSource.Policy();
         this.featuresOnly=featuresOnly;featurePolicy=new XFEarthFeatureSource.Policy();
-        if(featuresOnly&&!featurePolicy.enabled)throw new IOException("Geographic feature generation is disabled");
+        if(featuresOnly&&!featurePolicy.enabled)throw new IOException("Geographic feature generation is disabled: configure earthGenerateGeographicFeatures");
     }
     private static final class Reviewed {final Snapshot snapshot;final XFEarthRoadPlanner.Plan plan;Reviewed(Snapshot s,XFEarthRoadPlanner.Plan p){snapshot=s;plan=p;}}
     private static final class Snapshot implements XFEarthRoadPlanner.Terrain {
@@ -96,14 +96,10 @@ public final class XFEarthRoadImport implements Runnable {
             }
             if(args.length==3&&"apply".equalsIgnoreCase(args[1])){
                 XFEarthRoadImport job=owned(player);job.reviewed(args[2]);
-                if(job.featuresOnly?!XFConfig.earthFeatureExistingImports:!XFConfig.earthRoadExistingImports)throw new IOException("Existing-world application is disabled for this job type");
+                if(job.featuresOnly?!XFConfig.earthFeatureExistingImports:!XFConfig.earthRoadExistingImports)throw new IOException("Existing-world application is disabled: configure "+(job.featuresOnly?"earthFeatureExistingImports":"earthRoadExistingImports"));
                 if(!job.token.equals(job.acknowledged))throw new IOException("Acknowledge a current manual world backup with /xc earth "+job.mode()+" backup "+job.token);
-                XFEarthRoadSource current=new XFEarthRoadSource(job.source,job.profile,new XFEarthRoadSource.Policy());
-                String identity=job.featuresOnly?new XFEarthFeatureSource(current,new XFEarthFeatureSource.Policy()).identity:current.identity;
-                if(!identity.equals(job.identity))throw new IOException("Dataset/policy changed; create a new preview");
-                job.state="APPLYING";job.pending=XFEarthWorkQueue.submit(job.new Apply(player));
-                job.pending.whenComplete(new java.util.function.BiConsumer<Void,Throwable>(){public void accept(Void ignored,Throwable failure){if(failure!=null&&!job.cancelled)job.state="FAILED: "+failure.getMessage();}});
-                message(sender,"Applying reviewed preview under the shared road budget. Cancellation does not undo placed blocks.");return;
+                job.state="VALIDATING";job.worker=new Thread(new Runnable(){public void run(){job.validateApply(player);}},"XF geographic apply validation");job.worker.setDaemon(true);job.worker.start();
+                message(sender,"Validating selected dataset before applying the reviewed preview. Cancellation does not undo placed blocks.");return;
             }
         }catch(IOException|IllegalArgumentException e){throw new CommandException("Road import: "+e.getMessage());}
         throw new WrongUsageException("/xc earth <roads|features> preview <minChunkX> <minChunkZ> <maxChunkX> <maxChunkZ> | status | inspect <job-token> [block-offset] | cancel | backup <job-token> | apply <job-token>");
@@ -121,13 +117,25 @@ public final class XFEarthRoadImport implements Runnable {
         if(cancelled||MinecraftServer.getServer()==null||MinecraftServer.getServer().worldServerForDimension(0)!=world||!MinecraftServer.getServer().isServerRunning())throw new InterruptedException("Road world/session ended");
     }
     private void await(CompletableFuture<Void> future)throws Exception{pending=future;try{for(;;){check();try{future.get(100,TimeUnit.MILLISECONDS);return;}catch(TimeoutException waiting){}}}finally{pending=null;}}
+    private void validateApply(final EntityPlayerMP player){
+        try{
+            XFEarthRoadSource current=XFEarthGeoSelection.open(save,profile,new XFEarthRoadSource.Policy());
+            String selected=featuresOnly?new XFEarthFeatureSource(current,new XFEarthFeatureSource.Policy()).identity:current.identity;
+            if(!selected.equals(identity))throw new IOException("Selected dataset/policy changed; create a new preview");
+            await(XFEarthWorkQueue.submit(new XFEarthWorkQueue.Step(){public boolean run()throws Exception{
+                worldCheck();if(!"VALIDATING".equals(state)||System.currentTimeMillis()-reviewedAt>300000||!token.equals(acknowledged))throw new IOException("Preview/backup acknowledgement expired; create a new preview");
+                state="APPLYING";return true;
+            }}));
+            await(XFEarthWorkQueue.submit(new Apply(player)));
+        }catch(Exception e){if(!cancelled)state="FAILED: "+e.getMessage();}
+    }
     public void run(){
         try{
-            XFEarthRoadSource roads=new XFEarthRoadSource(source,profile,policy);XFEarthFeatureSource features=new XFEarthFeatureSource(roads,featurePolicy);identity=featuresOnly?features.identity:roads.identity;
+            XFEarthRoadSource roads=XFEarthGeoSelection.open(save,profile,policy);XFEarthFeatureSource features=new XFEarthFeatureSource(roads,featurePolicy);identity=featuresOnly?features.identity:roads.identity;
             for(int cz=z0;cz<=z1;cz++)for(int cx=x0;cx<=x1;cx++){
                 check();Capture capture=new Capture(cx,cz);await(XFEarthWorkQueue.submit(capture));
                 Snapshot snapshot=capture.snapshot;
-                if(snapshot==null||!snapshot.baseline.equals(snapshot.fingerprint)){skipped++;findings.add("Chunk "+cx+","+cz+": skipped (unloaded, unverified/edited, completed, pending, tile entity or baseline mismatch)");continue;}
+                if(snapshot==null||!snapshot.baseline.equals(snapshot.fingerprint)){skipped++;findings.add("Chunk "+cx+","+cz+": skipped ("+capture.reason+")");continue;}
                 XFEarthRoadPlanner.Plan plan=featuresOnly?XFEarthFeaturePlanner.plan(features,cx,cz,snapshot,true):XFEarthRoadPlanner.plan(roads.cells(cx,cz),cx,cz,snapshot,profile,policy);
                 if(edits+plan.edits.size()>65536)throw new IOException("Preview exceeds 65,536 changed-block limit");
                 preview.add(new Reviewed(snapshot,plan));edits+=plan.edits.size();eligible+=plan.eligible;water+=plan.water;steep+=plan.steep;
@@ -143,12 +151,14 @@ public final class XFEarthRoadImport implements Runnable {
     /** Captures loaded arrays/terrain/claims incrementally on the server; worker consumes detached snapshots. */
     private final class Capture implements XFEarthWorkQueue.Step {
         final int cx,cz;Chunk chunk;Snapshot snapshot;MessageDigest digest;int section,sample;boolean started;
+        String reason="unloaded, edited, completed, pending, tile entity or baseline mismatch";
         Capture(int cx,int cz){this.cx=cx;this.cz=cz;}
         public boolean run()throws Exception{
             worldCheck();if(!world.getChunkProvider().chunkExists(cx,cz)){snapshot=null;return true;}
             Chunk current=world.getChunkFromChunkCoords(cx,cz);
             if(!started){started=true;chunk=current;XFEarthRoadState.Stamp stamp=XFEarthRoadState.get(chunk);
-                if(stamp==null||stamp.edited||!stamp.pending.isEmpty()||!(featuresOnly?stamp.featuresCompleted:stamp.completed).isEmpty()||!stamp.profile.equals(XFEarthGeoDataset.profileIdentity(profile))||!chunk.chunkTileEntityMap.isEmpty())return true;
+                if(stamp==null){reason="no trusted native pristine baseline; historical/bundled chunks cannot receive blocks; source overlays remain available";return true;}
+                if(stamp.edited||!stamp.pending.isEmpty()||!(featuresOnly?stamp.featuresCompleted:stamp.completed).isEmpty()||!stamp.profile.equals(XFEarthGeoDataset.profileIdentity(profile))||!chunk.chunkTileEntityMap.isEmpty())return true;
                 snapshot=new Snapshot(chunk,stamp);digest=XFEarthRoadState.digest();
             }
             if(snapshot==null)return true;if(current!=chunk){snapshot=null;return true;}

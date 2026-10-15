@@ -7,6 +7,53 @@ coremod is installed. CubicChunks remains optional and extended-height gameplay
 remains disabled; installing it still causes ordinary Earth startup to reject
 its global provider replacement. See the [injection architecture](XFEARTH_WORLD_TYPE.md#extended-networking-and-rendering-bridge-stage-3).
 
+## Bundled default 1:16000 map and missing OSM data
+
+The bundled Clean and Populated packs install pregenerated terrain with the
+`smoke` profile (2688 x 1344, scale 1:16000). Neither distributed archive contains
+`source.json`, `features.geojsonseq`, `dataset.json`, `features.dat` or geographic
+region indices. The bundled background imagery is terrain land cover, not OSM.
+Selecting 1:16000 installs terrain; it does not acquire, import or select OSM.
+The displayed scale and attribution do not establish that an import exists.
+
+`Geographic data unavailable: no completed dataset selected` means a missing
+dataset selection, not an empty geographic query or a layer/zoom setting. Source
+preparation remains external. The supported setup is:
+
+1. Acquire a regional OSM extract and export the local sequence and provenance
+   described below under `earthGeographicSourceDirectory/<dataset-id>/`.
+2. In the adopted Earth world, run `/xc earth geo import <dataset-id>` as a
+   level-4 operator. `/xc earth geo status` reports the job and setup locations;
+   wait for successful completed publication.
+3. Run `/xc earth geo select <dataset-id>`. This validates the completed dataset
+   against this world's full profile and saves the explicit choice. Importing
+   alone does not change an administrator's selection, even with one dataset.
+4. The Map source layers use that selection independently of block generation.
+   Missing/incomplete/incompatible data produces a reason and setup command;
+   an empty successful query still means unverified source coverage.
+
+The selection record is `<save>/data/xfearth-geographic-selection.json`; it
+retains the canonical dataset path and immutable identity across save/restart.
+Keep the selected external files available. A nonblank `earthRoadDatasetDirectory`
+in `XENOFACTIONS_18_EARTH_WORLD` remains the explicit administrator override.
+To use per-world selection, clear that override in `hfr.cfg` and restart first;
+`geo select` refuses to silently replace it. No dataset discovery guesses among
+multiple datasets. A rejected selection leaves the previous choice intact.
+Accepted choices cancel stale block previews, invalidate server map work/cache
+and notify connected overworld clients to release vector frames/display lists.
+An open Map requests a fresh view; optional adapters discard the old frame.
+
+**Blocks are separate:** opening the Map, loading a world and selecting a
+dataset place no blocks. Inspection of every chunk in both distributed packs
+found no `XFEarthRoads` trusted native baseline tag. The existing-world commands
+below support authorized application only to eligible native baseline chunks;
+the bundled historical chunks are excluded, with no force option or invented
+baseline. OSM overlays remain usable on these packs. The only current native
+new-terrain path is external-raster **earth2000** pregeneration, requiring its
+own exactly matching dataset; it cannot regenerate the 1:16000 smoke world.
+WorldPainter regeneration is not a prerequisite for source overlays and is not
+a repair for this dataset-selection problem.
+
 ## Native external-raster earth2000 generation
 
 XenoFactions can now generate the clean 1:2000 overworld without WorldPainter. The five source PNGs remain external: they are neither copied into `src/main/resources` nor included in the normal JAR. Put an exported source package at `xenofactions/earthmaps/sources/earth2000/` under the server root, or set `earthSourceDirectory` to another source-root directory. The package must contain `HeightMap20k.png`, `BiomeMap20k.png`, `WaterMap20k.png`, `Ice20k.png`, `globecover20k.png`, and `xenoearth-source.json`.
@@ -104,6 +151,7 @@ Run as a level-4 operator in an adopted Earth overworld:
 /xc earth geo status
 /xc earth geo cancel
 /xc earth geo info regional-snapshot
+/xc earth geo select regional-snapshot
 ```
 
 With `earthGeographicDataDirectory` blank, output is
@@ -111,8 +159,9 @@ With `earthGeographicDataDirectory` blank, output is
 `<root>/<SHA-256 of canonical save path>/<dataset-id>/` to isolate saves; moving
 a save changes that namespace. Output anywhere inside a Git workspace is refused,
 including ignored development saves. Configure an external root for development.
-Import never overwrites an existing destination. Incomplete directories retain
-their `.importing-<UUID>` suffix and failure details; there is no resume or automatic
+Import never overwrites an existing destination and never automatically selects
+its output. Successful completion reports `geo select <dataset-id>`. Incomplete
+directories retain their `.importing-<UUID>` suffix and failure details; there is no resume or automatic
 cleanup. Cancellation also occurs on owning-world unload or server stop.
 
 Keep `dataset.json` and its source/license/attribution metadata with any distributed
@@ -125,21 +174,31 @@ closed. Supported geometry, limits and reader APIs are documented in
 
 ## Road generation and bounded imports (Stage 6)
 
-Set `earthRoadDatasetDirectory` in `XENOFACTIONS_18_EARTH_WORLD` to the complete
-external Stage 5 dataset directory containing `dataset.json`, `features.dat` and
-`regions/`. Blank disables roads. The full profile identity must match the target
-Earth world; the native earth2000 pregenerator requires an earth2000 dataset.
+Use `/xc earth geo select <dataset-id>` after import, or set
+`earthRoadDatasetDirectory` in `XENOFACTIONS_18_EARTH_WORLD` to the complete
+Stage 5 dataset directory containing `dataset.json`, `features.dat` and `regions/`.
+Blank uses the saved per-world choice; without either, source data is unavailable.
+The full profile identity must match the target Earth world. A mismatch names
+the differing profile field; import under a new ID in the intended world or
+correct the override. Native earth2000 pregeneration uses the explicit config
+override, requires an earth2000 dataset, and records that selection in the output
+save for subsequent Map and preview use.
 Keep the dataset and its full source attribution with distributions of derived
 road terrain. The existing Map item uses the same selected source and filtering
 policy for its road layer, with OSM/ODbL credit and unverified-coverage notice.
 
-For **new** terrain, select the dataset before `/xc earth pregen start earth2000`.
+For **new** terrain, set the explicit `earthRoadDatasetDirectory` override to a
+matching earth2000 dataset before `/xc earth pregen start earth2000`.
 Road planning follows raster surface/water preparation, and budgeted road edits
 precede chunk construction, lighting and Anvil serialization. This project has
 no live Earth terrain generator: its in-game provider only guards pregenerated
 chunks. Roads are therefore automatic in new raster pregeneration, not retroactive
 population on chunk load or `.xfmap` installation. A partial pregeneration rejects
 a changed road dataset/policy. No existing world is regenerated for this feature.
+
+Source/dataset verification runs on the pregenerator worker before terrain
+preparation; `pregen status` reports preparation failures. It does not parse the
+geographic manifest or hash the raster package on the server tick thread.
 
 At the default 1:2000 scale, only motorway, trunk, primary and secondary routes
 (including links) are used. Below 1:1000, tertiary routes are also included; below
@@ -151,6 +210,12 @@ capped by `earthRoadMaxWidth` (default 7, rounded down to odd). These widths are
 exaggerated at coarse scales, not exact street-scale replicas. Asphalt uses XF's
 existing speed block; unpaved/track/path surfaces use vanilla gravel. Roads with
 area geometry alone have no inferred centerline.
+
+For the bundled **1:16000** profile with default `earthRoadCoarseScale=1000`,
+only motorway/trunk and their links survive source-road filtering. Their actual
+source centerlines are retained; the existing block road policy uses symbolic
+minimum widths, not surveyed road footprints. Primary/secondary/local roads
+are filtered at this scale; importing data does not change that policy.
 
 Surface roads skip water/ice, obstructed columns and excessive slopes. Bridge,
 tunnel and unresolved nonzero-layer source segments are retained on the Map layer
@@ -249,6 +314,15 @@ take priority over business kiosks, then farmyards, farmland and meadows; source
 keys break ties. Reserved higher-priority footprints can leave gaps in lower-priority
 features. At earth2000 most ordinary buildings are smaller than one block: they
 are not enlarged or relocated to make a replica.
+
+At **1:16000**, farmland/meadow/farmyard need at least one complete projected
+block cell inside the source polygon, excluding holes and road corridors.
+Orchards/vineyards remain source outlines. Building and supported business
+polygons still need width/depth 3..32 blocks (default span limit), at least nine
+whole cells and an interior cell; ordinary small buildings remain information
+only. There are no point kiosks or detailed crops at this scale under the default
+`earthFeatureBuildingMaxScale=100`; representable shells are at most three
+blocks high. No source polygon is enlarged or moved to become representable.
 
 Existing-world feature application is separately off by default
 (`earthFeatureExistingImports=false`). The **same administrator job system** handles:

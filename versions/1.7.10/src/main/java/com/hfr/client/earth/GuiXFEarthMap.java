@@ -96,6 +96,7 @@ public final class GuiXFEarthMap extends GuiScreen {
         EarthMapLayerCache.begin(roadRequest,requestedWorld,data,profileId,view);
         PacketDispatcher.wrapper.sendToServer(new com.hfr.packet.client.EarthRoadRequestPacket(roadRequest,dimension,x0,z0,x1,z1,lod,enabledLayers));
     }
+    public void invalidateLayers(){layers=null;selected=null;roadView="";roadTicks=39;roadNotice="Dataset selection changed; refreshing geographic overview...";}
     public void receiveLayers(EarthMapLayerCache.Frame frame){
         roadNotice=frame.notice;if(frame.notice.contains("busy"))return;layers=frame;
         if(selected!=null){com.hfr.world.earth.map.XFEarthMapLayers.Feature replacement=null;for(com.hfr.world.earth.map.XFEarthMapLayers.Feature f:frame.features)if(f.key.equals(selected.key))replacement=f;selected=replacement;}

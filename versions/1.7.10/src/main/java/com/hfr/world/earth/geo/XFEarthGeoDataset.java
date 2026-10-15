@@ -35,14 +35,23 @@ public final class XFEarthGeoDataset {
                 +"\n"+sourceHash+"\n"+profileHash+"\n"+XFEarthGeoJson.canonical(metadata));
     }
     public static XFEarthGeoDataset open(File directory,XFEarthProfile profile) throws IOException {
-        if(!directory.isDirectory())throw new FileNotFoundException("No imported geographic dataset: "+directory.getName());
+        if(directory.getName().contains(".importing-"))throw new IOException("Unpublished .importing dataset; /xc earth geo status; import a new ID and select only completed output");
+        if(!directory.isDirectory())throw new FileNotFoundException("Dataset directory missing/invalid: "+directory+"; configure earthRoadDatasetDirectory or /xc earth geo import <id>, then geo select <id>");
+        if(!new File(directory,"dataset.json").isFile())throw new IOException("Incomplete dataset (missing dataset.json): "+directory+"; /xc earth geo status; import a new dataset ID, never select .importing output");
         JsonObject m=XFEarthGeoJson.file(new File(directory,"dataset.json"),524288);
         try {
+            if(!"COMPLETE".equals(XFEarthGeoJson.text(m,"state")))throw new IOException("Incomplete geographic import; /xc earth geo status; import a new dataset ID");
+            if(!profileIdentity(profile).equals(XFEarthGeoJson.text(m,"profileIdentity"))){
+                JsonObject actual=XFEarthGeoJson.GSON.toJsonTree(profile).getAsJsonObject(),stored=m.getAsJsonObject("profile");
+                String difference="profile identity";
+                if(stored!=null)for(java.util.Map.Entry<String,JsonElement> field:actual.entrySet())if(!field.getValue().equals(stored.get(field.getKey()))){difference=field.getKey()+": dataset="+stored.get(field.getKey())+", world="+field.getValue();break;}
+                throw new IOException("Incompatible geographic profile ("+difference+"); /xc earth geo import <new-id> in this world, then geo select <new-id>; or correct earthRoadDatasetDirectory");
+            }
             if(m.get("formatVersion").getAsInt()!=VERSION||m.get("projectionVersion").getAsInt()!=XFEarthGeoGeometry.VERSION
                     ||m.get("classificationVersion").getAsInt()!=XFEarthGeoImporter.CLASSIFICATION_VERSION
-                    ||!"COMPLETE".equals(XFEarthGeoJson.text(m,"state"))||!"1.7.10".equals(XFEarthGeoJson.text(m,"minecraftVersion"))
-                    ||!COVERAGE.equals(XFEarthGeoJson.text(m,"coverage"))||!profileIdentity(profile).equals(XFEarthGeoJson.text(m,"profileIdentity")))
-                throw new IOException("Geographic dataset version/profile mismatch or incomplete import");
+                    ||!"1.7.10".equals(XFEarthGeoJson.text(m,"minecraftVersion"))
+                    ||!COVERAGE.equals(XFEarthGeoJson.text(m,"coverage")))
+                throw new IOException("Unsupported geographic dataset format/version; /xc earth geo import <new-id> and geo select <new-id>");
             JsonObject source=m.getAsJsonObject("source");XFEarthGeoImporter.validateSource(source,XFEarthGeoJson.text(m,"datasetId"));
             if(!directory.getName().equals(XFEarthGeoJson.text(m,"datasetId"))||!XFEarthGeoImporter.LICENSE.equals(XFEarthGeoJson.text(m,"license"))
                     ||!XFEarthGeoImporter.LICENSE_URL.equals(XFEarthGeoJson.text(m,"licenseUrl"))

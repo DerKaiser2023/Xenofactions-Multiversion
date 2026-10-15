@@ -61,6 +61,10 @@ public class ClientProxy extends ServerProxy
     @Override public void receiveEarthLayers(final com.hfr.packet.effect.EarthRoadSnapshotPacket packet){
         final Minecraft mc=Minecraft.getMinecraft();final World receiving=mc.theWorld;
         mc.func_152344_a(new Runnable(){public void run(){if(receiving==null||mc.theWorld!=receiving)return;
+            if(packet.dimension==receiving.provider.dimensionId&&com.hfr.packet.effect.EarthRoadSnapshotPacket.SELECTION_INVALIDATED.equals(packet.view)){
+                com.hfr.client.earth.EarthMapLayerCache.clear();
+                if(mc.currentScreen instanceof com.hfr.client.earth.GuiXFEarthMap)((com.hfr.client.earth.GuiXFEarthMap)mc.currentScreen).invalidateLayers();return;
+            }
             com.hfr.client.earth.EarthMapLayerCache.Frame frame=com.hfr.client.earth.EarthMapLayerCache.receive(packet);
             if(frame!=null&&mc.currentScreen instanceof com.hfr.client.earth.GuiXFEarthMap)((com.hfr.client.earth.GuiXFEarthMap)mc.currentScreen).receiveLayers(frame);
         }});

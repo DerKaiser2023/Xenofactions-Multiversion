@@ -48,10 +48,12 @@ public final class XFEarthGeoImporter {
         profile=XFEarthGeoJson.GSON.fromJson(XFEarthGeoJson.GSON.toJson(profile),XFEarthProfile.class);
         profile.validate("1.7.10");XFEarthGeoGeometry.validateProfile(profile);control.check();
         File target=destination.getCanonicalFile();requireExternal(target);validateId(target.getName());
-        JsonObject source=XFEarthGeoJson.file(new File(sourceDirectory,"source.json"),65536);
-        try{validateSource(source,target.getName());}catch(RuntimeException e){throw new IOException("Invalid geographic source manifest",e);}
+        File metadata=new File(sourceDirectory,"source.json");
+        if(!metadata.isFile())throw new FileNotFoundException("Missing local source.json at "+metadata+"; prepare external OSM export under earthGeographicSourceDirectory/<id>; no automatic download");
+        JsonObject source=XFEarthGeoJson.file(metadata,65536);
+        try{validateSource(source,target.getName());}catch(RuntimeException e){throw new IOException("Invalid source.json: "+e.getMessage()+"; correct earthGeographicSourceDirectory/<id>/source.json",e);}
         File input=new File(sourceDirectory,"features.geojsonseq");
-        if(!input.isFile())throw new FileNotFoundException("Missing local features.geojsonseq");
+        if(!input.isFile())throw new FileNotFoundException("Missing local features.geojsonseq at "+input+"; export regional OSM externally under earthGeographicSourceDirectory/<id>");
         if(target.exists())throw new IOException("Existing geographic dataset is never overwritten; use a new dataset ID");
         String sourceHash=XFEarthGeoJson.hash(input,control),profileHash=XFEarthGeoDataset.profileIdentity(profile);
         String identity=XFEarthGeoDataset.datasetIdentity(sourceHash,profileHash,source);

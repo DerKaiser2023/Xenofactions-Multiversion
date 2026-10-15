@@ -27,7 +27,7 @@ public final class EarthMapLayerCache {
     public static boolean waiting(){if(pending!=null&&System.nanoTime()-pending.started>10000000000L)pending=null;return pending!=null;}
     public static void cancel(){pending=null;}
     public static Frame current(){return current!=null&&current.clientWorld==Minecraft.getMinecraft().theWorld&&current.clientWorld.provider.dimensionId==current.dimension?current:null;}
-    public static Frame find(World world,String profile,String view){for(Frame f:cache.values())if(f.clientWorld==world&&f.profile.equals(profile)&&f.view.equals(view))return f;return null;}
+    public static Frame find(World world,String profile,String view){for(Frame f:cache.values())if(f.clientWorld==world&&f.profile.equals(profile)&&f.view.equals(view)&&(current==null||f.dataset.equals(current.dataset)))return f;return null;}
     public static Frame receive(EarthRoadSnapshotPacket p){
         Assembly a=pending;if(a==null||p.token!=a.token||a.world!=Minecraft.getMinecraft().theWorld||p.dimension!=a.world.provider.dimensionId||!p.profile.equals(a.profile)||!p.view.equals(a.view))return null;
         if(a.first==null)a.first=p;EarthRoadSnapshotPacket first=a.first;
@@ -36,6 +36,7 @@ public final class EarthMapLayerCache {
         for(int i=0;i<p.parts;i++){EarthRoadSnapshotPacket part=a.parts.get(i);if(part==null)return null;for(Feature f:part.features){vertices+=f.vertices();features.add(f);}}
         if(vertices>4096||features.size()>XFEarthMapLayers.MAX_FEATURES){pending=null;return null;}
         if(p.notice.contains("busy")){pending=null;return new Frame(a.world,a.data,p,features);}
+        for(Iterator<Frame> it=cache.values().iterator();it.hasNext();){Frame old=it.next();if(old.clientWorld==a.world&&old.profile.equals(p.profile)&&!old.dataset.equals(p.dataset)){old.release();it.remove();}}
         String key=p.world+":"+p.profile+":"+p.dataset+":"+XFEarthMapLayers.VERSION+":"+p.view;
         Frame previous=cache.remove(key);Frame frame=new Frame(a.world,a.data,p,features);
         if(previous!=null){if(previous.same(frame)){frame.release();frame=previous;}else previous.release();}

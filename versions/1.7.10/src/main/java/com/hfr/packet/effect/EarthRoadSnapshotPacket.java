@@ -10,6 +10,7 @@ import java.util.*;
 
 /** The existing Map reply channel, carrying bounded public layer/selection records. */
 public final class EarthRoadSnapshotPacket implements IMessage {
+    public static final String SELECTION_INVALIDATED="selection-invalidated";
     public int token,dimension,part,parts,lod,mask;
     public String world,profile,dataset,view,notice;
     public String attribution="© OpenStreetMap contributors / ODbL";

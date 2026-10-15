@@ -47,19 +47,19 @@ public final class XFEarthRoadMap {
             XFEarthRoadState.Stamp s=XFEarthRoadState.get(c);if(s==null)continue;stamps.add(new Stamp(c,s));
             for(String text:s.featureInfo){int end=text.indexOf('|');if(end>0&&recorded.size()<8192)recorded.add(s.featuresCompleted+":"+text.substring(0,end));}
         }}
-        File selected=null;try{selected=XFEarthRoadSource.configuredDirectory();}catch(IOException absent){}final File directory=selected;
+        final File save=world.getSaveHandler().getWorldDirectory();
         final XFEarthRoadSource.Policy roadPolicy=new XFEarthRoadSource.Policy();final XFEarthFeatureSource.Policy featurePolicy=new XFEarthFeatureSource.Policy();
         final LinkedHashMap<String,XFEarthGeoMapSource.View> sourceCache=cache;
         if(executor==null)executor=new ThreadPoolExecutor(1,1,30,TimeUnit.SECONDS,new ArrayBlockingQueue<Runnable>(4),new ThreadFactory(){public Thread newThread(Runnable task){Thread thread=new Thread(task,"XF geographic overview");thread.setDaemon(true);return thread;}});
         try{Future<?> future=executor.submit(new Runnable(){public void run(){
             XFEarthGeoMapSource.View loaded=new XFEarthGeoMapSource.View();
-            if(directory!=null&&(mask&31)!=0)try{
-                XFEarthGeoDataset dataset=XFEarthGeoDataset.open(directory,profile);
+            if((mask&31)!=0)try{
+                XFEarthGeoDataset dataset=XFEarthGeoSelection.open(save,profile,roadPolicy).dataset;
                 String key=worldId+":"+profileId+":"+dataset.manifest.get("datasetIdentity").getAsString()+":"+view+":"+roadPolicy.key()+":"+featurePolicy.key();
-                loaded=sourceCache.get(key);if(loaded==null){loaded=XFEarthGeoMapSource.read(directory,profile,roadPolicy,featurePolicy,x0,z0,x1,z1,lod,mask);
+                loaded=sourceCache.get(key);if(loaded==null){loaded=XFEarthGeoMapSource.read(dataset.directory,profile,roadPolicy,featurePolicy,x0,z0,x1,z1,lod,mask);
                     if(sourceCache.size()>=8)sourceCache.remove(sourceCache.keySet().iterator().next());sourceCache.put(key,loaded);}
-            }catch(IOException|RuntimeException unavailable){loaded=new XFEarthGeoMapSource.View();loaded.notice="Geographic data unavailable: missing/incompatible dataset or bounded query failure; not confirmed absence";}
-            else loaded.notice=directory==null?"Geographic data unavailable: no completed dataset selected; not confirmed absence":"Geographic layers disabled";
+            }catch(IOException|RuntimeException unavailable){loaded=new XFEarthGeoMapSource.View();loaded.notice="Geographic data unavailable; /xc earth geo status: "+unavailable.getMessage()+"; not confirmed absence";}
+            else loaded.notice="Geographic layers disabled";
             final XFEarthGeoMapSource.View result=loaded;
             final List<Feature> prepared=new ArrayList<Feature>();
             for(Feature f:result.features){int state=recorded.contains(result.featureIdentity+":"+result.generationKeys.get(f.key))?1:0;
@@ -100,5 +100,10 @@ public final class XFEarthRoadMap {
     }
     private static void notice(EntityPlayerMP player,int token,int dimension,int lod,int mask,String world,String profile,String view,String notice){PacketDispatcher.wrapper.sendTo(new EarthRoadSnapshotPacket(token,dimension,0,1,lod,mask,world,profile,"",view,notice,Collections.<Feature>emptyList()),player);}
     public static void clear(){session++;if(executor!=null)executor.shutdownNow();executor=null;cache=new LinkedHashMap<String,XFEarthGeoMapSource.View>(8,.75F,true);pending.clear();cooldown.clear();}
+    public static void selectionChanged(World world){
+        clear();XFEarthProfile profile=XFEarthProfileLoader.forWorld(world);if(profile==null)return;
+        EarthRoadSnapshotPacket invalidation=new EarthRoadSnapshotPacket(0,0,0,1,1,127,"",XFEarthGeoDataset.profileIdentity(profile),"",EarthRoadSnapshotPacket.SELECTION_INVALIDATED,"Geographic dataset selection changed",Collections.<Feature>emptyList());
+        for(Object object:world.playerEntities)if(object instanceof EntityPlayerMP)PacketDispatcher.wrapper.sendTo(invalidation,(EntityPlayerMP)object);
+    }
     public static void logout(EntityPlayerMP player){Future<?> future=pending.remove(player.getUniqueID());if(future!=null)future.cancel(true);cooldown.remove(player.getUniqueID());}
 }

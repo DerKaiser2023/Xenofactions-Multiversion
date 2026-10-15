@@ -13,6 +13,12 @@ underground and no Minecraft population. **Populated** is heavier and
 modpack-dependent: it retains ores, pools, deposits, and compatible mod plants.
 Both are pregenerated and runtime population is always disabled.
 
+Both distributed packs use profile `smoke` and contain no offline OSM sequence,
+imported geographic dataset or native `XFEarthRoads` pristine baseline stamps.
+Creation only installs terrain; scale selection performs no OSM download/import.
+Use the [external preparation, import and explicit selection workflow](XFEARTH_INSTALLATION.md#bundled-default-116000-map-and-missing-osm-data)
+for source layers. Historical bundled chunks remain excluded from block imports.
+
 > **Do not distribute the populated map until its required-mod list and Forge
 > registry preservation have been tested in a clean installation of the intended
 > modpack.**
@@ -747,9 +753,28 @@ Output is external to Git workspaces. Publication moves the completed partial
 directory without replacement after all writers close. Cancellation is cooperative
 between records/projection steps and interlocked with final publication; Java's
 individual geometry operations cannot be interrupted internally. This does not
-promise crash-atomic multi-file durability, resume or cleanup. No dataset selection
-or automatic block placement is introduced; later stages choose explicit datasets
-and reuse this reader/projection boundary.
+promise crash-atomic multi-file durability, resume or cleanup. Import publishes
+without selecting or placing blocks. `/xc earth geo select <dataset-id>` validates
+a named completed dataset on the same bounded worker and atomically writes
+`data/xfearth-geographic-selection.json` in the save, retaining its canonical path
+and dataset identity. `XFEarthGeoSelection.open` is the common selection boundary
+for overview queries and road/feature previews and application revalidation.
+Nonblank `earthRoadDatasetDirectory` remains authoritative and blocks the selection
+command until deliberately cleared/restarted. There is no arbitrary discovery or
+replacement on import. Native earth2000 pregeneration reads the explicit override
+on its worker and records that selected dataset in its output save as well.
+
+Selection changes cancel stale previews and pending map publications, clear worker
+caches and deliver a bounded invalidation notice over the existing layer channel.
+The client clears frame assembly, GL lists and optional adapter source frames on
+its owning thread, and the open Map requests fresh data. Dataset/profile failures
+retain specific reasons and `/xc earth geo status` guidance rather than becoming
+empty successful results. The status command reports source/output paths and
+external acquisition requirements; `geo info` reads provenance off-thread. Saved
+selections revalidate profile, completion and identity whenever opened. Dataset
+files remain immutable and external to Git; the small save-local selection record
+does not contain source features. Moving a selected dataset requires an explicit
+new selection or corrected config path.
 
 **Verification:** source trace covers record limits, per-feature recovery,
 projection/antimeridian handling, index offsets, dataset identity and worker/unload

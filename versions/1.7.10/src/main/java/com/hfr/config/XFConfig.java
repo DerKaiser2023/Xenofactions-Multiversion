@@ -234,7 +234,7 @@ public final class XFConfig {
 		earthGeoMaxVertices = integer(config, CAT_EARTH_WORLD, "earthGeoMaxVertices", 32768, 4, 32768, "Maximum input/output vertices per feature, independent of total extract size.");
 		earthGeoOpenRegionFiles = integer(config, CAT_EARTH_WORLD, "earthGeoOpenRegionFiles", 16, 1, 32, "Maximum open derived region index writers.");
 		earthGeoMaxRegionsPerFeature = integer(config, CAT_EARTH_WORLD, "earthGeoMaxRegionsPerFeature", 4096, 1, 4096, "Maximum region index references per feature; larger features are reported and skipped.");
-		earthRoadDatasetDirectory = string(config, CAT_EARTH_WORLD, "earthRoadDatasetDirectory", "", "Completed external Stage 5 dataset used for new Earth raster terrain, road previews and Map roads. Blank disables roads; exact profile must match.");
+		earthRoadDatasetDirectory = string(config, CAT_EARTH_WORLD, "earthRoadDatasetDirectory", "", "Explicit completed geographic dataset override for Map layers, previews and raster pregeneration. Blank uses this save's /xc earth geo select <id> choice; no choice means unavailable. External OSM preparation/import required; 1:16000 downloads nothing. Exact profile must match.");
 		earthRoadExistingImports = bool(config, CAT_EARTH_WORLD, "earthRoadExistingImports", false, "Allow level-4 operators to apply a reviewed road preview after acknowledging a current manual world backup. No backup is automatically verified.");
 		earthRoadMaxCut = integer(config, CAT_EARTH_WORLD, "earthRoadMaxCut", 1, 0, 4, "Maximum surface road terrain cut in blocks.");
 		earthRoadMaxFill = integer(config, CAT_EARTH_WORLD, "earthRoadMaxFill", 1, 0, 4, "Maximum surface road terrain fill in blocks.");

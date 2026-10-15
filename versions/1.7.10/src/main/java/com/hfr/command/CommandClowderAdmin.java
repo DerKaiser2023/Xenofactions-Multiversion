@@ -650,7 +650,7 @@ public class CommandClowderAdmin extends CommandBase {
 		if(cmd.equals("earth") && args.length == 3 && (args[1].equalsIgnoreCase("roads")||args[1].equalsIgnoreCase("features")))
 			return getListOfStringsMatchingLastWord(args, new String[] { "preview", "status", "inspect", "cancel", "backup", "apply" });
 		if(cmd.equals("earth") && args.length == 3 && args[1].equalsIgnoreCase("geo"))
-			return getListOfStringsMatchingLastWord(args, new String[] { "import", "status", "cancel", "info" });
+			return getListOfStringsMatchingLastWord(args, new String[] { "import", "select", "status", "cancel", "info" });
 		if(cmd.equals("worldborder") && args.length == 2)
 			return getListOfStringsMatchingLastWord(args, new String[] { "on", "off", "status", "wand", "exempt", "clearexemptions" });
 		if(cmd.equals("editor") && args.length == 2)
