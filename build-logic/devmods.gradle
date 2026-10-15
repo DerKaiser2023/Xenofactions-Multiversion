@@ -1,0 +1,168 @@
+import com.gtnewhorizons.retrofuturagradle.mcp.GenSrgMappingsTask
+import com.gtnewhorizons.retrofuturagradle.shadow.net.md_5.specialsource.Jar as SourceJar
+import com.gtnewhorizons.retrofuturagradle.shadow.net.md_5.specialsource.JarMapping
+import com.gtnewhorizons.retrofuturagradle.shadow.net.md_5.specialsource.JarRemapper
+import com.gtnewhorizons.retrofuturagradle.shadow.net.md_5.specialsource.provider.ClassLoaderProvider
+import com.gtnewhorizons.retrofuturagradle.shadow.net.md_5.specialsource.provider.JarProvider
+import com.gtnewhorizons.retrofuturagradle.shadow.net.md_5.specialsource.provider.JointProvider
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+import java.util.jar.JarEntry
+import java.util.jar.JarFile
+import java.util.jar.JarOutputStream
+import java.util.jar.Manifest
+
+// Use RFG's bundled SpecialSource (also used by reobfJar), with full SRG mappings
+// and inheritance providers. RFG's dependency CSV transform maps names alone.
+def productionMods = fileTree(new File(repositoryRoot, 'devmods')) { include '*.jar' }
+def mcpMods = fileTree(new File(repositoryRoot, 'devmods/deobf')) { include '*.jar' }
+def remappedDirectory = layout.buildDirectory.dir('devmods/remapped')
+def mappings = tasks.named('generateForgeSrgMappings', GenSrgMappingsTask).flatMap { it.srgToMcp }
+def client = tasks.named('runClient')
+def installedMods = {
+    def run = client.get()
+    def installed = run.classpath.files.findAll { it.isFile() && it.name.endsWith('.jar') } as Set
+    ['mods', 'mods/1.7.10'].each { directory ->
+        installed.addAll(fileTree(new File(run.workingDir, directory)) { include '*.jar', '*.zip' }.files)
+    }
+    installed
+}
+def referenceClasspath = files(productionMods, mcpMods, providers.provider { client.get().classpath }, providers.provider(installedMods))
+def fingerprint = { File jarFile ->
+    def digest = MessageDigest.getInstance('SHA-256')
+    jarFile.withInputStream { stream ->
+        byte[] buffer = new byte[8192]
+        int count
+        while ((count = stream.read(buffer)) != -1) digest.update(buffer, 0, count)
+    }
+    digest.digest().encodeHex().toString()
+}
+
+// FML's runtime AT parser does exact name/descriptor comparisons; adapt only the
+// manifest-declared AT resources. Keep all other resources and bootstrap metadata.
+def remapAccessTransformer = { String text, JarRemapper remapper ->
+    text.replaceAll(/(?m)^([\t ]*(?:public|protected|private|default)(?:[+-]f)?[\t ]+)([^\s#]+)(?:([\t ]+)([^\s#]+))?/) { match ->
+        def owner = match[2].replace('.', '/')
+        def member = match[4]
+        if (member && !member.startsWith('*')) {
+            int paren = member.indexOf('(')
+            member = paren < 0 ? remapper.mapFieldName(owner, member, null, -1) :
+                    remapper.mapMethodName(owner, member.substring(0, paren), member.substring(paren), -1) +
+                            remapper.mapMethodDesc(member.substring(paren))
+        }
+        match[1] + remapper.map(owner).replace('/', '.') + (match[3] ?: '') + (member ?: '')
+    }
+}
+def finishJar = { File input, File output, JarRemapper remapper ->
+    new JarFile(input, false).withCloseable { jar ->
+        def manifest = jar.manifest
+        def accessTransformers = (manifest?.mainAttributes?.getValue('FMLAT') ?: '').tokenize(' ')
+                .collect { 'META-INF/' + it } as Set
+        new JarOutputStream(new BufferedOutputStream(new FileOutputStream(output))).withCloseable { stream ->
+            jar.entries().each { entry ->
+                def upperName = entry.name.toUpperCase(Locale.ROOT)
+                if (upperName.startsWith('META-INF/') &&
+                        (upperName ==~ /META-INF\/[^\/]+\.(SF|RSA|DSA|EC)/ || upperName.startsWith('META-INF/SIG-'))) return
+                stream.putNextEntry(new JarEntry(entry.name))
+                if (upperName == 'META-INF/MANIFEST.MF') {
+                    // Changed bytecode cannot retain the original JAR signature/digests.
+                    def cleaned = new Manifest(manifest)
+                    ([cleaned.mainAttributes] + cleaned.entries.values()).each { attributes ->
+                        attributes.keySet().findAll { key ->
+                            def name = key.toString().toUpperCase(Locale.ROOT)
+                            name.contains('-DIGEST') || name == 'SIGNATURE-VERSION'
+                        }.each { attributes.remove(it) }
+                    }
+                    cleaned.write(stream)
+                } else {
+                    jar.getInputStream(entry).withCloseable { source ->
+                        if (accessTransformers.contains(entry.name)) {
+                            stream.write(remapAccessTransformer(source.getText('UTF-8'), remapper).getBytes('UTF-8'))
+                        } else {
+                            source.transferTo(stream)
+                        }
+                    }
+                }
+                stream.closeEntry()
+            }
+        }
+    }
+}
+
+def prepareMods = tasks.register('prepareDevMods') {
+    group = 'RFG Utilities'
+    description = 'Remap local production mods from SRG to MCP before FML discovers mods/coremods.'
+    inputs.property('minecraftTarget', minecraftTarget)
+    inputs.property('mappingChannel', providers.gradleProperty('channel'))
+    inputs.property('mappingsVersion', providers.gradleProperty('mappingsVersion'))
+    inputs.files(productionMods, mcpMods).withPropertyName('mods').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(mappings).withPropertyName('srgToMcp').withPathSensitivity(PathSensitivity.NONE)
+    // Hierarchy changes in another mod or Minecraft can change inherited mappings.
+    inputs.files(referenceClasspath).withPropertyName('hierarchy').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(new File(repositoryRoot, 'build-logic/devmods.gradle')).withPropertyName('settings')
+    inputs.file(new File(JarRemapper.protectionDomain.codeSource.location.toURI())).withPropertyName('remapper')
+    outputs.dir(remappedDirectory)
+    doLast {
+        def destination = remappedDirectory.get().asFile
+        destination.mkdirs()
+        def urls = referenceClasspath.files.collect { it.toURI().toURL() } as URL[]
+        // Providers read class resources without loading/initializing mod classes.
+        new URLClassLoader(urls, (ClassLoader) null).withCloseable { hierarchy ->
+            productionMods.files.sort { it.name }.each { original ->
+                def mapping = new JarMapping()
+                mapping.loadMappings(mappings.get().asFile)
+                SourceJar.init(original).withCloseable { source ->
+                    def inheritance = new JointProvider()
+                    inheritance.add(new JarProvider(source))
+                    inheritance.add(new ClassLoaderProvider(hierarchy))
+                    mapping.setFallbackInheritanceProvider(inheritance)
+                    def remapper = new JarRemapper(null, mapping)
+                    def intermediate = new File(temporaryDir, original.name + '.remapping')
+                    def finished = new File(temporaryDir, original.name + '.finished')
+                    logger.lifecycle('Remapping development mod {} (SRG -> MCP)', original.name)
+                    remapper.remapJar(source, intermediate)
+                    finishJar(intermediate, finished, remapper)
+                    Files.move(finished.toPath(), new File(destination, original.name).toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    Files.delete(intermediate.toPath())
+                }
+            }
+        }
+    }
+}
+
+// Keep local mods out of dependency configurations, the launch classpath and
+// release archives. FML --mods still owns normal/coremod/tweaker/AT discovery.
+client.configure {
+    dependsOn prepareMods
+    doFirst {
+        def mods = productionMods.files.sort { it.name }.collect {
+            [original: it, launch: new File(remappedDirectory.get().asFile, it.name)]
+        } + mcpMods.files.sort { it.name }.collect { [original: it, launch: it] }
+        if (mods.empty) return
+        def installed = installedMods()
+        def installedHashes = installed.collect { fingerprint(it) } as Set
+        def seenNames = installed.collect { it.name } as Set
+        def seenOriginals = [] as Set
+        def seenLaunches = new HashSet(installedHashes)
+        def paths = []
+        mods.each { mod ->
+            def originalHash = fingerprint(mod.original)
+            def launchHash = fingerprint(mod.launch)
+            if (mod.original != mod.launch && installedHashes.contains(originalHash)) {
+                throw new GradleException("Production devmod ${mod.original.name} is also installed on the client classpath or in run mods; remove that copy so FML loads only the remapped JAR")
+            }
+            if (!seenOriginals.add(originalHash) || seenLaunches.contains(launchHash)) return
+            if (!seenNames.add(mod.original.name)) {
+                throw new GradleException("Conflicting development mod JAR name: ${mod.original.name}; remove the duplicate installation")
+            }
+            def path = workingDir.canonicalFile.toPath().relativize(mod.launch.canonicalFile.toPath()).toString()
+            if (path.contains(',')) {
+                throw new GradleException("FML --mods cannot load a development mod path containing a comma: ${path}")
+            }
+            seenLaunches.add(launchHash)
+            paths.add(path)
+        }
+        if (!paths.empty) args '--mods', paths.join(',')
+    }
+}
