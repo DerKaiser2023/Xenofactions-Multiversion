@@ -426,6 +426,7 @@ public class EventHandlerClient {
 	
 	@SubscribeEvent
 	public void onClientDisconnect(ClientDisconnectionFromServerEvent event) {
+		GUIXenofactionsMenu.requestSessionReset();
 		com.hfr.client.journeymap.ClientClaimOverlayCache.requestClear();
 		com.hfr.client.flag.FactionFlagTextureManager.requestClear();
 		com.hfr.client.earth.EarthMapTileCache.requestClear();
@@ -436,6 +437,11 @@ public class EventHandlerClient {
 		com.hfr.client.wallart.WallArtTextureCache.clear();
 		com.hfr.stonedrops.StoneDropDisplaySnapshot.clearClientSnapshot();
 		MachineDisplaySnapshot.clearClientSnapshot();
+	}
+
+	@SubscribeEvent
+	public void onClientConnect(cpw.mods.fml.common.network.FMLNetworkEvent.ClientConnectedToServerEvent event) {
+		GUIXenofactionsMenu.requestSessionReset();
 	}
 
 	@SubscribeEvent
@@ -555,6 +561,7 @@ public class EventHandlerClient {
 
 	@SubscribeEvent
 	public void xenofactionsClientTick(ClientTickEvent event) {
+		if(event.phase == TickEvent.Phase.START) GUIXenofactionsMenu.updateSession();
 		if(event.phase == TickEvent.Phase.START) com.hfr.client.journeymap.ClientClaimOverlayCache.tick();
 		if(event.phase == TickEvent.Phase.START) com.hfr.client.flag.FactionFlagTextureManager.tick();
 		if(event.phase==TickEvent.Phase.END)enforceMandatoryKitGui();
