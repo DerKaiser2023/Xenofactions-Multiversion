@@ -327,6 +327,12 @@ public void handleChatServer(ServerChatEvent event) {
 			int z = event.z;
 			
 			Block b = event.world.getBlock(x, y, z);
+
+            if (b == ModBlocks.factionLeaderboard) {
+                EntityPlayer actor = event instanceof BreakEvent ? ((BreakEvent) event).getPlayer() : ((PlaceEvent) event).player;
+                if (!com.hfr.leaderboard.FactionLeaderboards.canManage(actor)) event.setCanceled(true);
+                return; // Administrative spawn furniture can be managed inside safe zones.
+            }
 			
 			Ownership owner = ClowderTerritory.getOwnerFromInts(event.world, x, z);
 			//handleCollisionInZone(owner);
@@ -635,6 +641,10 @@ public void handleChatServer(ServerChatEvent event) {
 	}
 	
 	private boolean canInteract(EntityPlayer player, Clowder clowder, Ownership owner, Block b, PlayerInteractEvent event) {
+
+        if (b == ModBlocks.factionLeaderboard) return true; // Public read; configuration checks its own admin permission.
+        if (player.getHeldItem() != null && player.getHeldItem().getItem() == Item.getItemFromBlock(ModBlocks.factionLeaderboard)
+                && com.hfr.leaderboard.FactionLeaderboards.canManage(player)) return true;
 		
 		if(player.inventory.hasItem(ModItems.debug))
 			return true;
@@ -1271,6 +1281,8 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 
 	@SubscribeEvent
 	public void onBlockBreak(BlockEvent.BreakEvent event) {
+
+        if (event.block == ModBlocks.factionLeaderboard) return; // Checked by clowderBlockEvent, including safe-zone admins.
 		World world = event.world;
 		int x = event.x;
 		int y = event.y;

@@ -58,6 +58,7 @@ public class ModBlocks {
 	public static Block barricade;
 
 	public static Block wallImageBlock;
+    public static Block factionLeaderboard;
 
 	public static Block hesco_block;
 	public static Block palisade;
@@ -87,6 +88,8 @@ public class ModBlocks {
     };
 
 	private static void initializeBlock() {
+
+        factionLeaderboard = new BlockFactionLeaderboard().setCreativeTab(MainRegistry.tab);
 
 		barricade = new BlockSandbags(Material.rock).setStepSound(soundTypeConcrete).setBlockName("barricade").setHardness(10.0F).setResistance(10.0F).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":sandbags");
 
@@ -141,6 +144,8 @@ public class ModBlocks {
 	}
 
 	private static void registerBlock() {
+
+        GameRegistry.registerBlock(factionLeaderboard, "faction_leaderboard");
 
 		GameRegistry.registerBlock(wallImageBlock, "wall_image_block");
 

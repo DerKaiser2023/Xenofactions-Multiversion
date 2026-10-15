@@ -578,6 +578,7 @@ key.hfr.bordervisuals=Toggle In-World Border Effects
 hfr.chat.public.filtered=%s%s
 
 tile.player_trader.name=Player Trader
+tile.faction_leaderboard.name=Faction Leaderboard
 
 xf.command.c_invite.name=c invite
 xf.command.c_invite.desc=Officer or leader: invite an online player to your faction.

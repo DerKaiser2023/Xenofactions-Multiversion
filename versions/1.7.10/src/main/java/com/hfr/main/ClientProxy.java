@@ -118,6 +118,7 @@ public class ClientProxy extends ServerProxy
 		RenderingRegistry.registerBlockHandler(new RenderWallArtBlock());
 
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityWallImage.class, new RenderWallImage());
+        ClientRegistry.bindTileEntitySpecialRenderer(TileEntityFactionLeaderboard.class, new com.hfr.render.RenderFactionLeaderboard());
 
 		ClientRegistry.registerKeyBinding(filter);
 

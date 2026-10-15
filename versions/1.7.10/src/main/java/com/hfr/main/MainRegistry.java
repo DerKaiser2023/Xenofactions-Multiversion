@@ -554,6 +554,7 @@ public class MainRegistry
 
 		BlockWallImage.instance = new BlockWallImage();
 		GameRegistry.registerTileEntity(TileEntityWallImage.class, "tile_wall_image");
+        GameRegistry.registerTileEntity(com.hfr.tileentity.TileEntityFactionLeaderboard.class, "tile_faction_leaderboard");
 
 		//e
 		//GameRegistry.registerBlock(BlockWallImage.instance, "wall_image_block");

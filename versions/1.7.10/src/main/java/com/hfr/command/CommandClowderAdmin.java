@@ -72,6 +72,7 @@ public class CommandClowderAdmin extends CommandBase {
 		}
 
 		String cmd = args[0].toLowerCase();
+        if(cmd.equals("leaderboard")) { LeaderboardCommandHandler.execute(sender, args); return; }
 		if(cmd.equals("editor")) { cmdEditor(sender, args); return; }
 		if(cmd.equals("factiontimeoutcreationreset")) { FactionCreationTimeoutResetHandler.execute(sender, Arrays.copyOfRange(args, 1, args.length)); return; }
 		if(cmd.equals("earth")) { EarthCommandHandler.execute(sender, Arrays.copyOfRange(args, 1, args.length)); return; }
@@ -209,6 +210,7 @@ public class CommandClowderAdmin extends CommandBase {
 	}
 
 	private String getUsageFor(String cmd) {
+        if(cmd.equals("leaderboard")) return "/xc leaderboard give | /xc leaderboard <x> <y> <z> <territory|prestige|money|kills>";
 		if(cmd.equals("factiontimeoutcreationreset")) return "/xc factiontimeoutcreationreset <player>";
 		if(cmd.equals("earth")) return EarthCommandHandler.USAGE;
 		if(cmd.equals("worldborder")) return WorldBorderCommandHandler.USAGE;
@@ -259,6 +261,7 @@ public class CommandClowderAdmin extends CommandBase {
 
 		if(p == 2) {
 			sender.addChatMessage(new ChatComponentText(TITLE + "Claims, prestige & protection"));
+            sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-leaderboard" + TITLE + " - Place and configure faction ranking displays"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-setclaim <wild/safe/war> <s/c> <radius>" + TITLE + " - Claims chunks in a radius"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-editor select <safezone|warzone|wilderness|border_exempt>" + TITLE + " - Start a typed area selection"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-editor <point a|point b|commit|cancel|status>" + TITLE + " - Manage the selection"));
@@ -647,6 +650,10 @@ public class CommandClowderAdmin extends CommandBase {
 		String cmd = args[0].toLowerCase();
 		if(cmd.equals("earth") && args.length == 2)
 			return getListOfStringsMatchingLastWord(args, new String[] { "status", "packs", "verify", "check", "source", "pregen", "geo", "roads", "features" });
+        if(cmd.equals("leaderboard") && args.length == 2)
+            return getListOfStringsMatchingLastWord(args, new String[] { "give" });
+        if(cmd.equals("leaderboard") && args.length == 5)
+            return getListOfStringsMatchingLastWord(args, new String[] { "territory", "prestige", "money", "kills" });
 		if(cmd.equals("earth") && args.length == 3 && (args[1].equalsIgnoreCase("roads")||args[1].equalsIgnoreCase("features")))
 			return getListOfStringsMatchingLastWord(args, new String[] { "preview", "status", "inspect", "cancel", "backup", "apply" });
 		if(cmd.equals("earth") && args.length == 3 && args[1].equalsIgnoreCase("geo"))
@@ -671,7 +678,7 @@ public class CommandClowderAdmin extends CommandBase {
     }
 
 	private String[] getAdminCommandNames() {
-		return new String[] { "help", "factiontimeoutcreationreset", "earth", "worldborder", "editor", "clearcreationcooldown", "resetcreationcooldown", "forcejoin", "fj", "forcekick", "fk", "forcedisband", "fd", "forcerename", "fr",
+		return new String[] { "help", "leaderboard", "factiontimeoutcreationreset", "earth", "worldborder", "editor", "clearcreationcooldown", "resetcreationcooldown", "forcejoin", "fj", "forcekick", "fk", "forcedisband", "fd", "forcerename", "fr",
 				"hijack", "hi", "deletedata", "deldat", "setclaim", "sc", "addprestige", "ap", "disband", "rename",
 				"warenable", "wardisable", "newplayerprotection", "resetnewplayerprotection", "endnewplayerprotection",
 				"skipwarcooldowns", "ignorewarcooldowncheck", "ignorewaronlinecheck", "ignorewarstatecheck",

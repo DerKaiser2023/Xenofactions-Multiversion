@@ -75,6 +75,67 @@ Terminal validation looks up only that faction's registration and the recorded b
 
 GUI requests require a server-issued player session and fresh catalog revision. Permissions, distance, dimension, block identity, faction membership, capital ownership, and shop eligibility are checked on the server before navigation, configuration, or trades. Requests run on the server thread. Session state expires after five idle minutes and clears on death, logout, dimension change, or world reset. Update both clients and servers together for the new shop screens.
 
+## Spawn faction leaderboards
+
+Level-3 faction administrators can obtain the **Faction Leaderboard** from the
+Xenofactions Creative tab or `/xc leaderboard give`. Place its single controller
+block at spawn, leaving room for a four-block-wide, three-block-high visual panel
+centered horizontally on it. The front faces the placing player. The panel is
+visual; only the controller is solid and clickable. No recipe or external plugin
+is required. Install matching updated clients and server.
+
+Sneak-right-click the controller with an empty hand to cycle **Territory →
+Prestige → Money → Kills**. For an explicit selection, use
+`/xc leaderboard <x> <y> <z> <territory|prestige|money|kills>` in the display's
+dimension; the chunk must already be loaded. `/xc leaderboard` shows usage.
+Place separate controllers for simultaneous rankings. Anyone can read the panel
+or right-click the controller for its current top ten in chat. Long names are
+clipped to the panel column; chat includes up to 64 sanitized name characters.
+
+Placement, configuration and normal player removal use the existing
+`xclowder` level-3 permission, including inside safe zones. Faction officer roles,
+Creative mode alone and possession of the debug item do not grant this authority.
+Ordinary explosions, entity destruction and vanilla pistons cannot remove the
+controller. Administrative world-edit tools or mods that directly replace blocks
+remain outside player permission checks.
+
+| Metric | Authoritative definition |
+| --- | --- |
+| Territory | Number of owned `Zone.FACTION` entries in `ClowderTerritory.territories`, across all dimensions, displayed as **claim nodes**. Counts current stored ownership, including unloaded areas; never scans world blocks or reinterprets the legacy coordinate geometry as area. |
+| Prestige | Current faction `Clowder.getPrestige()` bank balance, ranked by the stored float and displayed with the existing one-decimal floor formatting. Generation, upkeep and hourly net income are separate and are not ranked. |
+| Money | **Unavailable: no faction money metric.** Item-based shop payments and player/match buy scores do not define faction wealth. |
+| Kills | **Unavailable: no faction kill metric.** Enemy kills award prestige without a faction kill counter; TDM statistics are per player and match. No new credit or aggregation rule is introduced. |
+
+Available metrics rank descending, then by persistent faction UUID for equal
+values. Ranks are sequential, including ties. Eligibility follows the existing
+faction owner validity: a canonical Owner record, or an unresolved legacy faction
+with a nonempty leader and no canonical records. Missing IDs/names, invalid or
+deleted factions are excluded; safe/war/wilderness zones are not competing
+factions. Non-finite prestige values are omitted from that ranking. An available
+metric with no eligible entries shows **No eligible factions**; unavailable
+metrics show their reason rather than fabricated zero rankings.
+
+All ranking work runs on the owning server thread. Displays share a cache,
+rebuilt on demand at most once per 200 overworld ticks (about ten seconds at
+20 TPS); no loaded display means no ranking work. Loaded controllers check once
+per 20 ticks and publish only changed rows. Allow up to 240 ticks for a mutation
+to be queued to already loaded displays, plus network latency; low TPS extends wall-clock latency. Renames,
+deletions, claims and prestige changes are picked up by that bounded refresh.
+Chunk tracking sends only the selected metric and at most ten rank/name/value
+rows using the standard tile description packet, with facing in block metadata.
+No membership, faction UUIDs, inventory contents or other metrics are sent by this
+display. These vanilla play packets are drained on the client/server game tick
+threads; there is no custom client request or networking-thread world mutation.
+Cache data clears with the existing faction world/save lifecycle.
+
+Only the selected metric is persisted in tile NBT; facing uses saved block
+metadata. Rankings are transient and recomputed after loading, so saves do not
+retain obsolete faction entries. Breaking and replacing a controller starts a
+new Territory display. The feature is scoped to 1.7.10; no 1.16.5 port is included.
+The definitions, permission paths, cache lifecycle and persistence behavior above
+are traced from source. Rendering, packet delivery, save/restart and actual
+multiplayer interaction still require in-game validation.
+
 ## Backups
 
 Existing Earth road imports use this manual process. After creating a current
