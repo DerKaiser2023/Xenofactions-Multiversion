@@ -29,6 +29,8 @@ public final class GUIDailyReward extends GuiScreen {
     private long animationStart, animationDuration, closeAt;
     private String animationClaim = "", closeClaim = "";
     private boolean acknowledged, resultAcknowledged, closed;
+    private boolean revealSoundPending;
+    private int soundedSegment;
     private double startAngle, endAngle;
     private GuiButton spin, collect;
 
@@ -59,11 +61,13 @@ public final class GUIDailyReward extends GuiScreen {
     }
     private void startAnimation(double previous) {
         animationClaim = data.getString("claim"); acknowledged = false; resultAcknowledged = false;
+        revealSoundPending = true;
         closeAt = 0; closeClaim = "";
         animationDuration = (data.getBoolean("spin") ? DailyActionPacket.SPIN_MILLIS
             : Math.max(0, Math.min(DailyActionPacket.SPIN_MILLIS, data.getLong("remainingMillis")))) * 1000000L;
         if (segments() == 0 || animationDuration == 0) { settle(); return; }
         startAngle = previous % TAU;
+        soundedSegment = markerSegment(startAngle, segments());
         double stop = -(data.getInteger("selected") + .5) * TAU / segments();
         endAngle = startAngle + 5 * TAU + ((stop - startAngle) % TAU + TAU) % TAU;
         animationStart = System.nanoTime();
@@ -73,6 +77,12 @@ public final class GUIDailyReward extends GuiScreen {
         if (animationStart == 0) return endAngle;
         double elapsed = Math.min(1, (double)(System.nanoTime() - animationStart) / animationDuration);
         return startAngle + (endAngle - startAngle) * (1 - Math.pow(1 - elapsed, 3));
+    }
+    private int markerSegment(double rotation, int count) {
+        return Math.floorMod((int)Math.floor(-rotation / (TAU / count)), count);
+    }
+    private void playWheelSound(String sound, float volume) {
+        if (!closed && mc.currentScreen == this && mc.thePlayer != null) mc.thePlayer.playSound(sound, volume, 1.0F);
     }
     @Override public void initGui() {
         panelWidth = Math.min(420, width - 8); left = (width - panelWidth) / 2; top = (height - 232) / 2;
@@ -97,6 +107,7 @@ public final class GUIDailyReward extends GuiScreen {
     }
     @Override public void onGuiClosed() {
         closed = true; closeAt = 0; closeClaim = "";
+        revealSoundPending = false;
         PacketDispatcher.wrapper.sendToServer(new DailyActionPacket(token(), data.getLong("revision"), 0));
     }
     @Override public boolean doesGuiPauseGame() { return false; }
@@ -124,6 +135,14 @@ public final class GUIDailyReward extends GuiScreen {
     private void wheel(int mouseX, int mouseY) {
         int count = segments(); if (count == 0) return;
         int cx = left + 75, cy = top + 90; double rotation = angle(), step = TAU / count;
+        if (!closed && animating() && animationClaim.equals(data.getString("claim"))) {
+            int segment = markerSegment(rotation, count);
+            if (segment != soundedSegment) {
+                // Sample the rendered marker once; skipped segments never queue catch-up sounds.
+                soundedSegment = segment;
+                playWheelSound("random.orb", 0.15F);
+            }
+        }
         NBTTagList entries = data.getTagList("wheel", 10);
         GL11.glDisable(GL11.GL_TEXTURE_2D); GL11.glDisable(GL11.GL_LIGHTING);
         Tessellator tess = Tessellator.instance;
@@ -169,6 +188,11 @@ public final class GUIDailyReward extends GuiScreen {
             }
             if (!closed && !resultAcknowledged && animationClaim.equals(data.getString("claim"))) {
                 resultAcknowledged = true;
+                // Only an unfinished spin arms this; completed history/reopening stays silent.
+                if (revealSoundPending) {
+                    revealSoundPending = false;
+                    playWheelSound("random.levelup", 0.5F);
+                }
                 PacketDispatcher.wrapper.sendToServer(new DailyActionPacket(token(), data.getLong("revision"), 4, animationClaim));
             }
         }

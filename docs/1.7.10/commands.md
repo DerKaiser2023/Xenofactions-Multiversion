@@ -319,6 +319,8 @@ See also [chat reward phrases](#chat-reward-phrases-forge-1710) for administrato
 
 The new reward and streak bonus become collectible only after the saved server deadline and the displayed wheel's stop. Automatic delivery follows the final result display, then that daily screen closes after 1.5 seconds. Collect can still deliver unrelated ready items during animation. Closing or disconnecting retains the accepted claim and deadline; reconnect/restart resumes it without rerolling or regranting completed rewards. An unfinished spin must complete before another spin, including after an admin reset.
 
+The wheel plays a local vanilla XP orb pickup sound (`random.orb`) when the item under its marker changes during animation, following the displayed spin speed without replaying missed transitions after a render stall. A single vanilla level-up sound (`random.levelup`) accompanies the stopped spin's first reward reveal, including any streak bonus. Completed results stay silent when reopened or refreshed. These sounds respect Minecraft volume settings; closing the screen stops new wheel sounds and lets an already playing reveal sound finish naturally.
+
 Administrators use the existing level-3 `/xc` namespace (`/xclowder` alias). `/xc daily`, `/xc daily help` and `/xc help 2` expose the commands; completion is permission checked. Console senders can use every command except held-item capture.
 
 | Admin command | Effect |
