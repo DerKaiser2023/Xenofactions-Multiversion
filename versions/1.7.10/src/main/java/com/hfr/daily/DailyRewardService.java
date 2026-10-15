@@ -43,9 +43,12 @@ public final class DailyRewardService {
             .plusDays(1).atStartOfDay(DailyRewardConfig.active().legacyZone).toInstant().toEpochMilli();
     }
     private static boolean eligible(NBTTagCompound state, long day) {
-        return !state.hasKey("Day") || state.getLong("Day") < day && System.currentTimeMillis() >= availableAfter(state);
+        return state.getBoolean("ClaimReset") || !state.hasKey("Day")
+            || state.getLong("Day") < day && System.currentTimeMillis() >= availableAfter(state);
     }
     private static int nextStreak(NBTTagCompound state, long day) {
+        // A debug spin retains progress rather than farming or resetting the streak on the same date.
+        if (state.getBoolean("ClaimReset")) return state.getInteger("Streak");
         return state.hasKey("Day") && state.getLong("Day") == day - 1
             ? state.getInteger("Streak") == Integer.MAX_VALUE ? Integer.MAX_VALUE : state.getInteger("Streak") + 1 : 1;
     }
@@ -55,6 +58,21 @@ public final class DailyRewardService {
         return DailyRewardStore.read(player);
     }
     public static void clear() { SESSIONS.clear(); BLOCKED.clear(); }
+    public static int reset(String administrator, EntityPlayerMP player) throws IOException {
+        NBTTagCompound saved = state(player);
+        if (saved.hasKey("Day")) saved.setBoolean("ClaimReset", true);
+        DailyRewardStore.commit(player, saved);
+        XFLog.info("Daily claim reset by " + administrator + " for " + player.getCommandSenderName() + " UUID=" + player.getUniqueID());
+        Session session = SESSIONS.get(player);
+        if (session != null) {
+            // Rotate the token as well as the revision: even a queued close from the old GUI is stale.
+            Session refreshed = new Session(); SESSIONS.put(player, refreshed);
+            try { if (online(player)) snapshot(player, refreshed, true, false); }
+            catch (RuntimeException e) { XFLog.error("Daily reset saved but GUI refresh failed for " + player.getUniqueID(), e); }
+        }
+        say(player, "claim_reset");
+        return saved.getTagList("Pending", 10).tagCount();
+    }
     /** Called only after durable publication; do not turn a notification failure into a failed save. */
     public static void definitionsChanged() {
         for (Map.Entry<EntityPlayerMP, Session> entry : SESSIONS.entrySet()) {
@@ -108,6 +126,7 @@ public final class DailyRewardService {
                     } else saved.removeTag("Bonus");
                     if (pending.tagCount() > 8192) throw new IllegalStateException("Daily escrow capacity exceeded");
                     saved.setLong("Day", day); saved.setInteger("Streak", streak);
+                    saved.removeTag("ClaimReset");
                     saved.setLong("AvailableAfter", LocalDate.ofEpochDay(day).plusDays(1).atStartOfDay(table.zone).toInstant().toEpochMilli());
                     saved.setString("Claim", UUID.randomUUID().toString()); saved.setTag("Result", reward.preview());
                     saved.setTag("Wheel", wheel); saved.setInteger("Selected", selected);
@@ -188,11 +207,12 @@ public final class DailyRewardService {
         try {
             NBTTagCompound saved = state(player);
             long available = availableAfter(saved);
-            if (available > System.currentTimeMillis()) session.unlockAt = available;
+            if (!saved.getBoolean("ClaimReset") && available > System.currentTimeMillis()) session.unlockAt = available;
             boolean eligible = eligible(saved, day);
             if (saved.hasKey("Day") && !eligible) reset = Math.max(available, LocalDate.ofEpochDay(saved.getLong("Day"))
                 .plusDays(1).atStartOfDay(table.zone).toInstant().toEpochMilli());
-            int current = saved.hasKey("Day") && saved.getLong("Day") >= day - 1 ? saved.getInteger("Streak") : 0;
+            int current = saved.hasKey("Day") && (saved.getBoolean("ClaimReset") || saved.getLong("Day") >= day - 1)
+                ? saved.getInteger("Streak") : 0;
             out.setInteger("streak", current);
             out.setInteger("nextStreak", eligible ? nextStreak(saved, day) : current == Integer.MAX_VALUE ? current : current + 1);
             out.setBoolean("eligible", eligible && DailyRewardConfig.ready());

@@ -35,6 +35,8 @@ public final class DailyRewardStore {
         if (tag.getInteger("Version") != 1 || !tag.hasKey("Revision", 4) || tag.getLong("Revision") < 0
             || !tag.hasKey("Streak", 3) || tag.getInteger("Streak") < 0 || !tag.hasKey("Pending", 9)
             || !tag.hasKey("Milestones", 10)) throw new IllegalStateException("Malformed daily state");
+        if (tag.hasKey("ClaimReset") && (!tag.hasKey("ClaimReset", 1) || !tag.hasKey("Day", 4)))
+            throw new IllegalStateException("Malformed daily claim reset");
         NBTTagList pending = (NBTTagList)tag.getTag("Pending");
         if (pending.tagCount() > 8192 || pending.tagCount() > 0 && pending.func_150303_d() != 10)
             throw new IllegalStateException("Malformed daily escrow");
