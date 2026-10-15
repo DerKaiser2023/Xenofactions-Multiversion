@@ -151,14 +151,46 @@ Category: `XENOFACTIONS_08_CUSTOM_FLAGS`
 
 | Key | Default | Meaning |
 | --- | ---: | --- |
-| `allowedImageHosts` | `postimages.org`, `i.postimg.cc` | Hosts allowed for imported faction flag images. |
+| `allowedImageHosts` | `postimages.org`, `postimg.cc`, `i.postimg.cc` | Exact hosts allowed for imported faction flag pages, images and every redirect. |
 | `maxImageWidth` | `1024` | Maximum image width. |
 | `maxImageHeight` | `1024` | Maximum image height. |
 | `maxFileSizeBytes` | `1048576` | Maximum downloaded image and sanitized PNG size. |
-| `downloadTimeoutMs` | `5000` | HTTP timeout. |
+| `downloadTimeoutMs` | `5000` | Shared download time budget for DNS waits, page/image requests and redirects. |
 | `maxRedirects` | `3` | Maximum HTTPS redirects. |
 | `importRateLimitSeconds` | `60` | Faction-wide cooldown after the server successfully installs an imported image. Failed imports do not start or reset it. |
 | `reloadMissingFileClearsMetadata` | `true` | Clear stale metadata if reload cannot find cached image. |
+
+`/c flag seturl` accepts HTTPS direct PNG/JPEG links (normally
+`https://i.postimg.cc/.../image.png`) and individual Postimages image pages on
+`https://postimg.cc/...` or `https://postimages.org/...` that expose an
+`og:image:secure_url`, `og:image`, or `img#main-image` CDN link. Pages resolve once
+to `i.postimg.cc`; HTML never reaches the image decoder. Galleries, upload/home
+pages without image metadata, authentication/challenge pages and other image
+formats are unsupported. HTTPS uses the default port or explicit port 443.
+Every page, CDN and redirect host must be allowed. Existing configured allowlists
+are preserved: add `postimg.cc` explicitly if an older list contains only
+`postimages.org` and `i.postimg.cc`.
+
+Page responses are limited to 512 KiB or `maxFileSizeBytes`, whichever is smaller;
+images retain the configured byte/dimension limits and are center-cropped into
+64×64 PNGs. Redirect limits and the download deadline span page resolution and
+the resulting image request. Native DNS operations may outlive cancellation in
+the operating system, but the import stops waiting at its deadline and resolver
+workers/queues are bounded. Failures log stages, hosts or HTTP status without URL
+query strings. Imports of the same exact URL share pending download/decoding work.
+
+The server saves the processed PNG and its hash, **not the source URL**. `reload`
+rechecks that saved PNG; it does not fetch a remotely changed image. Run `seturl`
+again to import remote changes. Wearable claim banners use this same image and
+client texture cache as placed faction flags. Server-owned equipment metadata
+updates the wearer and observers when flags or factions change; leaving a faction
+clears the banner's faction appearance. Built-in colors, model placement and
+movement are unchanged. Custom images use their own colors without a built-in
+overlay, with the existing tricolor texture while loading or on failure. Client
+cache I/O/decoding runs off-thread; texture registration/replacement/deletion runs
+on the client thread, with requests deduplicated by image hash and retried no more
+than once per 30 seconds. Disconnect releases textures. Matching client/server
+builds are required; no client restart is needed to apply an imported flag.
 
 The import cooldown uses the faction UUID, so renaming the faction or changing the
 requesting player does not bypass it. Refused imports show the remaining seconds.

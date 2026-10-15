@@ -57,7 +57,7 @@ Invitations are saved in the existing faction data with faction and player UUIDs
 | `/c motd <message>` | Set faction message of the day. |
 | `/c listflags {page}` | List built-in flags. |
 | `/c flag <flag>` | Set a built-in faction flag. |
-| `/c flag seturl <https URL>` | Import a custom flag image if enabled and allowed. |
+| `/c flag seturl <https URL>` | Import a direct PNG/JPEG image or individual Postimages image page if enabled and allowed; see [custom flag URL policy](configuration.md#custom-flags). |
 | `/c flag clear` | Clear custom flag metadata. |
 | `/c flag reload` | Reload a cached custom flag image. |
 

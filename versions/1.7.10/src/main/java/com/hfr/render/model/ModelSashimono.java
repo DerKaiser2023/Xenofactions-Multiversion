@@ -3,6 +3,7 @@ package com.hfr.render.model; //Path where the model is located
 import org.lwjgl.opengl.GL11;
 
 import com.hfr.clowder.ClowderFlag;
+import com.hfr.client.flag.FactionFlagTextureManager;
 import com.hfr.tmt.ModelCustomArmor;
 import com.hfr.tmt.ModelRendererTurbo;
 
@@ -86,11 +87,17 @@ public class ModelSashimono extends ModelCustomArmor //Same as Filename
 		
 		ItemStack banner = ref.inventory.armorInventory[0];
 		
-		if(banner == null || !banner.hasTagCompound())
+		if(banner == null || !banner.hasTagCompound() || !banner.stackTagCompound.hasKey("flag"))
 			return;
 
-		ClowderFlag flag = ClowderFlag.values()[banner.stackTagCompound.getInteger("flag")];
+		int ordinal = banner.stackTagCompound.getInteger("flag");
+		ClowderFlag flag = ordinal >= 0 && ordinal < ClowderFlag.values().length ? ClowderFlag.values()[ordinal] : ClowderFlag.TRICOLOR;
 		int color = banner.stackTagCompound.getInteger("color");
+		String faction = banner.stackTagCompound.getString("flagFaction");
+		String hash = banner.stackTagCompound.getString("flagHash");
+		boolean custom = faction.length() > 0 && hash.length() > 0;
+		if(custom)
+			FactionFlagTextureManager.handleMetadata(faction, hash);
         
         if(flag == ClowderFlag.NONE || flag == null) {
         	flag = ClowderFlag.TRICOLOR;
@@ -105,11 +112,14 @@ public class ModelSashimono extends ModelCustomArmor //Same as Filename
         OpenGlHelper.glBlendFunc(770, 771, 1, 0);
         GL11.glDisable(GL11.GL_ALPHA_TEST);
         
-        Minecraft.getMinecraft().renderEngine.bindTexture(flag.getFlag());
-        GL11.glColor3b((byte)r, (byte)g, (byte)b);
+        Minecraft.getMinecraft().renderEngine.bindTexture(custom ? FactionFlagTextureManager.getFlagTexture(faction) : flag.getFlag());
+        if(custom) GL11.glColor4f(1F, 1F, 1F, 1F);
+        else GL11.glColor3b((byte)r, (byte)g, (byte)b);
 		models[3].rotateAngleX += (-Math.PI / 2D);
         models[3].render(f5);
 		models[3].rotateAngleX -= (-Math.PI / 2D);
+		if(custom)
+			return;
 
         Minecraft.getMinecraft().renderEngine.bindTexture(flag.getFlagOverlay());
 	    GL11.glColor3b((byte)127, (byte)127, (byte)127);

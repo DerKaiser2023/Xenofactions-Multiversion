@@ -161,7 +161,7 @@ public final class XFConfig {
 	public static boolean graceBuildOneTimeUse = true;
 	public static long graceBuildDurationMs = 48L * 60L * 60L * 1000L;
 
-	public static String[] customFlagAllowedHosts = new String[] { "postimages.org", "i.postimg.cc" };
+	public static String[] customFlagAllowedHosts = new String[] { "postimages.org", "postimg.cc", "i.postimg.cc" };
 	public static Set<String> customFlagAllowedHostSet = new HashSet<String>();
 	public static int customFlagMaxWidth = 1024;
 	public static int customFlagMaxHeight = 1024;
@@ -348,12 +348,12 @@ public final class XFConfig {
 		graceBuildOneTimeUse = bool(config, CAT_PROTECTION, "graceBuildOneTimeUse", graceBuildOneTimeUse, "Restricts build grace to one activation per faction.");
 		graceBuildDurationMs = hours(config, CAT_PROTECTION, "graceBuildDurationHours", 48D, 0D, 24D * 365D, "Build grace duration in hours.");
 
-		customFlagAllowedHosts = stringList(config, CAT_CUSTOM_FLAGS, "allowedImageHosts", customFlagAllowedHosts, "HTTPS image host whitelist. Defaults preserve Postimages/i.postimg.cc behavior.");
+		customFlagAllowedHosts = stringList(config, CAT_CUSTOM_FLAGS, "allowedImageHosts", customFlagAllowedHosts, "Exact HTTPS host whitelist for direct PNG/JPEG images and Postimages image pages. Existing lists must explicitly include postimg.cc for page links.");
 		rebuildHostSet();
 		customFlagMaxWidth = integer(config, CAT_CUSTOM_FLAGS, "maxImageWidth", customFlagMaxWidth, 1, 4096, "Maximum imported image width in pixels.");
 		customFlagMaxHeight = integer(config, CAT_CUSTOM_FLAGS, "maxImageHeight", customFlagMaxHeight, 1, 4096, "Maximum imported image height in pixels.");
 		customFlagMaxFileSizeBytes = integer(config, CAT_CUSTOM_FLAGS, "maxFileSizeBytes", customFlagMaxFileSizeBytes, 1024, 8 * 1024 * 1024, "Maximum downloaded image and sanitized PNG size in bytes.");
-		customFlagTimeoutMs = integer(config, CAT_CUSTOM_FLAGS, "downloadTimeoutMs", customFlagTimeoutMs, 500, 60000, "HTTP connect/read timeout for flag imports.");
+		customFlagTimeoutMs = integer(config, CAT_CUSTOM_FLAGS, "downloadTimeoutMs", customFlagTimeoutMs, 500, 60000, "Download time budget shared across DNS waits, page/image requests and redirects.");
 		customFlagMaxRedirects = integer(config, CAT_CUSTOM_FLAGS, "maxRedirects", customFlagMaxRedirects, 0, 10, "Maximum HTTPS redirects while importing a flag.");
 		customFlagRateLimitMs = seconds(config, CAT_CUSTOM_FLAGS, "importRateLimitSeconds", 60D, 0D, 3600D, "Per-faction cooldown after a custom flag is successfully installed. Failed imports do not start or reset it; one import may be active per faction.");
 		customFlagReloadMissingClearsMetadata = bool(config, CAT_CUSTOM_FLAGS, "reloadMissingFileClearsMetadata", customFlagReloadMissingClearsMetadata, "When /c flag reload finds no cached file, clear stale metadata.");

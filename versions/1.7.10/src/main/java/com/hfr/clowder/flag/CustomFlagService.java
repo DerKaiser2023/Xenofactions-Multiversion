@@ -11,6 +11,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URI;
@@ -25,15 +26,27 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Iterator;
 import java.util.UUID;
+import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import javax.net.ssl.HttpsURLConnection;
+import javax.swing.text.MutableAttributeSet;
+import javax.swing.text.html.HTML;
+import javax.swing.text.html.HTMLEditorKit;
+import javax.swing.text.html.parser.ParserDelegator;
 
 import com.hfr.clowder.Clowder;
 import com.hfr.command.CommandClowder;
@@ -74,8 +87,11 @@ public class CustomFlagService {
 			for(ImportRequest request : previous.activeImports.values())
 				request.cancel();
 			previous.activeImports.clear();
+			previous.downloads.clear();
 			previous.cooldowns.clear();
 			previous.executor.shutdownNow();
+			previous.dns.shutdownNow();
+			previous.timeouts.shutdownNow();
 		}
 	}
 
@@ -129,31 +145,47 @@ public class CustomFlagService {
 			player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "A faction flag import is already in progress."));
 			return;
 		}
+		if(urlText == null || urlText.length() > 2048) {
+			player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Invalid flag URL (maximum 2048 characters)."));
+			return;
+		}
 		final ImportRequest request = new ImportRequest(owner, key, player.getUniqueID(), clowder);
 		owner.activeImports.put(key, request);
+		final List<ImportRequest> waiting = owner.downloads.get(urlText);
+		if(waiting != null) {
+			waiting.add(request);
+			player.addChatMessage(new ChatComponentText(CommandClowder.INFO + "Waiting for the shared faction flag import."));
+			return;
+		}
+		final List<ImportRequest> subscribers = new ArrayList<ImportRequest>();
+		subscribers.add(request);
+		owner.downloads.put(urlText, subscribers);
 		try {
-			request.future = owner.executor.submit(new Runnable() {
+			owner.executor.submit(new Runnable() {
 				@Override
 				public void run() {
 					ImportResult result = new ImportResult("Failed to import faction flag.", null, null);
 					try {
-						if(!request.cancelled)
-							result = prepareImage(urlText);
+						result = prepareImage(urlText, owner);
 					} catch(FlagImportException e) {
 						MainRegistry.logger.warn("Rejected faction flag for " + key + ": " + e.getMessage());
 						result = new ImportResult(e.getMessage(), null, null);
 					} catch(Exception e) {
-						MainRegistry.logger.warn("Failed to import faction flag for " + key + ": " + e.getMessage());
+						MainRegistry.logger.warn("Failed to import faction flag for " + key + " (" + e.getClass().getSimpleName() + ")");
 					} finally {
 						final ImportResult completed = result;
 						enqueueMainThread(owner, new Runnable() {
 							@Override
-							public void run() { completeImport(request, completed); }
+							public void run() {
+								owner.downloads.remove(urlText);
+								for(ImportRequest subscriber : subscribers) completeImport(subscriber, completed);
+							}
 						});
 					}
 				}
 			});
 		} catch(RuntimeException e) {
+			owner.downloads.remove(urlText);
 			owner.activeImports.remove(key);
 			request.cancel();
 			player.addChatMessage(new ChatComponentText(CommandClowder.ERROR + "Could not start faction flag import. Please retry."));
@@ -313,9 +345,9 @@ public class CustomFlagService {
 		}
 	}
 
-	private static ImportResult prepareImage(String urlText) throws Exception {
-		URL url = validateUrl(urlText);
-		byte[] downloaded = download(url, 0);
+	private static ImportResult prepareImage(String urlText, ServerSession owner) throws Exception {
+		DownloadBudget budget = new DownloadBudget(owner);
+		byte[] downloaded = download(validateUrl(urlText, budget), budget, true);
 		BufferedImage input = decodeValidatedImage(downloaded);
 		BufferedImage output = resizeToFlag(input);
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -351,8 +383,12 @@ public class CustomFlagService {
 		}
 	}
 
-	private static URL validateUrl(String urlText) throws Exception {
-		URI uri = new URI(urlText);
+	private static URL validateUrl(String urlText, DownloadBudget budget) throws Exception {
+		URI uri;
+		try { uri = new URI(urlText); }
+		catch(Exception e) { throw new FlagImportException("invalid HTTPS URL"); }
+		if(urlText.length() > 2048 || (uri.getPort() != -1 && uri.getPort() != 443))
+			throw new FlagImportException("invalid HTTPS URL");
 		if(uri.getUserInfo() != null)
 			throw new FlagImportException("invalid URL");
 		if(uri.getScheme() == null || !"https".equalsIgnoreCase(uri.getScheme()))
@@ -361,52 +397,128 @@ public class CustomFlagService {
 			throw new FlagImportException("invalid URL");
 		if(!isAllowedHost(uri.getHost()))
 			throw new FlagImportException("unsupported image host");
-		validateHost(uri.getHost());
+		validateHost(uri.getHost(), budget);
 		return uri.toURL();
 	}
 
-	private static byte[] download(URL url, int redirects) throws Exception {
-		URL safeUrl = validateUrl(url.toString());
+	private static byte[] download(URL url, DownloadBudget budget, boolean pageAllowed) throws Exception {
+		budget.remaining();
+		URL safeUrl = validateUrl(url.toString(), budget);
+		budget.remaining();
 		HttpURLConnection conn = (HttpURLConnection)safeUrl.openConnection();
 		if(!(conn instanceof HttpsURLConnection))
 			throw new FlagImportException("invalid URL");
 		conn.setInstanceFollowRedirects(false);
-		conn.setConnectTimeout(XFConfig.customFlagTimeoutMs);
-		conn.setReadTimeout(XFConfig.customFlagTimeoutMs);
-		conn.setRequestProperty("User-Agent", "XenofactionsFlagImporter/1.0");
+		conn.setConnectTimeout(budget.remaining());
+		conn.setReadTimeout(budget.remaining());
+		conn.setRequestProperty("User-Agent", "Mozilla/5.0 XenofactionsFlagImporter/1.0");
+		// A read timeout alone can be extended indefinitely by trickled response headers.
+		ScheduledFuture<?> timeout = budget.owner.timeouts.schedule(() -> conn.disconnect(), budget.remaining(), TimeUnit.MILLISECONDS);
 		try {
 			int code = conn.getResponseCode();
 			if(code >= 300 && code <= 399) {
-				if(redirects >= XFConfig.customFlagMaxRedirects)
-					throw new FlagImportException("invalid URL");
+				if(budget.redirects++ >= XFConfig.customFlagMaxRedirects)
+					throw new FlagImportException("too many HTTPS redirects");
 				String location = conn.getHeaderField("Location");
 				if(location == null)
 					throw new FlagImportException("invalid URL");
 				URL next = new URL(safeUrl, location);
 				if(!"https".equalsIgnoreCase(next.getProtocol()))
 					throw new FlagImportException("invalid URL");
-				return download(next, redirects + 1);
-			}
-			String contentType = conn.getContentType();
-			if(contentType != null) {
-				String lower = contentType.toLowerCase();
-				if(!lower.startsWith("image/png") && !lower.startsWith("image/jpeg") && !lower.startsWith("image/jpg"))
-					throw new FlagImportException("unsupported image type");
+				return download(next, budget, pageAllowed);
 			}
 			if(code < 200 || code >= 300)
-				throw new FlagImportException("invalid URL");
-			int length = conn.getContentLength();
-			if(length > XFConfig.customFlagMaxFileSizeBytes)
+				throw new FlagImportException("image host " + safeUrl.getHost() + " returned HTTP " + code);
+			String type = conn.getContentType();
+			boolean html = type != null && (type.toLowerCase(Locale.ROOT).startsWith("text/html")
+					|| type.toLowerCase(Locale.ROOT).startsWith("application/xhtml+xml"));
+			int limit = html ? Math.min(512 * 1024, XFConfig.customFlagMaxFileSizeBytes) : XFConfig.customFlagMaxFileSizeBytes;
+			if(conn.getContentLengthLong() > limit)
 				throw new FlagImportException("image too large");
-			return readLimited(conn.getInputStream(), XFConfig.customFlagMaxFileSizeBytes);
+			byte[] bytes;
+			try(InputStream input = conn.getInputStream()) {
+				ByteArrayOutputStream out = new ByteArrayOutputStream();
+				byte[] buffer = new byte[8192];
+				int count;
+				while(true) {
+					conn.setReadTimeout(budget.remaining());
+					count = input.read(buffer);
+					if(count < 0) break;
+					if(out.size() + count > limit) throw new FlagImportException("image/page too large");
+					out.write(buffer, 0, count);
+				}
+				bytes = out.toByteArray();
+			}
+			budget.remaining();
+			// Only PNG/JPEG signatures ever reach ImageIO, including mislabeled HTML responses.
+			if(!html && isImage(bytes)) return bytes;
+			String prefix = new String(bytes, 0, Math.min(bytes.length, 512), java.nio.charset.StandardCharsets.UTF_8).trim().toLowerCase(Locale.ROOT);
+			if(html || prefix.startsWith("<!doctype html") || prefix.startsWith("<html")) {
+				String host = safeUrl.getHost().toLowerCase(Locale.ROOT);
+				if(!pageAllowed || !(host.equals("postimg.cc") || host.equals("postimages.org")))
+					throw new FlagImportException("HTML page returned instead of a PNG/JPEG image on " + host);
+				if(bytes.length > 512 * 1024) throw new FlagImportException("Postimages page too large");
+				URL resolved = resolvePage(safeUrl, bytes);
+				conn.disconnect();
+				return download(resolved, budget, false);
+			}
+			throw new FlagImportException("unsupported image response on " + safeUrl.getHost() + "; use PNG/JPEG or a Postimages image page");
 		} catch(java.net.SocketTimeoutException e) {
 			throw new FlagImportException("download timed out");
 		} catch(FlagImportException e) {
 			throw e;
 		} catch(IOException e) {
-			throw new FlagImportException("failed to decode image");
+			throw new FlagImportException("HTTPS download failed on " + safeUrl.getHost() + " (" + e.getClass().getSimpleName() + ")");
 		} finally {
+			timeout.cancel(false);
 			conn.disconnect();
+		}
+	}
+
+	private static boolean isImage(byte[] b) {
+		return b.length >= 8 && ((b[0] == (byte)137 && b[1] == 80 && b[2] == 78 && b[3] == 71
+				&& b[4] == 13 && b[5] == 10 && b[6] == 26 && b[7] == 10)
+				|| (b[0] == (byte)255 && b[1] == (byte)216 && b[2] == (byte)255));
+	}
+
+	private static URL resolvePage(final URL page, byte[] html) throws Exception {
+		final String[] candidates = new String[3];
+		new ParserDelegator().parse(new InputStreamReader(new ByteArrayInputStream(html), "UTF-8"),
+			new HTMLEditorKit.ParserCallback() {
+				private void inspect(HTML.Tag tag, MutableAttributeSet attributes) {
+					Object property = attributes.getAttribute("property");
+					if(property == null) property = attributes.getAttribute(HTML.Attribute.NAME);
+					Object content = attributes.getAttribute(HTML.Attribute.CONTENT);
+					String value = content == null ? null : content.toString().trim();
+					if(tag == HTML.Tag.META && "og:image:secure_url".equalsIgnoreCase(String.valueOf(property))) candidates[0] = value;
+					if(tag == HTML.Tag.META && "og:image".equalsIgnoreCase(String.valueOf(property))) candidates[1] = value;
+					if(tag == HTML.Tag.IMG && "main-image".equals(String.valueOf(attributes.getAttribute(HTML.Attribute.ID)))) {
+						Object src = attributes.getAttribute(HTML.Attribute.SRC);
+						if(src != null) candidates[2] = src.toString().trim();
+					}
+				}
+				@Override public void handleSimpleTag(HTML.Tag tag, MutableAttributeSet attributes, int position) { inspect(tag, attributes); }
+				@Override public void handleStartTag(HTML.Tag tag, MutableAttributeSet attributes, int position) { inspect(tag, attributes); }
+			}, true);
+		for(String candidate : candidates) {
+			if(candidate == null || candidate.length() == 0) continue;
+			URL resolved;
+			try { resolved = new URL(page, candidate); }
+			catch(Exception e) { continue; }
+			if("i.postimg.cc".equalsIgnoreCase(resolved.getHost())) return resolved;
+		}
+		throw new FlagImportException("Postimages page has no supported image metadata; use its direct PNG/JPEG link");
+	}
+
+	private static class DownloadBudget {
+		final ServerSession owner;
+		final long deadline = System.nanoTime() + XFConfig.customFlagTimeoutMs * 1000000L;
+		int redirects;
+		DownloadBudget(ServerSession owner) { this.owner = owner; }
+		int remaining() throws FlagImportException {
+			long millis = (deadline - System.nanoTime()) / 1000000L;
+			if(millis <= 0 || Thread.currentThread().isInterrupted()) throw new FlagImportException("download timed out or cancelled");
+			return (int)Math.min(Integer.MAX_VALUE, millis);
 		}
 	}
 
@@ -420,6 +532,9 @@ public class CustomFlagService {
 			if(!readers.hasNext())
 				throw new FlagImportException("failed to decode image");
 			reader = readers.next();
+			String format = reader.getFormatName();
+			if(!"png".equalsIgnoreCase(format) && !"jpeg".equalsIgnoreCase(format))
+				throw new FlagImportException("unsupported image type; use PNG/JPEG");
 			reader.setInput(stream, true, true);
 			int width = reader.getWidth(0);
 			int height = reader.getHeight(0);
@@ -445,14 +560,23 @@ public class CustomFlagService {
 	private static boolean isAllowedHost(String host) {
 		if(host == null)
 			return false;
-		String normalized = host.toLowerCase();
+		String normalized = host.toLowerCase(Locale.ROOT);
 		if(normalized.endsWith("."))
 			normalized = normalized.substring(0, normalized.length() - 1);
 		return XFConfig.customFlagAllowedHostSet.contains(normalized);
 	}
 
-	private static void validateHost(String host) throws Exception {
-		InetAddress[] addresses = InetAddress.getAllByName(host);
+	private static void validateHost(final String host, DownloadBudget budget) throws Exception {
+		// Native DNS has no Java 8 timeout. Bound the import's wait separately, including
+		// queue time, and cap resolver workers even when the OS ignores interruption.
+		Future<InetAddress[]> lookup;
+		try { lookup = budget.owner.dns.submit(() -> InetAddress.getAllByName(host)); }
+		catch(java.util.concurrent.RejectedExecutionException e) { throw new FlagImportException("DNS resolver busy"); }
+		InetAddress[] addresses;
+		try { addresses = lookup.get(budget.remaining(), TimeUnit.MILLISECONDS); }
+		catch(java.util.concurrent.TimeoutException e) { throw new FlagImportException("DNS lookup timed out on " + host); }
+		catch(java.util.concurrent.ExecutionException e) { throw new FlagImportException("DNS lookup failed on " + host); }
+		finally { lookup.cancel(true); budget.owner.dns.purge(); }
 		if(addresses == null || addresses.length == 0)
 			throw new FlagImportException("unsafe host");
 		for(int i = 0; i < addresses.length; i++) {
@@ -538,6 +662,11 @@ public class CustomFlagService {
 		final MinecraftServer server;
 		final Map<String, Long> cooldowns = new HashMap<String, Long>();
 		final Map<String, ImportRequest> activeImports = new HashMap<String, ImportRequest>();
+		final Map<String, List<ImportRequest>> downloads = new HashMap<String, List<ImportRequest>>();
+		final ThreadPoolExecutor dns = new ThreadPoolExecutor(1, 1, 30L, TimeUnit.SECONDS,
+			new ArrayBlockingQueue<Runnable>(8), runnable -> daemon(runnable, "Xenofactions flag DNS"));
+		final ScheduledExecutorService timeouts = Executors.newSingleThreadScheduledExecutor(
+			runnable -> daemon(runnable, "Xenofactions flag timeout"));
 		final ExecutorService executor = Executors.newSingleThreadExecutor(new ThreadFactory() {
 			@Override
 			public Thread newThread(Runnable runnable) {
@@ -549,13 +678,18 @@ public class CustomFlagService {
 		ServerSession(MinecraftServer server) { this.server = server; }
 	}
 
+	private static Thread daemon(Runnable runnable, String name) {
+		Thread thread = new Thread(runnable, name);
+		thread.setDaemon(true);
+		return thread;
+	}
+
 	private static class ImportRequest {
 		final ServerSession owner;
 		final String factionId;
 		final UUID playerId;
 		final Clowder faction;
 		volatile boolean cancelled;
-		Future<?> future;
 		ImportRequest(ServerSession owner, String factionId, UUID playerId, Clowder faction) {
 			this.owner = owner;
 			this.factionId = factionId;
@@ -564,8 +698,7 @@ public class CustomFlagService {
 		}
 		void cancel() {
 			cancelled = true;
-			if(future != null)
-				future.cancel(true);
+			// A shared download may still be needed by another faction; installation rechecks cancellation.
 		}
 	}
 

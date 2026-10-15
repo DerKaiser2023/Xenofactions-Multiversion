@@ -1368,15 +1368,38 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 			
 			if(player.inventory.armorInventory[0] != null && player.inventory.armorInventory[0].getItem() == ModItems.clowder_banner) {
 				ItemStack banner = player.inventory.armorInventory[0];
+				boolean changed;
 			    
 				if(clowder != null) {
+					String hash = clowder.customFlagHash == null ? "" : clowder.customFlagHash;
+					changed = !banner.hasTagCompound() || !banner.stackTagCompound.hasKey("flag")
+						|| banner.stackTagCompound.getInteger("flag") != clowder.flag.ordinal()
+						|| banner.stackTagCompound.getInteger("color") != clowder.color
+						|| !clowder.name.equals(banner.stackTagCompound.getString("flagFaction"))
+						|| !hash.equals(banner.stackTagCompound.getString("flagHash"));
 					
 					if(!banner.hasTagCompound())
 						banner.stackTagCompound = new NBTTagCompound();
 
 					banner.stackTagCompound.setInteger("flag", clowder.flag.ordinal());
 					banner.stackTagCompound.setInteger("color", clowder.color);
+					banner.stackTagCompound.setString("flagFaction", clowder.name);
+					banner.stackTagCompound.setString("flagHash", hash);
+				} else if(banner.hasTagCompound()) {
+					changed = banner.stackTagCompound.hasKey("flag") || banner.stackTagCompound.hasKey("color")
+						|| banner.stackTagCompound.hasKey("flagFaction") || banner.stackTagCompound.hasKey("flagHash");
+					banner.stackTagCompound.removeTag("flag");
+					banner.stackTagCompound.removeTag("color");
+					banner.stackTagCompound.removeTag("flagFaction");
+					banner.stackTagCompound.removeTag("flagHash");
+				} else {
+					changed = false;
 				}
+				// Vanilla's equipment tracker covers observers. Also update the wearer even while
+				// another container is open and the inventory container is not being polled.
+				if(changed && player instanceof EntityPlayerMP)
+					((EntityPlayerMP)player).playerNetServerHandler.sendPacket(
+						new net.minecraft.network.play.server.S04PacketEntityEquipment(player.getEntityId(), 1, banner));
 			}
 		}
 	}
