@@ -47,8 +47,7 @@ final class JourneyMapClaimDrawHandler implements InvocationHandler {
 		boolean mapEnabled = ClientTDMMapOverlay.visible()
 				&& (publicMap.hasKey("bounds") || publicMap.hasKey("bombA") || publicMap.hasKey("bombB")
 						|| preview.getBoolean("overlay") && preview.hasKey("map"));
-        com.hfr.client.earth.EarthMapLayerCache.Frame geography=com.hfr.client.earth.EarthMapLayerCache.current();
-		if((snapshot == null || snapshot.claims.isEmpty()) && !mapEnabled&&geography==null) return;
+		if((snapshot == null || snapshot.claims.isEmpty()) && !mapEnabled) return;
 		int width = ((Integer)reflection.getWidth.invoke(grid)).intValue(), height = ((Integer)reflection.getHeight.invoke(grid)).intValue();
 		boolean texture = GL11.glIsEnabled(GL11.GL_TEXTURE_2D), blend = GL11.glIsEnabled(GL11.GL_BLEND), alpha = GL11.glIsEnabled(GL11.GL_ALPHA_TEST);
 		int blendSrc = GL11.glGetInteger(GL11.GL_BLEND_SRC), blendDst = GL11.glGetInteger(GL11.GL_BLEND_DST); float oldWidth = GL11.glGetFloat(GL11.GL_LINE_WIDTH);
@@ -57,7 +56,6 @@ final class JourneyMapClaimDrawHandler implements InvocationHandler {
 		// JourneyMap owns the active depth state: its depth buffer clips minimap DrawStep rendering to the minimap mask.
 		GL11.glDisable(GL11.GL_TEXTURE_2D); GL11.glEnable(GL11.GL_BLEND); GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA); GL11.glDisable(GL11.GL_ALPHA_TEST);
 		try {
-            if(geography!=null)renderGeography(grid,geography,xOffset,yOffset);
 			if(snapshot != null) for(Claim claim : snapshot.claims) renderClaim(grid, claim, snapshot, xOffset, yOffset, width, height);
 			if(mapEnabled) {
 				if(publicMap.hasKey("map")) renderMap(grid, publicMap, xOffset, yOffset, width, height, false, false, publicMap);
@@ -194,18 +192,6 @@ final class JourneyMapClaimDrawHandler implements InvocationHandler {
 		while(text.length() > 0 && font.getStringWidth(text) + ellipsisWidth > maxWidth) text = text.substring(0, text.length() - 1);
 		return text.length() == 0 ? "" : text + ellipsis;
 	}
-    private void renderGeography(Object grid,com.hfr.client.earth.EarthMapLayerCache.Frame frame,double xo,double yo)throws Exception{
-        int vertices=0;
-        for(com.hfr.world.earth.map.XFEarthMapLayers.Feature feature:frame.features){
-            if(!feature.enabled(frame.mask))continue;int color=com.hfr.world.earth.map.XFEarthMapLayers.displayColor(feature,feature.layer==5&&(frame.mask&64)!=0);
-            GL11.glColor4f((color>>16&255)/255F,(color>>8&255)/255F,(color&255)/255F,1F);
-            for(double[] path:feature.paths){if(vertices+path.length/2>512)return;vertices+=path.length/2;
-                Tessellator t=Tessellator.instance;t.startDrawing(feature.type==0?GL11.GL_LINES:feature.type==2?GL11.GL_LINE_LOOP:GL11.GL_LINE_STRIP);
-                if(feature.type==0){Point2D p=point(grid,path[0],path[1]);t.addVertex(p.getX()+xo-2,p.getY()+yo,0);t.addVertex(p.getX()+xo+2,p.getY()+yo,0);}
-                else for(int i=0;i<path.length;i+=2)vertex(t,point(grid,path[i],path[i+1]),xo,yo);t.draw();
-            }
-        }
-    }
 	private Point2D point(Object grid,double x,double z) throws Exception { return (Point2D)reflection.getBlockPixel.invoke(grid, x, z); }
 	private static void vertex(Tessellator t,Point2D p,double x,double y){t.addVertex(p.getX()+x,p.getY()+y,0);}
 	private static void edge(Tessellator t,Point2D a,Point2D b,double x,double y){vertex(t,a,x,y);vertex(t,b,x,y);}

@@ -74,7 +74,7 @@ public final class ClaimOverlayData {
 	private static String cleanLabel(String label) {
 		if(label == null) return "";
 		String trimmed = label.trim();
-		int max = Math.max(1, com.hfr.config.XFConfig.claimNameMaxLength);
+		int max = Math.min(64, Math.max(1, com.hfr.config.XFConfig.claimNameMaxLength));
 		return trimmed.length() > max ? trimmed.substring(0, max) : trimmed;
 	}
 

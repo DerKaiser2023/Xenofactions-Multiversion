@@ -3,6 +3,13 @@ package com.hfr.client.earth;
 import com.hfr.packet.PacketDispatcher;
 import com.hfr.packet.client.EarthMapRequestPacket;
 import com.hfr.world.earth.map.XFEarthMapData;
+import com.hfr.client.journeymap.ClientClaimOverlayCache;
+import com.hfr.client.journeymap.ClientClaimOverlayCache.Snapshot;
+import com.hfr.clowder.ClaimOverlayData.Claim;
+import com.hfr.clowder.ClowderTerritory;
+import com.hfr.clowder.TerritoryCoordinateBounds;
+import com.hfr.clowder.TerritoryCoordinateBounds.Bounds;
+import com.hfr.world.earth.map.XFEarthMapLayers.Feature;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import java.nio.IntBuffer;
@@ -33,8 +40,9 @@ public final class GuiXFEarthMap extends GuiScreen {
     private double zoom = 1, centerX = .5, centerZ = .5;
     private int lastX, lastY;
     private boolean dragging;
-    private int roadRequest,roadTicks,enabledLayers=127,pressX,pressY,selectX,selectY;private String roadView="",roadNotice="",profileId="";
+    private int roadRequest,roadTicks=39,enabledLayers=63,pressX,pressY,selectX,selectY;private String roadView="",roadNotice="",profileId="";
     private EarthMapLayerCache.Frame layers;private com.hfr.world.earth.map.XFEarthMapLayers.Feature selected;
+    private Snapshot claimSnapshot;
 
     @Override public void initGui() {
         buttonList.clear();
@@ -53,7 +61,7 @@ public final class GuiXFEarthMap extends GuiScreen {
     }
     private void requestProfile() {
         requestedWorld = mc.theWorld; data = null; images = null; roads = null; dragging = false;
-        roadView="";roadNotice="";layers=null;selected=null;EarthMapLayerCache.cancel();
+        roadView="";roadNotice="";layers=null;selected=null;roadTicks=39;EarthMapLayerCache.cancel();
         message = "gui.hfr.earthmap.loading"; zoom = 1; centerX = centerZ = .5;
         if (mc.thePlayer == null || requestedWorld == null) { message = "gui.hfr.earthmap.unavailable"; return; }
         dimension = requestedWorld.provider.dimensionId; request = ++nextRequest;
@@ -82,13 +90,15 @@ public final class GuiXFEarthMap extends GuiScreen {
     }
     @Override public void updateScreen() {
         if (mc.theWorld != requestedWorld || mc.theWorld != null && mc.theWorld.provider.dimensionId != dimension) requestProfile();
+        Snapshot latestClaims=ClientClaimOverlayCache.get(dimension);
+        if(latestClaims!=claimSnapshot){claimSnapshot=latestClaims;if(selected!=null&&selected.layer==5)selected=null;}
         if (data != null && cacheGeneration != EarthMapTileCache.generation()) {
             cacheGeneration = EarthMapTileCache.generation();layers=null;selected=null;roadView="";
             try { images = EarthMapImages.load(data); message = ""; }
             catch (Exception failure) { images = null; message = "gui.hfr.earthmap.images_missing"; }
             loadGrip();
         }
-        if(data!=null&&++roadTicks%40==0)requestRoads();
+        if(data!=null)requestRoads();
     }
     private void requestRoads(){
         int x0=Math.max(data.profile.getBounds().minimumX,(int)Math.floor(data.profile.getBounds().minimumX+(left()-originX())/mapWidth()*data.profile.getWidth()));
@@ -96,22 +106,28 @@ public final class GuiXFEarthMap extends GuiScreen {
         int x1=Math.min(data.profile.getBounds().maximumX,(int)Math.floor(data.profile.getBounds().minimumX+(left()+viewWidth()-originX())/mapWidth()*data.profile.getWidth()));
         int z1=Math.min(data.profile.getBounds().maximumZ,(int)Math.floor(data.profile.getBounds().minimumZ+(top()+viewHeight()-originZ())/mapHeight()*data.profile.getHeight()));
         int lod=1;double blocksPerPixel=data.profile.getWidth()/mapWidth();while(lod<65536&&lod<blocksPerPixel)lod*=2;
-        String view=com.hfr.world.earth.roads.XFEarthRoadMap.viewKey(x0,z0,x1,z1,lod,enabledLayers);
+        int geographicMask=enabledLayers&~32;
+        String view=com.hfr.world.earth.roads.XFEarthRoadMap.viewKey(x0,z0,x1,z1,lod,geographicMask);
+        if(!view.equals(roadView)){
+            EarthMapLayerCache.cancel();roadView=view;
+            layers=EarthMapLayerCache.find(requestedWorld,profileId,view);
+            if(selected!=null&&selected.layer!=5)selected=null;
+        }
+        if(++roadTicks<40)return;
         if(EarthMapLayerCache.waiting())return;
-        roadView=view;roadRequest=++nextRequest;
-        EarthMapLayerCache.Frame cached=EarthMapLayerCache.find(requestedWorld,profileId,view);if(cached!=null)layers=cached;
+        roadTicks=0;roadRequest=++nextRequest;
         if(x1<x0||z1<z0)return;
         long regions=((long)com.hfr.world.earth.geo.XFEarthGeoImporter.region(x1)-com.hfr.world.earth.geo.XFEarthGeoImporter.region(x0)+1)
             *((long)com.hfr.world.earth.geo.XFEarthGeoImporter.region(z1)-com.hfr.world.earth.geo.XFEarthGeoImporter.region(z0)+1);
-        if(regions>16){layers=null;selected=null;roadNotice="Overview unavailable at this zoom: view exceeds 16 regions";return;}
+        if(regions>16){layers=null;if(selected!=null&&selected.layer!=5)selected=null;roadNotice="Overview unavailable at this zoom: view exceeds 16 regions";return;}
         roadNotice="Refreshing geographic overview...";
         EarthMapLayerCache.begin(roadRequest,requestedWorld,data,profileId,view);
-        PacketDispatcher.wrapper.sendToServer(new com.hfr.packet.client.EarthRoadRequestPacket(roadRequest,dimension,x0,z0,x1,z1,lod,enabledLayers));
+        PacketDispatcher.wrapper.sendToServer(new com.hfr.packet.client.EarthRoadRequestPacket(roadRequest,dimension,x0,z0,x1,z1,lod,geographicMask));
     }
-    public void invalidateLayers(){layers=null;selected=null;roadView="";roadTicks=39;roadNotice="Dataset selection changed; refreshing geographic overview...";}
+    public void invalidateLayers(){layers=null;if(selected!=null&&selected.layer!=5)selected=null;roadView="";roadTicks=39;roadNotice="Dataset selection changed; refreshing geographic overview...";}
     public void receiveLayers(EarthMapLayerCache.Frame frame){
         roadNotice=frame.notice;if(frame.notice.contains("busy"))return;layers=frame;
-        if(selected!=null){com.hfr.world.earth.map.XFEarthMapLayers.Feature replacement=null;for(com.hfr.world.earth.map.XFEarthMapLayers.Feature f:frame.features)if(f.key.equals(selected.key))replacement=f;selected=replacement;}
+        if(selected!=null&&selected.layer!=5){com.hfr.world.earth.map.XFEarthMapLayers.Feature replacement=null;for(com.hfr.world.earth.map.XFEarthMapLayers.Feature f:frame.features)if(f.key.equals(selected.key))replacement=f;selected=replacement;}
     }
     private void showInfo(){
         final GuiXFEarthMap map=this;
@@ -121,7 +137,7 @@ public final class GuiXFEarthMap extends GuiScreen {
             protected void actionPerformed(GuiButton button){if(button.id==0)mc.displayGuiScreen(map);else page=Math.max(0,page+(button.id==1?-1:1));}
             public boolean doesGuiPauseGame(){return false;}
             public void drawScreen(int x,int y,float ticks){drawDefaultBackground();int capacity=Math.max(1,(height-50)/11);
-                String info=gripNotice+". "+(roads==null?"":roads.credit)+". GRIP is a historical generalized inventory, unsuitable for navigation; coverage/topology may be incomplete. The Roads toggle controls GRIP and OSM. GRIP lines show prepared source routes independently of OSM selection and do not establish matching blocks. OSM: "+(layers==null?"© OpenStreetMap contributors / ODbL":layers.attribution)+". "+roadNotice+". Source coverage is unverified. Click again to cycle overlapping vector features. Administrative boundaries are informational. Claims use faction color, orange safezones, red warzones and gray wilderness. Terrain: cyan pending/unavailable, green eligible, red insufficient surface. Imported features differ from recorded generic generated fragments; processed road chunks do not prove current road blocks. "+(selected==null?"":" Selected: "+selected.name+" / "+selected.category+" / "+selected.source+" / "+selected.detail);
+                String info=gripNotice+". "+(roads==null?"":roads.credit)+". GRIP is a historical generalized inventory, unsuitable for navigation; coverage/topology may be incomplete. The Roads toggle controls GRIP and OSM. GRIP lines show prepared source routes independently of OSM selection and do not establish matching blocks. OSM: "+(layers==null?"© OpenStreetMap contributors / ODbL":layers.attribution)+". "+roadNotice+". Source coverage is unverified. Click again to cycle overlapping vector features. Administrative boundaries are informational. Claims use complete territorial ownership: faction color, orange safezones and red warzones; wilderness has no claim fill. Claims do not depend on geographic data or zoom. Terrain is off by default; enabling it shows bounded diagnostic outlines: cyan pending/unavailable, green eligible, red insufficient surface. Imported features differ from recorded generic generated fragments; processed road chunks do not prove current road blocks. "+(selected==null?"":" Selected: "+selected.name+" / "+selected.category+" / "+selected.source+" / "+selected.detail);
                 java.util.List<?> lines=fontRendererObj.listFormattedStringToWidth(info,width-20);page=Math.min(page,Math.max(0,(lines.size()-1)/capacity));
                 for(int i=page*capacity,row=12;i<Math.min(lines.size(),(page+1)*capacity);i++,row+=11)drawString(fontRendererObj,lines.get(i).toString(),10,row,0xffffff);super.drawScreen(x,y,ticks);
             }
@@ -151,18 +167,20 @@ public final class GuiXFEarthMap extends GuiScreen {
         zoom = clamp(zoom * factor, 1, 32);
         centerX = u - (x - left() - viewWidth() / 2.0) / mapWidth();
         centerZ = v - (y - top() - viewHeight() / 2.0) / mapHeight();
+        EarthMapLayerCache.cancel();
         clampView();
     }
     @Override protected void actionPerformed(GuiButton button) {
         if (button.id == 4) { mc.displayGuiScreen(null); return; }
         if(button.id==17){showInfo();return;}
-        if(button.id>=10&&button.id<17){enabledLayers^=1<<(button.id-10);button.displayString=((enabledLayers&(1<<(button.id-10)))!=0?"+ ":"- ")+button.displayString.substring(2);selected=null;EarthMapLayerCache.cancel();roadView="";roadTicks=39;return;}
+        if(button.id>=10&&button.id<17){enabledLayers^=1<<(button.id-10);button.displayString=((enabledLayers&(1<<(button.id-10)))!=0?"+ ":"- ")+button.displayString.substring(2);selected=null;if(button.id!=15){EarthMapLayerCache.cancel();roadView="";roadTicks=39;}return;}
         if (data == null) return;
         if (button.id == 0 || button.id == 1) changeZoom(button.id == 0 ? 1.5 : 1 / 1.5, width / 2, top() + viewHeight() / 2);
         if (button.id == 2 && mc.thePlayer != null) {
             centerX = data.mapX(mc.thePlayer.posX); centerZ = data.mapZ(mc.thePlayer.posZ); clampView();
         }
         if (button.id == 3) { zoom = 1; centerX = centerZ = .5; }
+        EarthMapLayerCache.cancel();
     }
     @Override protected void mouseClicked(int x, int y, int button) {
         super.mouseClicked(x, y, button);
@@ -171,12 +189,18 @@ public final class GuiXFEarthMap extends GuiScreen {
     @Override protected void mouseClickMove(int x, int y, int button, long elapsed) {
         if (dragging && button == 0 && data != null) {
             centerX -= (x - lastX) / mapWidth(); centerZ -= (y - lastY) / mapHeight();
+            EarthMapLayerCache.cancel();
             lastX = x; lastY = y; clampView();
         }
     }
     @Override protected void mouseMovedOrUp(int x, int y, int button) {
         super.mouseMovedOrUp(x,y,button);
-        if(button==0){if(dragging&&layers!=null&&inside(x,y)&&Math.hypot(x-pressX,y-pressY)<4){selected=layers.select((x-originX())/mapWidth(),(y-originZ())/mapHeight(),5/mapWidth(),5/mapHeight(),enabledLayers,selected!=null&&Math.hypot(x-selectX,y-selectY)<4?selected.key:null);selectX=x;selectY=y;}dragging=false;}
+        if(button==0){if(dragging&&inside(x,y)&&Math.hypot(x-pressX,y-pressY)<4){
+            double u=(x-originX())/mapWidth(),v=(y-originZ())/mapHeight();
+            selected=layers==null?null:layers.select(u,v,5/mapWidth(),5/mapHeight(),enabledLayers,selected!=null&&Math.hypot(x-selectX,y-selectY)<4?selected.key:null);
+            if(selected==null)selected=selectClaim(u,v);
+            selectX=x;selectY=y;
+        }dragging=false;}
     }
     @Override public void handleMouseInput() {
         super.handleMouseInput();
@@ -250,14 +274,16 @@ public final class GuiXFEarthMap extends GuiScreen {
                     ? "gui.hfr.earthmap.images_missing" : "gui.hfr.earthmap.loading"), left() + 4, top() + 4, 0xffffff);
             }else drawString(fontRendererObj,I18n.format("gui.hfr.earthmap.images_missing"),left()+4,top()+37,0xffcc66);
             if (roads != null && (enabledLayers & 1) != 0) drawGrip(ox, oz, w, h);
+            drawClaims(ox,oz,w,h);
             if(layers!=null)layers.draw(ox,oz,w,h,enabledLayers);
-            drawString(fontRendererObj,"Claims: faction color / orange safe / red war / gray unclaimed",left()+4,top()+4,0xffffff);
-            drawString(fontRendererObj,"Terrain: cyan pending / green eligible / red insufficient",left()+4,top()+15,0xffffff);
+            String claimNotice=ClientClaimOverlayCache.notice();
+            drawString(fontRendererObj,claimNotice.isEmpty()?"Claims: faction color / orange safe / red war":fontRendererObj.trimStringToWidth(claimNotice,viewWidth()-8),left()+4,top()+4,0xffffff);
+            if((enabledLayers&64)!=0)drawString(fontRendererObj,"Terrain: cyan pending / green eligible / red insufficient",left()+4,top()+15,0xffffff);
             drawString(fontRendererObj,"Source outlines; brighter = recorded generated evidence",left()+4,top()+26,0xdddddd);
             drawString(fontRendererObj,fontRendererObj.trimStringToWidth(gripNotice,viewWidth()-8),left()+4,top()+48,0xffd777);
             drawString(fontRendererObj,"\u00a9 OpenStreetMap contributors / ODbL",left()+4,top()+viewHeight()-50,0xeeeeee);
             if(selected!=null){
-                String status=selected.layer==5?"Territorial node":selected.state==1?"Recorded generic generated fragment":selected.state==2?"Processed road chunk fragment (blocks unverified)":"Imported; generation unrecorded/unavailable here";
+                String status=selected.layer==5?"Authoritative territory":selected.layer==6?"Terrain diagnostic":selected.state==1?"Recorded generic generated fragment":selected.state==2?"Processed road chunk fragment (blocks unverified)":"Imported; generation unrecorded/unavailable here";
                 String title=(selected.name.isEmpty()?"Unnamed feature":selected.name)+" | "+selected.category;
                 drawRect(left()+2,top()+viewHeight()-38,left()+viewWidth()-2,top()+viewHeight()-2,0xcc000000);
                 drawString(fontRendererObj,fontRendererObj.trimStringToWidth(title,viewWidth()-8),left()+4,top()+viewHeight()-36,0xffffff);
@@ -290,6 +316,44 @@ public final class GuiXFEarthMap extends GuiScreen {
         if (roads == null) return 32;
         EarthMapImages.Level largest = roads.levels[roads.levels.length-1];
         return 32 - ((largest.width+255)/256) * ((largest.height+255)/256);
+    }
+    private Feature selectClaim(double u,double v) {
+        Snapshot snapshot=ClientClaimOverlayCache.get(dimension);
+        if(snapshot==null||(enabledLayers&32)==0)return null;
+        int x=(int)Math.floor(data.profile.getBounds().minimumX+u*data.profile.getWidth());
+        int z=(int)Math.floor(data.profile.getBounds().minimumZ+v*data.profile.getHeight());
+        ClowderTerritory.CoordPair coordinate=ClowderTerritory.getCoordPair(dimension,x,z);
+        Claim claim=snapshot.byChunk.get(com.hfr.clowder.ClaimOverlayData.chunkKey(coordinate.x,coordinate.z));
+        if(claim==null)return null;
+        Bounds bx=TerritoryCoordinateBounds.forCoordinate(claim.chunkX),bz=TerritoryCoordinateBounds.forCoordinate(claim.chunkZ);
+        return new Feature("claim:"+claim.chunkX+","+claim.chunkZ,claim.label,"Claim","Territorial ownership","Ownership is independent of terrain diagnostics",5,2,claim.color,0,
+            new double[][]{{bx.minInclusive,bz.minInclusive,bx.maxExclusive,bz.minInclusive,bx.maxExclusive,bz.maxExclusive,bx.minInclusive,bz.maxExclusive}});
+    }
+    private void drawClaims(double ox,double oz,double w,double h) {
+        if((enabledLayers&32)==0)return;
+        Snapshot snapshot=ClientClaimOverlayCache.get(dimension);if(snapshot==null)return;
+        GL11.glPushAttrib(GL11.GL_ENABLE_BIT|GL11.GL_COLOR_BUFFER_BIT|GL11.GL_CURRENT_BIT|GL11.GL_LINE_BIT);
+        try {
+            GL11.glDisable(GL11.GL_TEXTURE_2D);GL11.glDisable(GL11.GL_CULL_FACE);GL11.glEnable(GL11.GL_BLEND);GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA);GL11.glLineWidth(1F);
+            for(int pass=0;pass<2;pass++){
+                GL11.glBegin(pass==0?GL11.GL_QUADS:GL11.GL_LINES);
+                for(Claim claim:snapshot.claims){
+                    Bounds bx=TerritoryCoordinateBounds.forCoordinate(claim.chunkX),bz=TerritoryCoordinateBounds.forCoordinate(claim.chunkZ);
+                    double x0=ox+data.mapX(bx.minInclusive)*w,x1=ox+data.mapX(bx.maxExclusive)*w;
+                    double z0=oz+data.mapZ(bz.minInclusive)*h,z1=oz+data.mapZ(bz.maxExclusive)*h;
+                    if(x1<=left()||z1<=top()||x0>=left()+viewWidth()||z0>=top()+viewHeight())continue;
+                    GL11.glColor4f((claim.color>>16&255)/255F,(claim.color>>8&255)/255F,(claim.color&255)/255F,pass==0?.35F:.95F);
+                    if(pass==0){GL11.glVertex2d(x0,z0);GL11.glVertex2d(x1,z0);GL11.glVertex2d(x1,z1);GL11.glVertex2d(x0,z1);}
+                    else {
+                        if(!snapshot.sameGroup(claim.chunkX,claim.chunkZ-1,claim.groupId)){GL11.glVertex2d(x0,z0);GL11.glVertex2d(x1,z0);}
+                        if(!snapshot.sameGroup(claim.chunkX+1,claim.chunkZ,claim.groupId)){GL11.glVertex2d(x1,z0);GL11.glVertex2d(x1,z1);}
+                        if(!snapshot.sameGroup(claim.chunkX,claim.chunkZ+1,claim.groupId)){GL11.glVertex2d(x1,z1);GL11.glVertex2d(x0,z1);}
+                        if(!snapshot.sameGroup(claim.chunkX-1,claim.chunkZ,claim.groupId)){GL11.glVertex2d(x0,z1);GL11.glVertex2d(x0,z0);}
+                    }
+                }
+                GL11.glEnd();
+            }
+        } finally { GL11.glPopAttrib(); }
     }
     private void drawGrip(double ox, double oz, double w, double h) {
         int level = w > roads.levels[0].width ? roads.levels.length - 1 : 0;

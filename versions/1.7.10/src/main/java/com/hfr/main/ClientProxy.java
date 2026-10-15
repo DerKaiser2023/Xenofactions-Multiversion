@@ -82,9 +82,12 @@ public class ClientProxy extends ServerProxy
 	@Override public void openWallArtGui(TileEntityWallImage tile) { Minecraft.getMinecraft().displayGuiScreen(new com.hfr.inventory.gui.GuiWallArt(tile)); }
 	@Override public void acceptWallArtChunk(String hash, int index, int total, int fullLength, byte[] bytes) { com.hfr.client.wallart.WallArtTextureCache.accept(hash,index,total,fullLength,bytes); }
 	@Override
-	public void receiveClaimOverlay(final int dimension, final int generation, final int part, final int parts, final List<com.hfr.clowder.ClaimOverlayData.Claim> claims) {
-		Minecraft.getMinecraft().func_152344_a(new Runnable() { @Override public void run() {
-			com.hfr.client.journeymap.ClientClaimOverlayCache.accept(dimension, generation, part, parts, claims);
+	public void receiveClaimOverlay(final long subscription, final int dimension, final int generation, final int part, final int parts, final List<com.hfr.clowder.ClaimOverlayData.Claim> claims) {
+		final Minecraft mc = Minecraft.getMinecraft();
+		final World receiving = mc.theWorld;
+		mc.func_152344_a(new Runnable() { @Override public void run() {
+			if(receiving == null || mc.theWorld != receiving || receiving.provider.dimensionId != dimension) return;
+			com.hfr.client.journeymap.ClientClaimOverlayCache.accept(subscription, dimension, generation, part, parts, claims);
 		} });
 	}
 

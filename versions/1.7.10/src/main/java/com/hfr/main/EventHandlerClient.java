@@ -426,6 +426,7 @@ public class EventHandlerClient {
 	
 	@SubscribeEvent
 	public void onClientDisconnect(ClientDisconnectionFromServerEvent event) {
+		com.hfr.client.journeymap.ClientClaimOverlayCache.requestClear();
 		com.hfr.client.flag.FactionFlagTextureManager.requestClear();
 		com.hfr.client.earth.EarthMapTileCache.requestClear();
 		resetTDMClientState();
@@ -439,6 +440,7 @@ public class EventHandlerClient {
 
 	@SubscribeEvent
 	public void onClientWorldUnload(WorldEvent.Unload event) {
+		if(event.world != null && event.world.isRemote) com.hfr.client.journeymap.ClientClaimOverlayCache.requestClear();
 		if(event.world != null && event.world.isRemote) com.hfr.client.earth.EarthMapTileCache.requestClear();
 		if(event.world!=null&&event.world.isRemote) { resetTDMClientState(); GUIAdminEditor.clearSelectionPreview(); com.hfr.client.journeymap.ClientTDMMapOverlay.clear(); }
 	}
@@ -553,6 +555,7 @@ public class EventHandlerClient {
 
 	@SubscribeEvent
 	public void xenofactionsClientTick(ClientTickEvent event) {
+		if(event.phase == TickEvent.Phase.START) com.hfr.client.journeymap.ClientClaimOverlayCache.tick();
 		if(event.phase == TickEvent.Phase.START) com.hfr.client.flag.FactionFlagTextureManager.tick();
 		if(event.phase==TickEvent.Phase.END)enforceMandatoryKitGui();
 		if(event.phase==TickEvent.Phase.END)com.hfr.client.journeymap.ClientTDMMapOverlay.emitWorldBorder();

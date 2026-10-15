@@ -29,6 +29,7 @@ public final class EarthRoadSnapshotPacket implements IMessage {
         int count=b.readUnsignedByte(),vertices=0;if(count>XFEarthMapLayers.PACKET_FEATURES)throw new IllegalArgumentException("Map feature limit");features=new ArrayList<Feature>();
         for(int i=0;i<count;i++){
             String key=text(b,64),name=text(b,64),category=text(b,48),source=text(b,64),detail=text(b,96);int layer=b.readUnsignedByte(),type=b.readUnsignedByte(),state=b.readUnsignedByte(),color=b.readInt(),contours=b.readUnsignedByte();
+            if(layer==XFEarthMapLayers.CLAIMS)throw new IllegalArgumentException("Ownership belongs to the complete claim snapshot");
             if(contours<1||contours>64)throw new IllegalArgumentException("Map contour limit");double[][] paths=new double[contours][];
             for(int j=0;j<contours;j++){int size=b.readUnsignedShort();vertices+=size;if(vertices>XFEarthMapLayers.PACKET_VERTICES)throw new IllegalArgumentException("Map vertex limit");paths[j]=new double[size*2];for(int k=0;k<paths[j].length;k++)paths[j][k]=b.readDouble();}
             features.add(new Feature(key,name,category,source,detail,layer,type,color,state,paths));

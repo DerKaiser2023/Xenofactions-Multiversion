@@ -801,8 +801,9 @@ on its worker and records that selected dataset in its output save as well.
 
 Selection changes cancel stale previews and pending map publications, clear worker
 caches and deliver a bounded invalidation notice over the existing layer channel.
-The client clears frame assembly, GL lists and optional adapter source frames on
-its owning thread, and the open Map requests fresh data. Dataset/profile failures
+The client clears geographic frame assembly and GL lists on its owning thread,
+and the open Map requests fresh data. Complete Claims and JourneyMap's existing
+ownership/TDM overlays are independent of that invalidation. Dataset/profile failures
 retain specific reasons and `/xc earth geo status` guidance rather than becoming
 empty successful results. The status command reports source/output paths and
 external acquisition requirements; `geo info` reads provenance off-thread. Saved
@@ -1072,8 +1073,9 @@ without an OSM dataset and remain available if the geographic query fails.
 `YOU ARE HERE` remains on top. The node view is bounded, not a complete census of
 all ownership or wilderness. Stage 9 exposes green/red classification styles
 through the same path without conflating source subdivisions with ownership.
-Stage 10 supersedes this display limit with 64 nodes and independent ownership
-and eligibility toggles; it leaves authoritative node identity/rules unchanged.
+Stage 10 initially replaced this limit with 64 nodes. The corrected display uses
+the complete territorial snapshot for Claims and retains the 64-node bound only
+for optional Terrain diagnostics; authoritative node identity/rules are unchanged.
 
 **Verification:** source traces cover command/flag creation, territorial NBT,
 world/session release, protection lookup, shared wrapping, packet publication and
@@ -1201,7 +1203,7 @@ is claimed; those remain runtime validation work.
 ## Geographic overview (Stage 10)
 
 The existing Map item now has independent Roads, Fields, Buildings, Businesses,
-Admin, Ownership and Eligibility toggles. Zoom, anchored mouse wheel, dragging,
+Bounds, Claims and Terrain toggles. Terrain starts disabled. Zoom, anchored mouse wheel, dragging,
 coordinates, center/full controls and `YOU ARE HERE` retain their existing
 projection. The marker draws last. A short click selects a source feature or node;
 repeat clicks at the same position cycle overlapping features. Names, source
@@ -1210,7 +1212,9 @@ selection details, legend, query notices and the selected dataset's full
 attribution. OSM/ODbL credit is also visible on the main map. Everything works
 offline; absent base imagery leaves the marker and available vector layers usable.
 
-`XFEarthMapLayers` is the shared version-2 point/line/area vocabulary.
+`XFEarthMapLayers` is the version-3 geographic/terrain point/line/area vocabulary.
+Claims uses the separate complete `ClaimOverlayData.snapshot` ownership channel,
+also consumed by the established optional JourneyMap integrations.
 `XFEarthGeoMapSource` reads the existing version-1 Stage 5 region index and reuses
 the active profile, road rank/kind policy and feature generation identity.
 Even-odd polygon holes and multipart contours survive clipping. Field outlines
@@ -1226,34 +1230,61 @@ administrative boundaries. Brighter source geometry indicates recorded generatio
 evidence: a generic feature fragment recorded in a loaded chunk, or a processed
 surface-road chunk intersecting that route. This does not prove a whole feature
 was generated or survey current blocks; unloaded chunks and later edits can make
-evidence incomplete. Ownership fill uses the public faction/zone color (wilderness
-gray); eligibility outlines use cyan pending/unavailable, green eligible and red
-insufficient surface. Eligibility never changes ownership.
+evidence incomplete. Claims fill uses faction colors, orange safezones and red
+warzones; wilderness has no ownership fill. Terrain outlines use cyan
+pending/unavailable, green eligible and red insufficient surface, only when
+enabled. They never recolor ownership fill or change ownership.
 
-The existing `XFEarthRoadMap` service now publishes all layers. It snapshots loaded
+The existing `XFEarthRoadMap` service publishes geographic/terrain layers. It snapshots loaded
 chunk completion records on the server thread (4,096 inspected chunks, 128 stamps,
 8,192 feature keys maximum). One bounded worker reads and clips detached geographic
 data and processes detached generation evidence; it never accesses live chunks.
 Publication through `XFEarthWorkQueue` reads fresh node metadata on the owning
 thread and rechecks player/world/session. `ClaimOverlayData.maySeeClaim` applies
 the existing public ownership visibility rule and current dimension/alive/server
-checks before serializing owned nodes. Only public names/colors, zone, geometry
+checks before serializing tracked diagnostic nodes. Only public names/colors, zone, geometry
 and eligibility leave the server. No faction/city UUIDs, homes, flags, membership,
 balances, private war data or other players' positions are included. Tracked
 wilderness nodes may display public eligibility; this is not a wilderness census.
 
 Queries cover at most 16 Minecraft regions, visit at most 8,192 source records and
 prepare at most 96 geographic features / 3,072 vertices. Node snapshots reserve up
-to 64 features first; the final response contains at most 128 features / 4,096
+to 64 diagnostic features first when Terrain is enabled; the final geographic/terrain response contains at most 128 features / 4,096
 vertices in eight parts of 16 features / 512 vertices each. Oversize or malformed
 parts are skipped with notice; bounded/truncated views are reported. Larger views
 require zooming in. At coarse zoom, road categories are filtered, near-collinear
 line vertices simplified and subpixel polygon detail omitted. This is a geographic
-overview, not an exact street/building replica. Packet protocol **2** requires
+overview, not an exact street/building replica. Packet protocol **3** requires
 matching XF client/server builds; profile packet registration remains unchanged.
 The conservative UTF-8 payload bound is 30,653 bytes, below the 32,700-byte limit.
 Full source attribution over 1,024 characters makes source data unavailable
-rather than silently dropping its license credit.
+rather than silently dropping its license credit. These viewport, LOD and feature
+limits do not apply to Claims.
+
+`ClaimOverlaySync` subscribes each client after its world exists, without requiring
+JourneyMap. Replies echo that client-world token and carry monotonic snapshot
+generations in ordered parts of at most 512 claims. `ClientClaimOverlayCache`
+retains one current-dimension snapshot and one assembly, rejecting old world tokens,
+dimensions and generations. It publishes only after every part arrives; incomplete
+initial/refresh assemblies are retried after 200 client ticks. The former silent
+100,000-claim assembly cutoff is removed. The existing protocol bound of 4,096
+parts supports 2,097,152 claims per generation; larger snapshots explicitly report
+failure in chat/the Map and retain the previous complete snapshot, never publish a
+partial claim set. Packet payloads are bounded to 208,918 bytes. Snapshot list,
+lookup and label-group storage are bounded by that claim count; no viewport copies
+or geographic frames hold ownership. Matching updated client/server builds are
+required for the subscription token and appended request packet registration.
+
+Founding/expansion, removal, transfer, zone and faction-color paths retain their
+existing dirty notifications. The 20-tick debounce no longer restarts on every
+notification, so repeated changes cannot indefinitely postpone publication.
+Individual territory-cell fills and neighbor-derived outer edges preserve holes
+and disconnected islands. World edges come from `TerritoryCoordinateBounds` for
+both axes: -1 maps to [-32,-16), zero to [-16,15), and 1 to [15,31). The diagnostic
+sampler's `ClaimNodeSystem.Geometry` adds one to X for protection lookup; it is not
+used to position ownership. Stored coordinates and gameplay lookups are unchanged.
+Zoom only projects the same complete claim set. Claims remains available through
+geographic limits, missing datasets, busy workers and frame replacement.
 
 The worker cache and client frame cache each retain eight views, keyed by world
 identity, profile, dataset identity, viewport, LOD and layer mask (plus source
@@ -1267,14 +1298,14 @@ client assembly. Closing the GUI cancels assembly but retains bounded reusable
 frames. Scissoring still uses the **16-element** LWJGL integer buffer and restores
 the first four scissor-box values, preserving the original buffer fix.
 
-Optional JourneyMap native API **1.7.10-2.0.0** supports polygons, not polylines.
-Its adapter reuses the last accepted Map viewport/layer mask as at most 128
-polygon overlays, including holes, thin symbolic line strokes and source-point
-symbols. The legacy 5.2 reflection draw adapter reuses the same frame and caps a
-pass at 512 vertices. Neither preloads all Earth or independently queries the
-JourneyMap viewport. Existing optional ownership overlays remain available;
-Dynmap remains optional. The SDK and existing reflection contracts were inspected,
-but no installed JourneyMap runtime was available to validate these additions.
+Optional JourneyMap native API **1.7.10-2.0.0** and legacy 5.2 reflection adapters
+consume only their established ownership and TDM overlays. Neither reads the
+Map item's geographic cache or renders its geographic/terrain features. Existing
+claim fill, neighbor-derived outer borders, territory labels, visibility settings
+and TDM rendering remain; the legacy draw path preserves JourneyMap's depth state
+for minimap masking. Map item opening, zoom, layer selection and closure do not
+alter these adapters. The separate Earth background import is unchanged. Dynmap
+remains optional. No installed JourneyMap runtime was available for in-game validation.
 The Xenofactions Map has no JourneyMap dependency. Angelica/shaders and optional
 render integrations remain runtime-unverified.
 

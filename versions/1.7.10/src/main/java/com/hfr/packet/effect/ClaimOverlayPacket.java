@@ -19,19 +19,22 @@ import io.netty.buffer.ByteBuf;
 /** A bounded part of an authoritative dimension snapshot. */
 public class ClaimOverlayPacket implements IMessage {
 	public static final int MAX_CLAIMS = 512;
+	public static final int MAX_PARTS = 4096;
 	public static final int MAX_GROUP_ID_BYTES = 128;
 	public static final int MAX_LABEL_BYTES = 256;
 	public static final int MAX_LABEL_CHARS = 64;
 	private static final Charset UTF_8 = Charset.forName("UTF-8");
 	private int dimensionId, generation, part, parts;
+	private long subscription;
+	private boolean valid;
 	private List<Claim> claims = new ArrayList<Claim>();
 
 	public ClaimOverlayPacket() { }
-	public ClaimOverlayPacket(int dimensionId, int generation, int part, int parts, List<Claim> claims) {
-		this.dimensionId = dimensionId; this.generation = generation; this.part = part; this.parts = parts; this.claims = claims;
+	public ClaimOverlayPacket(long subscription, int dimensionId, int generation, int part, int parts, List<Claim> claims) {
+		this.subscription = subscription; this.dimensionId = dimensionId; this.generation = generation; this.part = part; this.parts = parts; this.claims = claims;
 	}
 	@Override public void toBytes(ByteBuf buf) {
-		buf.writeInt(dimensionId); buf.writeInt(generation); buf.writeShort(part); buf.writeShort(parts); buf.writeShort(claims.size());
+		buf.writeLong(subscription); buf.writeInt(dimensionId); buf.writeInt(generation); buf.writeShort(part); buf.writeShort(parts); buf.writeShort(claims.size());
 		for(Claim claim : claims) {
 			buf.writeInt(claim.chunkX); buf.writeInt(claim.chunkZ); buf.writeInt(claim.color); buf.writeInt(claim.labelX); buf.writeInt(claim.labelZ);
 			writeString(buf, claim.groupId, MAX_GROUP_ID_BYTES);
@@ -40,10 +43,14 @@ public class ClaimOverlayPacket implements IMessage {
 	}
 	@Override public void fromBytes(ByteBuf buf) {
 		claims = new ArrayList<Claim>();
-		if(buf.readableBytes() < 14) return;
+		valid = false;
+		if(buf.readableBytes() < 22 || buf.readableBytes() > 22 + MAX_CLAIMS * (24 + MAX_GROUP_ID_BYTES + MAX_LABEL_BYTES)) return;
+		subscription = buf.readLong();
 		dimensionId = buf.readInt(); generation = buf.readInt(); part = buf.readUnsignedShort(); parts = buf.readUnsignedShort();
 		int count = buf.readUnsignedShort();
-		if(parts < 1 || parts > 4096 || part >= parts || count > MAX_CLAIMS) { claims.clear(); parts = 0; return; }
+		// Zero parts explicitly reports a snapshot exceeding the protocol memory bound.
+		if(parts == 0 && part == 0 && count == 0 && !buf.isReadable()) { valid = true; return; }
+		if(parts < 1 || parts > MAX_PARTS || part >= parts || count > MAX_CLAIMS) return;
 		for(int i = 0; i < count && buf.readableBytes() >= 22; i++) {
 			int x = buf.readInt(), z = buf.readInt(), color = buf.readInt(), labelX = buf.readInt(), labelZ = buf.readInt();
 			String id = readString(buf, MAX_GROUP_ID_BYTES);
@@ -51,7 +58,7 @@ public class ClaimOverlayPacket implements IMessage {
 			if(id == null || label == null) { claims.clear(); parts = 0; return; }
 			if(id.length() > 0) claims.add(new Claim(dimensionId, x, z, id, color, label, labelX, labelZ));
 		}
-		if(claims.size() != count) { claims.clear(); parts = 0; }
+		valid = claims.size() == count && !buf.isReadable();
 	}
 	private static void writeString(ByteBuf buf, String value, int maxBytes) {
 		byte[] bytes = (value == null ? "" : value).getBytes(UTF_8);
@@ -70,7 +77,29 @@ public class ClaimOverlayPacket implements IMessage {
 	}
 	public static class Handler implements IMessageHandler<ClaimOverlayPacket, IMessage> {
 		@Override @SideOnly(Side.CLIENT) public IMessage onMessage(final ClaimOverlayPacket message, MessageContext ctx) {
-			if(message.parts > 0) MainRegistry.proxy.receiveClaimOverlay(message.dimensionId, message.generation, message.part, message.parts, message.claims);
+			if(message.valid) MainRegistry.proxy.receiveClaimOverlay(message.subscription, message.dimensionId, message.generation, message.part, message.parts, message.claims);
+			return null;
+		}
+	}
+
+	/** Subscribe after the client world exists; the echoed token excludes replies for old worlds. */
+	public static class Request implements IMessage {
+		private long subscription;
+		private int dimension;
+		public Request() { }
+		public Request(long subscription, int dimension) { this.subscription = subscription; this.dimension = dimension; }
+		@Override public void toBytes(ByteBuf buf) { buf.writeLong(subscription); buf.writeInt(dimension); }
+		@Override public void fromBytes(ByteBuf buf) {
+			if(buf.readableBytes() != 12) throw new IllegalArgumentException("Invalid claim subscription");
+			subscription = buf.readLong(); dimension = buf.readInt();
+		}
+	}
+	public static class RequestHandler implements IMessageHandler<Request, IMessage> {
+		@Override public IMessage onMessage(final Request message, MessageContext ctx) {
+			final net.minecraft.entity.player.EntityPlayerMP player = ctx.getServerHandler().playerEntity;
+			com.hfr.tdm.TDMServerTaskQueue.schedule(new Runnable() { @Override public void run() {
+				com.hfr.journeymap.ClaimOverlaySync.subscribe(player, message.subscription, message.dimension);
+			} });
 			return null;
 		}
 	}

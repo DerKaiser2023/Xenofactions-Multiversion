@@ -531,10 +531,13 @@ claimed. See [Stage 7 implementation](XFEARTH_WORLD_TYPE.md#geographic-fields-an
 Stage 8 claim node metadata is added automatically to the existing faction save
 on normal server binding/saving; no claim conversion command or geographic
 dataset is required. Back up the save before updating. Use matching updated XF
-client/server versions for the Map node styles. The Ownership and Eligibility
-controls can show up to 64 owned/tracked nodes with no selected dataset; cyan is
-pending/unavailable, green eligible and red insufficient surface. The open Map
-refreshes its viewport every 40 client ticks. These background styles do not gate
+client/server versions for the Map styles and claim subscription protocol. Claims
+shows the complete public territorial snapshot, independently of geographic data,
+viewport limits and zoom. Terrain is disabled by default; enabling it shows up to
+64 tracked diagnostic outlines: cyan pending/unavailable, green eligible and red
+insufficient surface. The open Map refreshes geographic/terrain views every 40
+client ticks. Ownership refreshes through the existing debounced claim-change
+notifications, including faction colors. These background diagnostics do not gate
 ownership. New claims immediately check loaded terrain; existing ownership is
 not reset. No extended-height mode is enabled.
 
@@ -562,29 +565,33 @@ need runtime validation.
 ## Geographic Map overview (Stage 10)
 
 Open the existing Map item in an adopted Earth world. Toggle Roads, Fields,
-Buildings, Businesses, Admin, Ownership and Eligibility independently; zoom in
-when the query exceeds 16 regions. Drag and mouse-wheel zoom retain the player
+Buildings, Businesses, Bounds, Claims and Terrain independently; Terrain starts
+disabled. Zoom in when geographic queries exceed 16 regions; Claims remains
+available at every zoom. Drag and mouse-wheel zoom retain the player
 marker/coordinate alignment. Click to select a feature and repeat a click to cycle
 overlaps. **Info** opens pageable source attribution, notices, legend and selection
 details. No internet access or JourneyMap installation is needed.
 
 Use matching updated XF client/server builds: geographic packet protocol is now
-version 2. Missing geographic data is marked unavailable, while public node layers
-remain functional. Missing base imagery leaves a neutral background with marker
-and available vectors. The overview shows up to 128 features / 4,096 vertices,
-including at most 64 tracked/owned nodes; dense data is simplified, omitted or
-reported truncated. Toggle fewer layers or zoom in for detail. Admin boundaries
-are informational. Ownership fills use public faction/zone colors; eligibility
-outlines are cyan pending, green eligible and red insufficient surface. Gray means
-wilderness. Brighter geographic features indicate loaded-chunk generation records,
+version 3 and the claim packet includes a client-world subscription token. Missing
+geographic data is marked unavailable; complete Claims remains functional. Missing
+base imagery leaves a neutral background with marker and available vectors. The
+geographic/terrain overview shows up to 128 features / 4,096 vertices, including
+at most 64 terrain diagnostics; dense geographic data is simplified, omitted or
+reported truncated. These budgets never truncate Claims. Ownership fills use
+faction colors, orange safezones and red warzones. Individual stored territory
+cells preserve holes and disconnected areas; zoom changes only projection. The
+legacy coordinate conversion is retained, including its wider zero cell. Terrain
+outlines do not recolor ownership fill. Brighter geographic features indicate loaded-chunk generation records,
 not a survey of current blocks or proof of whole-feature completion. Source
 buildings/businesses do not imply exact architecture or complete coverage.
 
-Optional JourneyMap adapters reuse the last accepted Xenofactions Map viewport and
-layer mask, not an independent whole-world dataset. The native API
-1.7.10-2.0.0 polygon path and legacy 5.2 reflection path are source-inspected and
-compile, but added overlay rendering has no runtime validation. Dynmap stays
-optional. The Map remains fully usable without either integration.
+Both optional JourneyMap adapters retain their established faction fills, outer
+borders, labels, visibility settings and TDM overlays. They do not consume the Map
+item's geographic/terrain frame or layer settings. Opening, zooming and closing
+the item cannot change JourneyMap overlay style. The separate Earth background
+import feature is unchanged. Dynmap stays optional; Claims needs neither map mod.
+Actual rendering and multiplayer/world-transition behavior remain runtime-unverified.
 
 Nothing in this display enables extended height, grants terrain eligibility from
 geography, changes claim permissions or modifies existing-world import safeguards.

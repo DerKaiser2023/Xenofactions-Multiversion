@@ -79,14 +79,18 @@ public final class XFEarthRoadMap {
         }});pending.put(uuid,future);}catch(RejectedExecutionException busy){notice(player,token,dimension,lod,mask,worldId,profileId,view,"Map layers busy; retry shortly");}
     }
     private static List<Feature> nodes(EntityPlayerMP viewer,int x0,int z0,int x1,int z1,int mask){
-        List<Feature> result=new ArrayList<Feature>();if((mask&96)==0)return result;
-        for(ClaimNodeSystem.Snapshot node:ClaimOverlayData.nodeSnapshot(viewer.worldObj,x0,z0,x1,z1,64)){
+        List<Feature> result=new ArrayList<Feature>();if((mask&64)==0)return result;
+        // Query the sampler's inverse X conversion for the displayed territorial interval as well.
+        for(ClaimNodeSystem.Snapshot node:ClaimOverlayData.nodeSnapshot(viewer.worldObj,x0+1,z0,x1+1,z1,64)){
             TerritoryMeta meta=ClaimNodeSystem.metadata(node.identity.dimension,node.identity.x,node.identity.z);
             if(meta!=null&&meta.owner!=null&&meta.owner.zone!=Zone.WILDERNESS&&!ClaimOverlayData.maySeeClaim(viewer,node.identity.dimension,meta))continue;
-            ClaimNodeSystem.Geometry g=node.geometry;double ax=Math.max(x0,g.minX),az=Math.max(z0,g.minZ),bx=Math.min(x1+1.0,g.maxX),bz=Math.min(z1+1.0,g.maxZ);
+            // Display coordinates follow territorial storage conversion, not the protection sampler's X offset.
+            TerritoryCoordinateBounds.Bounds x=TerritoryCoordinateBounds.forCoordinate(node.identity.x),z=TerritoryCoordinateBounds.forCoordinate(node.identity.z);
+            double ax=Math.max(x0,x.minInclusive),az=Math.max(z0,z.minInclusive),bx=Math.min(x1+1.0,x.maxExclusive),bz=Math.min(z1+1.0,z.maxExclusive);
+            if(ax>=bx||az>=bz)continue;
             String name=node.zone==Zone.FACTION?meta.owner.owner.name+" / "+meta.cityName:node.zone.name();
             int state=node.classification.eligibility==ClaimNodeSystem.Eligibility.ELIGIBLE?1:node.classification.eligibility==ClaimNodeSystem.Eligibility.INELIGIBLE?2:0;
-            result.add(new Feature("node:"+node.identity.dimension+":"+node.identity.x+","+node.identity.z,name,node.zone.name(),"Territorial node","Eligibility: "+node.classification.eligibility+"; ownership is independent",5,2,node.zone==Zone.WILDERNESS?0x888888:node.color,state,new double[][]{{ax,az,bx,az,bx,bz,ax,bz}}));
+            result.add(new Feature("node:"+node.identity.dimension+":"+node.identity.x+","+node.identity.z,name,node.zone.name(),"Terrain diagnostic","Eligibility: "+node.classification.eligibility+"; ownership is independent",XFEarthMapLayers.TERRAIN,2,0x888888,state,new double[][]{{ax,az,bx,az,bx,bz,ax,bz}}));
         }return result;
     }
     private static boolean intersects(Feature f,int x0,int z0,int x1,int z1){for(double[] path:f.paths)for(int i=2;i<path.length;i+=2)if(XFEarthRoadSource.clip(path[i-2],path[i-1],path[i],path[i+1],x0,z0,x1,z1)!=null)return true;return false;}
@@ -95,7 +99,7 @@ public final class XFEarthRoadMap {
         for(Feature f:features){if(group.size()>=XFEarthMapLayers.PACKET_FEATURES||vertices+f.vertices()>512){groups.add(group);group=new ArrayList<Feature>();vertices=0;}
             if(groups.size()>=8){truncated=true;break;}group.add(f);vertices+=f.vertices();}
         if(!group.isEmpty()&&groups.size()<8)groups.add(group);if(groups.isEmpty())groups.add(group);
-        String text=(truncated?"Bounded overview truncated; ":"")+notice+"; nodes max 64; generation evidence is not surveyed blocks";
+        String text=(truncated?"Bounded overview truncated; ":"")+notice+"; terrain diagnostics max 64; generation evidence is not surveyed blocks";
         List<EarthRoadSnapshotPacket> packets=new ArrayList<EarthRoadSnapshotPacket>();for(int i=0;i<groups.size();i++){EarthRoadSnapshotPacket packet=new EarthRoadSnapshotPacket(token,dimension,i,groups.size(),lod,mask,world,profile,dataset,view,text,groups.get(i));packet.attribution=attribution;packets.add(packet);}return packets;
     }
     private static void notice(EntityPlayerMP player,int token,int dimension,int lod,int mask,String world,String profile,String view,String notice){PacketDispatcher.wrapper.sendTo(new EarthRoadSnapshotPacket(token,dimension,0,1,lod,mask,world,profile,"",view,notice,Collections.<Feature>emptyList()),player);}

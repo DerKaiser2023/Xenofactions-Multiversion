@@ -134,13 +134,17 @@ Later geographic stages must reuse:
   road/feature identities; `XFEarthRoadMap` snapshots generation stamps and
   publishes fresh public `ClaimOverlayData.nodeSnapshot` geometry after
   `maySeeClaim` checks. Administrative source IDs never replace territorial
-  identities. Claim packets contain public geometry/name/color/zone/eligibility,
+  identities. Terrain diagnostic packets contain public geometry/name/color/zone/eligibility,
   not faction/city UUIDs or private faction/player state. Geographic packets are
-  version 2; matching client/server builds are required. Stage 5 dataset and
+  version 3; matching client/server builds are required. Stage 5 dataset and
   Stage 8 claim persistence versions remain unchanged.
   `EarthMapLayerCache` assembles bounded frames on the client thread and normalizes
-  contours through `XFEarthMapData.mapX/mapZ`; GUI and optional JourneyMap adapters
-  reuse these frames. Worker caches hold detached data only; live-world snapshots
+  contours through `XFEarthMapData.mapX/mapZ` for the Map item only. Claims instead
+  uses the complete, world-subscribed `ClaimOverlayData.snapshot` channel with
+  atomic client generation replacement; geographic budgets and zoom never select
+  its ownership set. Optional JourneyMap adapters retain their established claim
+  and TDM rendering without consuming geographic frames. The separate Earth
+  background import is unchanged. Worker caches hold detached data only; live-world snapshots
   and publication use the owning server thread. Frame caches include world,
   profile, dataset, wire version, viewport, zoom LOD and layer mask and release GL
   resources through existing map/world cleanup. See

@@ -26,7 +26,6 @@ public final class EarthMapLayerCache {
         if(current!=null&&(current.clientWorld!=world||!current.profile.equals(profile)))current=null;}
     public static boolean waiting(){if(pending!=null&&System.nanoTime()-pending.started>10000000000L)pending=null;return pending!=null;}
     public static void cancel(){pending=null;}
-    public static Frame current(){return current!=null&&current.clientWorld==Minecraft.getMinecraft().theWorld&&current.clientWorld.provider.dimensionId==current.dimension?current:null;}
     public static Frame find(World world,String profile,String view){for(Frame f:cache.values())if(f.clientWorld==world&&f.profile.equals(profile)&&f.view.equals(view)&&(current==null||f.dataset.equals(current.dataset)))return f;return null;}
     public static Frame receive(EarthRoadSnapshotPacket p){
         Assembly a=pending;if(a==null||p.token!=a.token||a.world!=Minecraft.getMinecraft().theWorld||p.dimension!=a.world.provider.dimensionId||!p.profile.equals(a.profile)||!p.view.equals(a.view))return null;
@@ -54,9 +53,9 @@ public final class EarthMapLayerCache {
             if(!a.key.equals(b.key)||!a.name.equals(b.name)||!a.category.equals(b.category)||!a.source.equals(b.source)||!a.detail.equals(b.detail)||a.layer!=b.layer||a.type!=b.type||a.color!=b.color||a.state!=b.state||!Arrays.deepEquals(a.paths,b.paths))return false;}return true;}
         private void prepare(){if(released||lists!=0)return;lists=GL11.glGenLists(7);if(lists==0)return;
             for(int layer=0;layer<7;layer++){GL11.glNewList(lists+layer,GL11.GL_COMPILE);
-                for(int i=0;i<features.size();i++){Feature f=features.get(i);if(layer<5?f.layer!=layer:f.layer!=5)continue;int color=XFEarthMapLayers.displayColor(f,layer==6);
-                    if(f.layer!=5&&f.state>0)color=bright(color);GL11.glColor4f((color>>16&255)/255F,(color>>8&255)/255F,(color&255)/255F,layer==5?.22F:1F);
-                    for(double[] path:normalized.get(i)){GL11.glBegin(layer==5?GL11.GL_QUADS:f.type==0?GL11.GL_POINTS:f.type==2?GL11.GL_LINE_LOOP:GL11.GL_LINE_STRIP);
+                for(int i=0;i<features.size();i++){Feature f=features.get(i);if(f.layer!=layer)continue;int color=XFEarthMapLayers.displayColor(f,layer==6);
+                    if(f.layer!=6&&f.state>0)color=bright(color);GL11.glColor4f((color>>16&255)/255F,(color>>8&255)/255F,(color&255)/255F,1F);
+                    for(double[] path:normalized.get(i)){GL11.glBegin(f.type==0?GL11.GL_POINTS:f.type==2?GL11.GL_LINE_LOOP:GL11.GL_LINE_STRIP);
                         for(int j=0;j<path.length;j+=2)GL11.glVertex2d(path[j],path[j+1]);GL11.glEnd();}
                 }GL11.glEndList();}}
         private static int bright(int color){return Math.min(255,(color>>16&255)+45)<<16|Math.min(255,(color>>8&255)+45)<<8|Math.min(255,(color&255)+45);}

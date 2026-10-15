@@ -48,7 +48,6 @@ public final class XFJourneyMapIntegration {
 	@SubscribeEvent public void disconnect(ClientDisconnectionFromServerEvent event) { reset(); }
 	@SubscribeEvent public void unload(WorldEvent.Unload event) { if(event.world != null && event.world.isRemote) reset(); }
 	@SuppressWarnings({ "rawtypes", "unchecked" }) private void reset() {
-		ClientClaimOverlayCache.clear();
 		try { detach(miniState, miniProxy); detach(fullscreenState, fullscreenProxy); } catch(Throwable ignored) { }
 		miniState = fullscreenState = miniProxy = fullscreenProxy = null; reflection = null;
 		renderUnavailable = false;
@@ -59,7 +58,7 @@ public final class XFJourneyMapIntegration {
 		reflection.setSteps(state, normal);
 	}
 	void fail(String reason, Throwable failure) {
-		incompatible = true; ClientClaimOverlayCache.clear(); miniState = fullscreenState = miniProxy = fullscreenProxy = null; reflection = null;
+		incompatible = true; miniState = fullscreenState = miniProxy = fullscreenProxy = null; reflection = null;
 		if(!logged && MainRegistry.logger != null) { logged = true; MainRegistry.logger.warn("JourneyMap claim overlays disabled for this session (" + version() + "): " + reason + ": " + failure, failure); }
 	}
 	void renderFail(String reason, Throwable failure) {
