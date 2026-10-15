@@ -352,7 +352,28 @@ Killstreak support is opt-in per DEATHMATCH/FFA map (`killstreaks`, default `fal
 
 ## Ender chest restrictions
 
-Category: `XENOFACTIONS_21_ENDER_CHEST`. These rules are enforced by the server when a player opens a vanilla ender chest block. They are disabled by default, so existing behavior remains unchanged until `enabled=true`. Configuration changes require a server restart.
+Category: `XENOFACTIONS_21_ENDER_CHEST` in `config/hfr.cfg`. These rules are enforced by the server when a player opens a vanilla ender chest block. They are disabled by default, so existing behavior remains unchanged until `enabled=true`. All six settings are global to this server installation, across all dimensions, factions and players; quantities are counted separately in each player's ender inventory. There are no world, faction or player overrides or bypass permissions.
+
+Use the level-3 `xclowder` administrator commands below (also available through `/xclowder enderchest`). Every command supports the server console and requires the same permission, including inspection. Setting names and boolean/mode values are case-insensitive; registry names must match registered items exactly. Tab completion supplies actions, setting names, boolean/mode values, `-1`/`0` for the total and `clear` for lists.
+
+```text
+/xc enderchest
+/xc enderchest show [setting]
+/xc enderchest set enabled <true|false>
+/xc enderchest set mode <blacklist|whitelist>
+/xc enderchest set maxTotalItems <quantity>
+/xc enderchest set itemRules <modid:item[@metadata] ...|clear>
+/xc enderchest set storageDenyList <modid:item[@metadata] ...|clear>
+/xc enderchest set itemQuantityLimits <modid:item[@metadata]=quantity ...|clear>
+```
+
+`show` without a setting displays all six. Each list command replaces the entire named list with space-separated entries; `clear` empties it. Metadata must be an integer from 0 through 32767. Quantities must be integers from -1 through 2147483647: -1 means unlimited and 0 prevents deposits. Unlimited per-item entries remain configured but impose no active limit. Overlapping per-item selectors retain the existing behavior: every matching active limit applies. A whitelist with an empty item list rejects all new item deposits. The storage deny list takes priority in both modes.
+
+The entire replacement is validated before any setting changes. Malformed selectors, unregistered items, unsupported values, overflow, extra scalar arguments and incomplete commands are rejected with usage text. Missing optional-mod items already present in the file remain configured and are ignored by enforcement, as before; commands cannot add unregistered items. The output gives the effective value, global scope and enabled state, plus the configured value when it differs from the active rules.
+
+Accepted command changes use the existing Forge `Configuration.save()` path and the same ender-rule loader and registry validation as startup. They apply immediately and persist in `hfr.cfg` across restart; Forge reports file-write failures in the server log. This does not add a general config reload command. Direct file edits still require a server restart; do not edit the file concurrently with commands, because saving writes the loaded configuration.
+
+Already restricted containers stay open and use the updated settings on their next server click, preserving their existing snapshot/rollback behavior and allowing withdrawals. Enabling rules closes any open unrestricted `ContainerChest` backed by that player's ender inventory across all dimensions; players must reopen it to obtain the restricted container. Closing uses the normal server `closeScreen()` path: chest contents and inventory slots are retained, and a carried cursor stack is dropped normally for pickup rather than deleted. Disabling rules requires no reopen. Ordinary chests are not closed or changed.
 
 | Key | Default | Meaning |
 | --- | --- | --- |

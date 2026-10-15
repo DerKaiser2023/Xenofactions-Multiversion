@@ -113,6 +113,8 @@ Usage: `/xclowder help`; aliases: `/xclowder`, `/xc`; permission level: 3.
 
 | Command | Purpose |
 | --- | --- |
+| `/xc enderchest [show [setting]]` | View all six global ender chest settings, or one named setting, with effective/configured values and enabled state. Console supported. |
+| `/xc enderchest set <setting> <value...\|clear>` | Validate, save and immediately apply a global ender chest setting. Lists are replaced; `clear` empties a list. Console supported. See [exact syntax, values, persistence and open-container behavior](configuration.md#ender-chest-restrictions). |
 | `/xc forcejoin <faction>` or `/xc fj <faction>` | Force the sender into a faction. |
 | `/xc forcekick <player>` or `/xc fk <player>` | Force-kick a player from their faction. |
 | `/xc forcedisband <faction>` or `/xc fd <faction>` | Force-disband a faction. |

@@ -6,14 +6,35 @@ import cpw.mods.fml.common.eventhandler.Event;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import net.minecraft.init.Blocks;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.ContainerChest;
 import net.minecraft.item.ItemStack;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntityEnderChest;
+import net.minecraft.util.ChatComponentText;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 
 /** Opens the restricted container for vanilla ender chest block interactions. */
 public final class EnderChestInteraction {
 
     public static final int GUI_ID = 42;
+
+    /** Called on the command/server thread when enabling rules during a running session. */
+    public static int closeUnrestrictedContainers() {
+        int closed = 0;
+        for (Object entry : MinecraftServer.getServer().getConfigurationManager().playerEntityList) {
+            EntityPlayerMP player = (EntityPlayerMP) entry;
+            if (player.openContainer instanceof ContainerChest
+                    && !(player.openContainer instanceof RestrictedEnderChestContainer)
+                    && ((ContainerChest) player.openContainer).getLowerChestInventory() == player.getInventoryEnderChest()) {
+                // Vanilla close handles the cursor stack (drops it normally) and closes the active chest.
+                player.closeScreen();
+                player.addChatComponentMessage(new ChatComponentText("Ender chest restrictions enabled. Reopen the chest to use the new rules; existing contents are retained."));
+                closed++;
+            }
+        }
+        return closed;
+    }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onInteract(PlayerInteractEvent event) {

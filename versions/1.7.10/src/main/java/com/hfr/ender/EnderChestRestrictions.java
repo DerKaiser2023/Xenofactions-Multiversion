@@ -1,6 +1,7 @@
 package com.hfr.ender;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -29,12 +30,14 @@ public final class EnderChestRestrictions {
     private static List<Rule> items = new ArrayList<Rule>();
     private static List<Rule> storage = new ArrayList<Rule>();
     private static List<Limit> limits = new ArrayList<Limit>();
+    private static Configuration configuration;
 
     private EnderChestRestrictions() { }
 
     public static boolean isEnabled() { return enabled; }
 
     public static void load(Configuration config) {
+        configuration = config;
         config.addCustomCategoryComment(CATEGORY, "21 - Server-side ender chest deposit rules. Saved contents are never removed.");
         enabled = bool(config, "enabled", false, "Enable ender chest deposit restrictions. Disabled preserves vanilla behavior.");
         String mode = string(config, "mode", "blacklist", "blacklist rejects itemRules; whitelist accepts only itemRules. storageDenyList always wins.");
@@ -48,6 +51,84 @@ public final class EnderChestRestrictions {
         maxTotal = quantity(string(config, "maxTotalItems", "-1", "Maximum individual items across all 27 slots; -1 unlimited, 0 prevents deposits."), "maxTotalItems");
         if (maxTotal == -2) maxTotal = -1;
         limits = parseLimits(list(config, "itemQuantityLimits", new String[0], "Registry name[@metadata]=quantity, e.g. minecraft:diamond=16. -1 unlimited; 0 prevents deposits."));
+    }
+
+    public static String[] settingNames() {
+        return new String[] { "enabled", "mode", "itemRules", "storageDenyList", "maxTotalItems", "itemQuantityLimits" };
+    }
+
+    public static String settingName(String input) {
+        for (String name : settingNames()) if (name.equalsIgnoreCase(input)) return name;
+        throw new IllegalArgumentException("Unknown setting '" + input + "'. Settings: " + Arrays.toString(settingNames()));
+    }
+
+    public static String effectiveValue(String input) {
+        String name = settingName(input);
+        if ("enabled".equals(name)) return Boolean.toString(enabled);
+        if ("mode".equals(name)) return whitelist ? "whitelist" : "blacklist";
+        if ("maxTotalItems".equals(name)) return Integer.toString(maxTotal);
+        if ("itemRules".equals(name)) return items.toString();
+        if ("storageDenyList".equals(name)) return storage.toString();
+        return limits.toString();
+    }
+
+    public static String configuredValue(String input) {
+        if (configuration == null) throw new IllegalStateException("Ender chest configuration is not loaded.");
+        Property property = configuration.getCategory(CATEGORY).get(settingName(input));
+        return property.isList() ? Arrays.toString(property.getStringList()) : property.getString();
+    }
+
+    /** Server command path: validate the entire replacement before touching the shared Forge config. */
+    public static void update(String input, String[] values) {
+        if (configuration == null) throw new IllegalStateException("Ender chest configuration is not loaded.");
+        String name = settingName(input);
+        String[] normalized = values.clone();
+        boolean list = "itemRules".equals(name) || "storageDenyList".equals(name) || "itemQuantityLimits".equals(name);
+        if (list) {
+            if (normalized.length == 1 && "clear".equalsIgnoreCase(normalized[0])) normalized = new String[0];
+            else {
+                if (normalized.length == 0) throw new IllegalArgumentException("Supply list entries or clear.");
+                for (int i = 0; i < normalized.length; i++) {
+                    String entry = normalized[i];
+                    String[] parts = "itemQuantityLimits".equals(name) ? entry.split("=", -1) : new String[] { entry };
+                    int expectedParts = "itemQuantityLimits".equals(name) ? 2 : 1;
+                    Rule rule = parts.length == expectedParts ? Rule.parse(parts[0]) : null;
+                    if (rule == null) throw new IllegalArgumentException("Invalid entry '" + entry
+                        + "'. Expected modid:registry_name[@metadata]" + (expectedParts == 2 ? "=quantity" : "")
+                        + "; metadata must be 0..32767.");
+                    if (!rule.isRegistered()) throw new IllegalArgumentException("Unknown item '" + rule.name + "'. Use a registered item name.");
+                    normalized[i] = rule.toString();
+                    if (expectedParts == 2) normalized[i] += "=" + commandQuantity(parts[1]);
+                }
+            }
+        } else {
+            if (normalized.length != 1) throw new IllegalArgumentException(name + " requires exactly one value.");
+            String value = normalized[0];
+            if ("enabled".equals(name)) {
+                if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value))
+                    throw new IllegalArgumentException("enabled requires true or false.");
+                normalized[0] = Boolean.toString(Boolean.parseBoolean(value));
+            } else if ("mode".equals(name)) {
+                if (!"blacklist".equalsIgnoreCase(value) && !"whitelist".equalsIgnoreCase(value))
+                    throw new IllegalArgumentException("mode requires blacklist or whitelist.");
+                normalized[0] = "whitelist".equalsIgnoreCase(value) ? "whitelist" : "blacklist";
+            } else normalized[0] = Integer.toString(commandQuantity(value));
+        }
+
+        Property property = configuration.getCategory(CATEGORY).get(name);
+        if (list) property.set(normalized);
+        else property.set(normalized[0]);
+        configuration.save();
+        load(configuration);
+        validateRegistry();
+    }
+
+    private static int commandQuantity(String value) {
+        try {
+            int amount = Integer.parseInt(value);
+            if (amount >= -1) return amount;
+        } catch (NumberFormatException ignored) { }
+        throw new IllegalArgumentException("Invalid quantity '" + value + "'. Use a whole number from -1 to 2147483647 (-1 unlimited, 0 prevents deposits).");
     }
 
     /** Run after all mods have registered their items, including optional storage mods. */
@@ -218,6 +299,7 @@ public final class EnderChestRestrictions {
     private static final class Limit {
         final Rule rule; final int max;
         Limit(Rule rule, int max) { this.rule = rule; this.max = max; }
+        @Override public String toString() { return rule + "=" + max; }
     }
 
     private static final class Rule {
