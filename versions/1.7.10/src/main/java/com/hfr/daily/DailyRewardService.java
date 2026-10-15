@@ -9,6 +9,7 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -32,10 +33,18 @@ public final class DailyRewardService {
     private int ticks;
     private static final class Session {
         final String token = UUID.randomUUID().toString();
-        long revision, day;
+        long revision, day, unlockAt;
     }
-    private static long today() { return LocalDate.now(DailyRewardConfig.zone).toEpochDay(); }
-    private static boolean eligible(NBTTagCompound state, long day) { return !state.hasKey("Day") || state.getLong("Day") < day; }
+    private static long today() { return LocalDate.now(DailyRewardConfig.active().zone).toEpochDay(); }
+    private static long availableAfter(NBTTagCompound state) {
+        if (!state.hasKey("Day")) return 0;
+        // Old claims have no instant. Retain the imported timezone permanently for offline legacy players.
+        return state.hasKey("AvailableAfter") ? state.getLong("AvailableAfter") : LocalDate.ofEpochDay(state.getLong("Day"))
+            .plusDays(1).atStartOfDay(DailyRewardConfig.active().legacyZone).toInstant().toEpochMilli();
+    }
+    private static boolean eligible(NBTTagCompound state, long day) {
+        return !state.hasKey("Day") || state.getLong("Day") < day && System.currentTimeMillis() >= availableAfter(state);
+    }
     private static int nextStreak(NBTTagCompound state, long day) {
         return state.hasKey("Day") && state.getLong("Day") == day - 1
             ? state.getInteger("Streak") == Integer.MAX_VALUE ? Integer.MAX_VALUE : state.getInteger("Streak") + 1 : 1;
@@ -46,6 +55,14 @@ public final class DailyRewardService {
         return DailyRewardStore.read(player);
     }
     public static void clear() { SESSIONS.clear(); BLOCKED.clear(); }
+    /** Called only after durable publication; do not turn a notification failure into a failed save. */
+    public static void definitionsChanged() {
+        for (Map.Entry<EntityPlayerMP, Session> entry : SESSIONS.entrySet()) {
+            entry.getValue().revision++; // Invalidate queued intents even if a snapshot cannot be sent.
+            try { if (online(entry.getKey())) snapshot(entry.getKey(), entry.getValue(), false, false); }
+            catch (RuntimeException e) { XFLog.error("Daily live GUI refresh failed for " + entry.getKey().getUniqueID(), e); }
+        }
+    }
     public static void open(EntityPlayerMP player) {
         if (!online(player)) return;
         player.closeScreen();
@@ -60,35 +77,38 @@ public final class DailyRewardService {
         Session session = SESSIONS.get(player);
         if (session == null || !session.token.equals(token) || !online(player)) return;
         if (action == 0) { SESSIONS.remove(player); return; }
-        if (revision != session.revision) return;
+        if (revision != session.revision) { snapshot(player, session, false, false); return; }
         session.revision++; // Every intent is single use, even a rejected claim or failed save.
         boolean spin = false;
         try {
             NBTTagCompound saved = state(player);
             if (action == 1) {
                 long day = today();
-                if (!DailyRewardConfig.ready) say(player, "disabled");
+                DailyRewardConfig.Table table = DailyRewardConfig.active();
+                if (table.rewards.isEmpty()) say(player, "empty");
+                else if (!DailyRewardConfig.ready()) say(player, "disabled");
                 else if (!eligible(saved, day)) say(player, "claimed");
                 else if (saved.getTagList("Pending", 10).tagCount() > 0) say(player, "collect_first");
                 else {
-                    int chosen = RANDOM.nextInt(DailyRewardConfig.totalWeight), selected = 0;
-                    for (; selected < DailyRewardConfig.rewards.size() - 1; selected++) {
-                        chosen -= DailyRewardConfig.rewards.get(selected).weight;
+                    int chosen = RANDOM.nextInt(table.totalWeight), selected = 0;
+                    for (; selected < table.rewards.size() - 1; selected++) {
+                        chosen -= table.rewards.get(selected).weight;
                         if (chosen < 0) break;
                     }
-                    DailyRewardConfig.Reward reward = DailyRewardConfig.rewards.get(selected);
+                    DailyRewardConfig.Reward reward = table.rewards.get(selected);
                     NBTTagList pending = saved.getTagList("Pending", 10), wheel = new NBTTagList();
-                    for (DailyRewardConfig.Reward entry : DailyRewardConfig.rewards) wheel.appendTag(entry.preview());
+                    for (DailyRewardConfig.Reward entry : table.rewards) wheel.appendTag(entry.preview());
                     reward.append(pending);
                     int streak = nextStreak(saved, day);
                     NBTTagCompound reached = saved.getCompoundTag("Milestones");
-                    DailyRewardConfig.Reward bonus = DailyRewardConfig.milestones.get(streak);
+                    DailyRewardConfig.Reward bonus = table.milestones.containsKey(streak) ? table.reward(table.milestones.get(streak)) : null;
                     if (bonus != null && !reached.hasKey(Integer.toString(streak))) {
                         bonus.append(pending); reached.setBoolean(Integer.toString(streak), true);
                         saved.setTag("Bonus", bonus.preview());
                     } else saved.removeTag("Bonus");
                     if (pending.tagCount() > 8192) throw new IllegalStateException("Daily escrow capacity exceeded");
                     saved.setLong("Day", day); saved.setInteger("Streak", streak);
+                    saved.setLong("AvailableAfter", LocalDate.ofEpochDay(day).plusDays(1).atStartOfDay(table.zone).toInstant().toEpochMilli());
                     saved.setString("Claim", UUID.randomUUID().toString()); saved.setTag("Result", reward.preview());
                     saved.setTag("Wheel", wheel); saved.setInteger("Selected", selected);
                     saved.setTag("Pending", pending); saved.setTag("Milestones", reached);
@@ -162,34 +182,41 @@ public final class DailyRewardService {
         NBTTagCompound out = new NBTTagCompound();
         out.setString("token", session.token); out.setLong("revision", ++session.revision);
         out.setBoolean("opening", opening); out.setBoolean("spin", spin);
-        long day = today(); session.day = day;
-        out.setString("reset", LocalDate.ofEpochDay(day).plusDays(1).atStartOfDay(DailyRewardConfig.zone)
-            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z")));
+        long day = today(); session.day = day; session.unlockAt = 0;
+        DailyRewardConfig.Table table = DailyRewardConfig.active();
+        long reset = LocalDate.ofEpochDay(day).plusDays(1).atStartOfDay(table.zone).toInstant().toEpochMilli();
         try {
             NBTTagCompound saved = state(player);
+            long available = availableAfter(saved);
+            if (available > System.currentTimeMillis()) session.unlockAt = available;
+            boolean eligible = eligible(saved, day);
+            if (saved.hasKey("Day") && !eligible) reset = Math.max(available, LocalDate.ofEpochDay(saved.getLong("Day"))
+                .plusDays(1).atStartOfDay(table.zone).toInstant().toEpochMilli());
             int current = saved.hasKey("Day") && saved.getLong("Day") >= day - 1 ? saved.getInteger("Streak") : 0;
             out.setInteger("streak", current);
-            out.setInteger("nextStreak", eligible(saved, day) ? nextStreak(saved, day) : current == Integer.MAX_VALUE ? current : current + 1);
-            out.setBoolean("eligible", eligible(saved, day) && DailyRewardConfig.ready);
+            out.setInteger("nextStreak", eligible ? nextStreak(saved, day) : current == Integer.MAX_VALUE ? current : current + 1);
+            out.setBoolean("eligible", eligible && DailyRewardConfig.ready());
             out.setInteger("pending", saved.getTagList("Pending", 10).tagCount());
-            out.setBoolean("disabled", !DailyRewardConfig.ready);
+            out.setBoolean("disabled", !DailyRewardConfig.ready());
+            out.setBoolean("empty", table.rewards.isEmpty());
             out.setString("claim", saved.getString("Claim"));
             if (saved.hasKey("Result")) out.setTag("result", saved.getTag("Result").copy());
             if (saved.hasKey("Bonus")) out.setTag("bonus", saved.getTag("Bonus").copy());
             NBTTagList wheel = new NBTTagList();
-            if (saved.hasKey("Day") && saved.getLong("Day") == day) {
+            if (saved.hasKey("Day") && (!eligible || saved.getTagList("Pending", 10).tagCount() > 0)) {
                 wheel = saved.getTagList("Wheel", 10); out.setInteger("selected", saved.getInteger("Selected"));
             } else {
-                for (DailyRewardConfig.Reward reward : DailyRewardConfig.rewards) wheel.appendTag(reward.preview());
+                for (DailyRewardConfig.Reward reward : table.rewards) wheel.appendTag(reward.preview());
                 out.setInteger("selected", -1);
             }
             out.setTag("wheel", wheel);
-            for (Map.Entry<Integer, DailyRewardConfig.Reward> milestone : DailyRewardConfig.milestones.entrySet()) {
+            for (Map.Entry<Integer, String> milestone : table.milestones.entrySet()) {
                 if (milestone.getKey() > current && !saved.getCompoundTag("Milestones").hasKey(milestone.getKey().toString())) {
-                    out.setInteger("milestone", milestone.getKey()); out.setTag("milestoneReward", milestone.getValue().preview()); break;
+                    out.setInteger("milestone", milestone.getKey()); out.setTag("milestoneReward", table.reward(milestone.getValue()).preview()); break;
                 }
             }
         } catch (IllegalStateException e) { out.setBoolean("unavailable", true); }
+        out.setString("reset", Instant.ofEpochMilli(reset).atZone(table.zone).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z")));
         PacketDispatcher.wrapper.sendTo(new DailySnapshotPacket(out), player);
     }
     @SubscribeEvent public void load(net.minecraftforge.event.entity.player.PlayerEvent.LoadFromFile event) {
@@ -201,7 +228,7 @@ public final class DailyRewardService {
         if (!(event.player instanceof EntityPlayerMP)) return;
         try {
             NBTTagCompound saved = state(event.player);
-            if (DailyRewardConfig.ready && eligible(saved, today())) say(event.player, "login");
+            if (DailyRewardConfig.ready() && eligible(saved, today())) say(event.player, "login");
             if (saved.getTagList("Pending", 10).tagCount() > 0) say(event.player, "pending");
         } catch (IllegalStateException e) { say(event.player, "unavailable"); }
     }
@@ -216,6 +243,7 @@ public final class DailyRewardService {
         if (event.phase != TickEvent.Phase.END || ++ticks % 20 != 0 || SESSIONS.isEmpty()) return;
         long day = today();
         for (Map.Entry<EntityPlayerMP, Session> entry : SESSIONS.entrySet())
-            if (entry.getValue().day != day && online(entry.getKey())) snapshot(entry.getKey(), entry.getValue(), false, false);
+            if ((entry.getValue().day != day || entry.getValue().unlockAt > 0 && entry.getValue().unlockAt <= System.currentTimeMillis())
+                && online(entry.getKey())) snapshot(entry.getKey(), entry.getValue(), false, false);
     }
 }

@@ -132,7 +132,7 @@ public final class GUIDailyReward extends GuiScreen {
         drawCenteredString(fontRendererObj, I18n.format("gui.hfr.daily.title"), width / 2, top + 6, 0xFFFFFF);
         wheel(mouseX, mouseY);
         int x = left + 146, w = panelWidth - 152;
-        String status = data.getBoolean("unavailable") ? "unavailable" : data.getBoolean("disabled") ? "disabled"
+        String status = data.getBoolean("unavailable") ? "unavailable" : data.getBoolean("empty") ? "empty" : data.getBoolean("disabled") ? "disabled"
             : waiting ? "waiting" : animating() ? "spinning" : data.getBoolean("eligible") ? "eligible" : "claimed";
         text(I18n.format("gui.hfr.daily." + status), x, top + 24, w, 0xFFD780);
         text(I18n.format("gui.hfr.daily.streak", data.getInteger("streak"), data.getInteger("nextStreak")), x, top + 48, w, 0xFFFFFF);

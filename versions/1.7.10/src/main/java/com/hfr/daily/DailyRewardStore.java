@@ -49,6 +49,8 @@ public final class DailyRewardStore {
             NBTTagList wheel = tag.getTagList("Wheel", 10);
             if (wheel.tagCount() < 1 || wheel.tagCount() > 16 || tag.getInteger("Selected") < 0 || tag.getInteger("Selected") >= wheel.tagCount())
                 throw new IllegalStateException("Invalid saved wheel");
+            if (tag.hasKey("AvailableAfter") && (!tag.hasKey("AvailableAfter", 4) || tag.getLong("AvailableAfter") <= 0))
+                throw new IllegalStateException("Invalid daily reset instant");
         } else if (tag.getInteger("Streak") != 0) throw new IllegalStateException("Missing claim date");
     }
     private static void install(EntityPlayer player, NBTTagCompound tag) {

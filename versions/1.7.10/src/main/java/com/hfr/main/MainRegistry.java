@@ -646,7 +646,6 @@ public class MainRegistry
 		//in postload, long after all blocks have been registered, the buffered config is being evaluated and processed.
 
 		com.hfr.ender.EnderChestRestrictions.validateRegistry();
-        com.hfr.daily.DailyRewardConfig.validate();
 		HbmStoneDropIntegration.seedDefaultsIfAvailable(stoneDropLoadState);
 		XFGuideBook.register();
 		StoneDropSnapshotSync.sendToAll();
@@ -669,6 +668,7 @@ public class MainRegistry
         com.hfr.rewards.ChatRewardConfig.load();
         event.registerServerCommand(new com.hfr.command.CommandXRewards());
         com.hfr.daily.DailyRewardService.clear();
+        com.hfr.daily.DailyRewardConfig.load();
         event.registerServerCommand(new com.hfr.command.CommandXDaily());
 		XFDynmapIntegration.resetServerSession();
 		com.hfr.clowder.PlayerIdentityService.initialize(MinecraftServer.getServer());
@@ -781,6 +781,7 @@ public class MainRegistry
 
 		config = new Configuration(event.getSuggestedConfigurationFile());
         com.hfr.rewards.ChatRewardConfig.configure(event.getModConfigurationDirectory());
+        com.hfr.daily.DailyRewardConfig.configure(event.getModConfigurationDirectory());
 
 		config.load();
 		XFConfig.load(config);

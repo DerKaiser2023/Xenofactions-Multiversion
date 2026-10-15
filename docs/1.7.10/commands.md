@@ -295,6 +295,29 @@ See also [chat reward phrases](#chat-reward-phrases-forge-1710) for administrato
 
 `/xdaily` (alias `/daily`, permission level 0) opens the custom daily wheel. **Spin daily wheel** accepts one server-selected item reward per UUID per server calendar date. **Collect saved items** retries pending item delivery after making inventory space. Closing the GUI leaves unclaimed eligibility available and preserves accepted results. Consecutive claim dates advance the streak; missing a date restarts the next claim at one. Streak milestone bonuses are granted once per day-number milestone per UUID. See [daily reward configuration and persistence](configuration.md#daily-reward-wheel).
 
+Administrators use the existing level-3 `/xc` namespace (`/xclowder` alias). `/xc daily help` and `/xc help 2` expose the commands; completion is permission checked. Console senders can use every command except held-item capture.
+
+| Admin command | Effect |
+| --- | --- |
+| `/xc daily list` | List identifiers, item names/registry IDs/metadata, counts, weights and calculated percentage chances. |
+| `/xc daily show <id>` | Inspect a reward and its milestone references. |
+| `/xc daily addheld <id> <weight> [count]` | Add a copy of the player's held item with a new stable ID. |
+| `/xc daily setheld <id> [count]` | Replace the item/count under an existing ID, preserving its weight and references. |
+| `/xc daily setweight <id> <weight>` | Change the weight (1–1000000). |
+| `/xc daily setcount <id> <count>` | Change the count (1–4096). |
+| `/xc daily remove <id>` | Remove an unreferenced reward; list blocking milestone references otherwise. |
+| `/xc daily milestone list` | List milestone day numbers and reward IDs. |
+| `/xc daily milestone set <days> <rewardId>` | Add or replace a positive-day milestone. |
+| `/xc daily milestone remove <days>` | Remove a milestone definition, retaining players' earned receipts. |
+| `/xc daily enable` | Enable new spins when the wheel contains rewards. |
+| `/xc daily disable` | Disable new spins while allowing saved item collection. |
+| `/xc daily settings` | Inspect configured enablement, actual spin availability, timezone and table sizes. |
+| `/xc daily timezone <zone>` | Change the IANA calendar timezone, e.g. `America/New_York`. |
+
+Held-item commands preserve metadata, binary NBT, names and enchantments without consuming or changing the held stack. Omitted counts use its current stack count. IDs contain 1–32 letters, digits, underscores or hyphens. Successful edits validate the complete proposed table, atomically save it and refresh open GUIs immediately; no reload or restart is required. Failed validation or saves keep previous definitions. An empty wheel blocks new spins with an explanation and still permits collection. Remove milestone references before removing their rewards.
+
+Edits affect future accepted spins only. Queued requests using an older GUI revision are rejected; accepted results, saved wheel snapshots, pending items, claim dates, streaks and milestone receipts are retained. A timezone edit cannot bypass the accepted claim's original next-midnight guard; legacy offline claims use the timezone retained at import. Moving the calendar backward may delay eligibility. See the configuration guide for one-time import and storage details.
+
 ## Chat reward phrases (Forge 1.7.10)
 
 All management commands require the existing level-3 `/xc` authorization; `/xclowder` remains an alias. Console administration is supported except `addheld`. Players redeem by entering an exact configured phrase in chat, ignoring case and edge whitespace. Matched messages are private, including rejected redemptions. Ordinary players have no phrase list, reward inspection or phrase-management command. `/xrewards collect` (level 0) collects that player's saved items across all phrases.
