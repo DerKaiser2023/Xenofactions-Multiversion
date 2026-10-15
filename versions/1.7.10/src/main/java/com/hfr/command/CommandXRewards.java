@@ -14,4 +14,8 @@ public final class CommandXRewards extends CommandBase {
         if (args.length != 1 || !"collect".equalsIgnoreCase(args[0])) throw new WrongUsageException(getCommandUsage(sender));
         ChatRewardService.collect(getCommandSenderAsPlayer(sender));
     }
+    @Override public java.util.List addTabCompletionOptions(ICommandSender sender, String[] args) {
+        return args.length == 1 ? getListOfStringsMatchingLastWord(args, "collect") : null;
+    }
+
 }

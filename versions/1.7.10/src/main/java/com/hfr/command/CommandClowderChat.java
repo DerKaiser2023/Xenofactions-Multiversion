@@ -20,7 +20,7 @@ public class CommandClowderChat extends CommandBase {
 
 	@Override
 	public String getCommandUsage(ICommandSender sender) {
-		return "/cc <message>";
+		return "commands.hfr.cc.usage";
 	}
 
 	public boolean canCommandSenderUseCommand(ICommandSender p_71519_1_)
@@ -70,7 +70,7 @@ public class CommandClowderChat extends CommandBase {
 				return;
 			} else {
 				sender.addChatMessage(new ChatComponentText(CRITICAL + "Invalid arguments!"));
-				sender.addChatMessage(new ChatComponentText(CRITICAL + "Try: 'public', 'faction', 'alliance' or none"));
+				sender.addChatMessage(new net.minecraft.util.ChatComponentTranslation(getCommandUsage(sender)));
 				return;
 			}
 		}
@@ -117,6 +117,11 @@ public class CommandClowderChat extends CommandBase {
 		
 		String name = "";*/
 	}
+
+    @Override
+    public java.util.List addTabCompletionOptions(ICommandSender sender, String[] args) {
+        return args.length == 1 ? getListOfStringsMatchingLastWord(args, "public", "faction", "alliance", "mute", "unmute") : null;
+    }
 
 	public static final String CHAT_KEY = "clowderChat";
 	public static final String MUTE_KEY = "clowderMute";

@@ -675,6 +675,13 @@ public class CommandClowderAdmin extends CommandBase {
             return getListOfStringsMatchingLastWord(args, new String[] { "territory", "prestige", "money", "kills" });
 		if(cmd.equals("earth") && args.length == 3 && (args[1].equalsIgnoreCase("roads")||args[1].equalsIgnoreCase("features")))
 			return getListOfStringsMatchingLastWord(args, new String[] { "preview", "status", "inspect", "cancel", "backup", "apply" });
+        if(cmd.equals("earth") && args.length == 3 && args[1].equalsIgnoreCase("source"))
+            return getListOfStringsMatchingLastWord(args, "status", "verify");
+        if(cmd.equals("earth") && args.length == 3 && args[1].equalsIgnoreCase("pregen"))
+            return getListOfStringsMatchingLastWord(args, "status", "start", "pause", "resume", "cancel");
+        if(cmd.equals("earth") && args.length == 4 && (args[1].equalsIgnoreCase("source") && args[2].equalsIgnoreCase("verify")
+            || args[1].equalsIgnoreCase("pregen") && (args[2].equalsIgnoreCase("start") || args[2].equalsIgnoreCase("resume"))))
+            return getListOfStringsMatchingLastWord(args, "earth2000");
 		if(cmd.equals("earth") && args.length == 3 && args[1].equalsIgnoreCase("geo"))
 			return getListOfStringsMatchingLastWord(args, new String[] { "import", "select", "status", "cancel", "info" });
 		if(cmd.equals("worldborder") && args.length == 2)

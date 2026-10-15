@@ -82,7 +82,7 @@ public class CommandTDM extends CommandBase {
 
         if (args[0].equalsIgnoreCase("vote")) {
             if (args.length < 2) {
-                sender.addChatMessage(new ChatComponentText("Usage: /tdm vote <map> <tdm|sd|ffa>"));
+                sender.addChatMessage(new ChatComponentText("Usage: /tdm vote <map> [tdm|sd|ffa]"));
                 return;
             }
 
@@ -350,7 +350,7 @@ public class CommandTDM extends CommandBase {
             helpLine(sender, false, "overlay <on|off>", "Show the active map, your spawns, and Search and Destroy sites on the map.");
             helpLine(sender, false, "help [category]", "Example: /tdm help teams");
         } else if (category.equals("match")) {
-            helpLine(sender, false, "vote <map> <mode>", "Vote for a map and gamemode pairing.");
+            helpLine(sender, false, "vote <map> [mode]", "Vote for a map and gamemode pairing.");
             helpLine(sender, false, "skip [yes|no|status]", "Vote to rotate; defaults to yes.");
         } else if (category.equals("teams")) {
             helpLine(sender, false, "teamchange", "Swap RED/BLUE (120-second cooldown; unavailable in FFA).");
@@ -358,6 +358,8 @@ public class CommandTDM extends CommandBase {
             if(isAdmin(sender))helpLine(sender,true,"teamless","Place yourself in observer/teamless mode.");
         } else if(category.equals("loadouts")) {
             helpLine(sender,false,"menu","View/select kits and economy-free DM/FFA respawn loadouts.");
+            helpLine(sender,false,"utility <list|buy <number>>","List or purchase Search and Destroy utilities.");
+            helpLine(sender,false,"killstreak <list|buy <number>>","List or purchase TDM/FFA killstreaks.");
             helpLine(sender,false,"help match","Learn about voting and match flow.");
         } else if (category.equals("kits")) {
             sender.addChatMessage(new ChatComponentText(INFO+"Kits, Utility & Killstreaks"));
@@ -366,7 +368,7 @@ public class CommandTDM extends CommandBase {
             helpLine(sender, true, "kit add <red|blue> [map|global] [cost]", "Save inventory; example: /tdm kit add red arena 3");
             helpLine(sender, true, "kit edit <red|blue> <number> [map|global]", "Load a direct kit into creative inventory; commit or cancel afterward.");
             helpLine(sender, true, "kit <commit|cancel|status>", "Finish or inspect an active kit inventory edit.");
-            helpLine(sender, true, "kit <clone|rename|cost> ...", "Duplicate or change a direct kit definition.");
+            helpLine(sender, true, "kit <clone|rename|cost|mode> <red|blue> <number> [map|global] ...", "Duplicate a direct kit or edit its name, cost or modes.");
             helpLine(sender, true, "kit remove <red|blue> <number> [map|global]", "Remove a numbered kit from kit list.");
             helpLine(sender,true,"utility <list|add|remove>","Manage Search and Destroy buy-score utility definitions.");
             helpLine(sender,true,"killstreak <list|add|remove>","Manage kill-score reward definitions.");
@@ -377,7 +379,7 @@ public class CommandTDM extends CommandBase {
             helpLine(sender, true, "boundaryview <on|off>", "Toggle your in-world map boundary view.");
             helpLine(sender, true, "overlay on [map]", "Preview the active or a named map as admin.");
             helpLine(sender, true, "map addspawn <map> <type> [mode]", "Add your position to one mode's spawn set.");
-            helpLine(sender, true, "map <pointlimit|timer> <map> <value|default>", "Set DM/FFA point-score victory limit or timer (scorelimit is an alias).");
+            helpLine(sender, true, "map <pointlimit|timer> <map> <value|default> [mode]", "Set DM/FFA point-score victory limit or timer (scorelimit is an alias).");
             helpLine(sender, true, "map mode <map> <tdm|sd|ffa>", "Set the default and selected mode.");
             helpLine(sender, true, "map voteable <map> <on|off>", "Include or exclude every mode of a map from votes.");
             helpLine(sender, true, "map voteable <map> <mode> <on|off>", "Offer a map and gamemode pairing in votes.");
@@ -509,9 +511,9 @@ public class CommandTDM extends CommandBase {
 
     private void processKitCommand(ICommandSender sender, String[] args) {
         if (args.length < 2 || args[1].equalsIgnoreCase("help")) {
-            sender.addChatMessage(new ChatComponentText("Usage: /tdm kit <list|add|edit|commit|cancel|clone|rename|remove> ..."));
+            sender.addChatMessage(new ChatComponentText("Usage: /tdm kit <list|add|edit|commit|cancel|status|clone|rename|cost|mode|remove> ..."));
             sender.addChatMessage(new ChatComponentText("  /tdm kit list [map|global]"));
-            sender.addChatMessage(new ChatComponentText("  /tdm kit add <red|blue> [map|global]"));
+            sender.addChatMessage(new ChatComponentText("  /tdm kit add <red|blue> [map|global] [cost]"));
             sender.addChatMessage(new ChatComponentText("  /tdm kit remove <red|blue> <number> [map|global]"));
             return;
         }
@@ -590,7 +592,7 @@ public class CommandTDM extends CommandBase {
         }
 
         sender.addChatMessage(new ChatComponentText("Unknown TDM kit command: " + args[1]));
-        sender.addChatMessage(new ChatComponentText("Usage: /tdm kit <list|add|remove> ..."));
+        sender.addChatMessage(new ChatComponentText("Usage: /tdm kit <list|add|edit|commit|cancel|status|clone|rename|cost|mode|remove> ..."));
     }
 
     private void processPurchasableCommand(ICommandSender sender,String[] args,TDMPurchasableManager.Type type){
@@ -954,10 +956,10 @@ public class CommandTDM extends CommandBase {
     }
 
     private void sendMapUsage(ICommandSender sender) {
-        sender.addChatMessage(new ChatComponentText("Usage: /tdm map <create|delete|select|voteable|addspawn|updatespawn|removespawn|tpspawn|clearspawns|spawnfallback|legacyspawns|assignlegacyspawn|clearbounds|border|mode|terroristteam|hardcorerespawns|bombsite|economy|lossscore|killscore|roundwinscore|plantscore|defusescore|scorelimit|timer|list>"));
+        sender.addChatMessage(new ChatComponentText("Usage: /tdm map <create|delete|select|voteable|addspawn|updatespawn|removespawn|tpspawn|clearspawns|spawnfallback|legacyspawns|assignlegacyspawn|clearbounds|border|mode|terroristteam|hardcorerespawns|bombsite|economy|killstreaks|killscorereward|lossscore|killscore|roundwinscore|plantscore|defusescore|scorelimit|timer|list>"));
         sender.addChatMessage(new ChatComponentText("  /tdm map voteable <map> <on|off> (all modes) or <map> <tdm|sd|ffa> <on|off>"));
-        sender.addChatMessage(new ChatComponentText("  /tdm map scorelimit <map> <value|default> (TDM: score points, 100 per kill; Search and Destroy: round wins, default 13)"));
-        sender.addChatMessage(new ChatComponentText("  /tdm map timer <map> <seconds|default>"));
+        sender.addChatMessage(new ChatComponentText("  /tdm map scorelimit <map> <value|default> [mode] (TDM: score points, 100 per kill; Search and Destroy: round wins, default 13)"));
+        sender.addChatMessage(new ChatComponentText("  /tdm map timer <map> <seconds|default> [mode]"));
         sender.addChatMessage(new ChatComponentText("  /tdm map bombsite <map> <a|b> <pos1|pos2|clear>"));
     }
 
@@ -1039,7 +1041,7 @@ public class CommandTDM extends CommandBase {
             if (isAdmin(sender)) commands.addAll(Arrays.asList("boundaryview", "editor", "kits", "kit", "toggle", "bombtest", "testsound", "forceroundend", "forcemapvote", "friendlyfire", "autobalance", "map", "addspawn", "setteam", "teamless", "clear"));
             return getListOfStringsMatchingLastWord(args, commands.toArray(new String[0]));
         }
-        if (args.length == 2 && args[0].equalsIgnoreCase("help")) return getListOfStringsMatchingLastWord(args, isAdmin(sender) ? new String[] {"general", "match", "teams", "loadouts", "kits", "maps", "admin"} : new String[] {"general", "match", "teams", "loadouts"});
+        if (args.length == 2 && args[0].equalsIgnoreCase("help")) return getListOfStringsMatchingLastWord(args, isAdmin(sender) ? new String[] {"general", "match", "teams", "loadouts", "kits", "maps", "admin"} : new String[] {"general", "match", "teams", "loadouts", "maps"});
         if (args.length == 2 && args[0].equalsIgnoreCase("skip")) return getListOfStringsMatchingLastWord(args, "yes", "no", "status");
         if (args.length == 2 && args[0].equalsIgnoreCase("vote")) return getListOfStringsMatchingLastWord(args, TDMManager.getMapNames(sender.getEntityWorld()).toArray(new String[0]));
         if (args.length == 3 && args[0].equalsIgnoreCase("vote")) return getListOfStringsMatchingLastWord(args, "tdm", "sd", "ffa");

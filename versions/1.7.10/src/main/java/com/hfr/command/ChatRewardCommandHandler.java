@@ -105,6 +105,11 @@ public final class ChatRewardCommandHandler {
         if (!authorized(sender)) return null;
         if (args.length == 1) return CommandBase.getListOfStringsMatchingLastWord(args, ACTIONS);
         if (args.length == 3 && "set".equalsIgnoreCase(args[0])) return CommandBase.getListOfStringsMatchingLastWord(args, FIELDS);
+        if (args.length == 3 && "reset".equalsIgnoreCase(args[0])) return CommandBase.getListOfStringsMatchingLastWord(args, "confirm");
+        if (args.length == 4 && "set".equalsIgnoreCase(args[0])) {
+            if ("repeatable".equals(args[2])) return CommandBase.getListOfStringsMatchingLastWord(args, "true", "false");
+            if ("startsAt".equals(args[2]) || "expiresAt".equals(args[2])) return CommandBase.getListOfStringsMatchingLastWord(args, "clear");
+        }
         // Phrase text, identifiers and rewards are deliberately absent from public completion paths.
         return null;
     }

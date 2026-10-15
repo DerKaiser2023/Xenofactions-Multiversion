@@ -8,8 +8,26 @@ Minecraft Forge 1.7.10 commands use permission levels when `getRequiredPermissio
 
 - **Player commands:** permission level 0 or explicit `canCommandSenderUseCommand=true`.
 - **Moderator/admin commands:** usually permission level 2 or 3, or vanilla `CommandBase` defaults when no override is present.
-- `/xclowder`, `/xmarket`, `/xplayer`, `/xshop`, and `/xcum` use permission level 3.
-- `/invsee` uses permission level 2.
+- `/xclowder`, `/xplayer` and `/xshop` use permission level 3. Earth raster source, pregeneration, geographic, road and feature administration additionally requires level 4.
+- `/invsee` uses level 2. `/xmute`, `/xunmute` and `/stonedrop` inherit vanilla `CommandBase` level 4. TDM administration requires level 4; its player actions use level 0. `/xdebug` uses level 0.
+
+
+## GUI command list
+
+Press the configured Xenofactions menu key (K by default). Search spans all categories; clearing it restores the selected category. `>` beside an argument cycles the handler's literal choices or server-provided values. Text fields remain editable. Longer forms use the `<` / `>` buttons beside **Arguments**; paging retains entered values. Fill earlier optional arguments before later ones to avoid shifting their command positions. The preview shows the exact slash command; **Run Command** and **Open in Chat** use normal server chat-command dispatch. Dangerous actions retain GUI confirmation, and `chatreward reset` also includes the required literal `confirm` token. Server validation, permissions, faction ranks, saving and synchronization still belong to the existing handlers.
+
+The catalog covers all currently registered command roots and their distinct actions, including:
+
+- `/xdaily` (`/daily`) and all `/xc daily` help, status, reload, list/show, held-item edits, weight/count, removal, milestones, enablement, settings, timezone and reset actions.
+- `/xrewards collect` and `/xc chatreward create`, `set`, `addheld`, `enable`, `disable`, `list`, `show`, `remove` and `reset`. The set form selects the exact field token and preserves spaces in phrases and JSON.
+- `/xwallart`; `/c disband`, territory permission inspection/editing, city terrain inspection/retry and the legacy retreat response; explicit `/cc` channel/muting actions.
+- `/xc clearcreationcooldown`, zone editor actions, world border actions, leaderboard give/configure, ender chest show/set and Earth source, pregeneration, geographic, road and feature action trees. Road/feature apply still requires the handler's reviewed token and manual-backup acknowledgement.
+- Separate `/stonedrop` held-item add, height-range add, list and remove forms; every current `/xshop` action including help. Shop names keep spaces where the handler joins trailing text; use stable IDs in single-token positions.
+- TDM player help, maps, voting, skip, menu, team changes, overlay, utility and killstreak list/buy; level-4 map/settings/spawns, kit editing and mode/cost controls, selection editor, utility/killstreak definition add/remove, boundary view, match controls and sound/debug actions. Mode voting and map voting have separate forms; score/timer and spawn forms expose optional modes.
+
+Permission filtering uses a server-provided per-entry permission snapshot, distinguishing levels 2, 3 and 4. Faction requirements are displayed, including the server-configured city rename threshold; they remain enforced by the server. Disabled TDM, custom-flag and conquest-flag features are filtered using server menu data. Refresh requests a new snapshot. The city and enemy selectors use current city names, enemy relations and active wars; incomplete lists still allow direct input.
+
+The menu normalizes spaces to underscores for the faction argument of `/c peace`, whose optional transfer city follows that one token. Other phrases, names and messages retain the spacing their handlers support. Minecraft 1.7.10 chat packets truncate at 100 characters; the menu rejects longer commands before sending. Use held-item capture or the server console for long reward JSON. Routine menu commands and supported live administration need no restart. `/xmarket` and the displayed `/xp` alias have no current registered handlers and are omitted; aliases that perform the same action do not get duplicate rows. Client and server must use the matching menu packet format.
 
 ## Factions: `/clowder` and `/c`
 
@@ -114,7 +132,7 @@ Ally rally travel waits ten seconds and cancels horizontal movement. The destina
 | `/c surrender <faction>` | Offer surrender. |
 | `/c acceptsurrender <faction>` | Accept surrender. |
 | `/c defendally <ally>` | Join an ally's defense when enabled. |
-| `/c retreat` | Retreat from conflict context. |
+| `/c retreat` | Run the legacy response; the current handler does not start retreat or automatic kicking. |
 
 ## Faction administration: `/xclowder` and `/xc`
 
@@ -153,16 +171,16 @@ The `/xc factiontimeoutcreationreset <playername>` command also requires permiss
 
 ## Faction chat: `/cc`
 
-Usage: `/cc <message>`; permission level: 0.
+Usage: `/cc [public|faction|alliance|mute|unmute]`; permission level: 0. Send messages normally after choosing a channel.
 
 | Command | Purpose |
 | --- | --- |
-| `/cc <message>` | Send faction chat message. |
+| `/cc` | Cycle public, faction and alliance channels. |
 | `/cc f` or `/cc faction` | Use faction channel. |
 | `/cc a` or `/cc alliance` | Use alliance channel. |
 | `/cc p` or `/cc public` | Return to public chat. |
-| `/cc m` or `/cc mute` | Mute faction chat behavior. |
-| `/cc u` or `/cc unmute` | Unmute. |
+| `/cc m` or `/cc mute` | Mute public chat. |
+| `/cc u` or `/cc unmute` | Unmute public chat. |
 
 ## Persistent command data
 

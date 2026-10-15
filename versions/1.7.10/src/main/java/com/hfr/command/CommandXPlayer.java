@@ -37,7 +37,7 @@ public class CommandXPlayer extends CommandBase {
 
 	@Override
 	public String getCommandUsage(ICommandSender sender) {
-		return "/xplayer <mode> [player]";
+		return "/xplayer <mode> <player>";
 	}
 
 	@Override

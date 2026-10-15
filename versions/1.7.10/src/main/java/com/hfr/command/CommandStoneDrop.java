@@ -25,7 +25,7 @@ public class CommandStoneDrop extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/stonedrop <rarity> [minY] [maxY] OR /stonedrop list OR /stonedrop remove [index]";
+        return "commands.hfr.stonedrop.usage";
     }
 
     @Override
@@ -159,11 +159,16 @@ public class CommandStoneDrop extends CommandBase {
     }
 
     private void sendUsage(ICommandSender sender) {
-        sender.addChatMessage(new ChatComponentText(TITLE + "Stone Drop Usage"));
+        sender.addChatMessage(new net.minecraft.util.ChatComponentTranslation(getCommandUsage(sender)));
         sender.addChatMessage(new ChatComponentText(COMMAND + "/stonedrop <rarity>" + INFO + " - add your held item/block as a drop at any Y level."));
         sender.addChatMessage(new ChatComponentText(COMMAND + "/stonedrop <rarity> <minY> <maxY>" + INFO + " - add your held item/block only between those Y levels."));
         sender.addChatMessage(new ChatComponentText(HELP + "Example: " + COMMAND + "/stonedrop 0.02 5 30" + INFO + " drops between Y 5 and Y 30."));
         sender.addChatMessage(new ChatComponentText(COMMAND + "/stonedrop list" + INFO + " - show configured chances and Y ranges."));
+    }
+
+    @Override public List addTabCompletionOptions(ICommandSender sender, String[] args) {
+        return args.length == 1 && sender.canCommandSenderUseCommand(getRequiredPermissionLevel(), getCommandName())
+            ? getListOfStringsMatchingLastWord(args, "list", "remove") : null;
     }
 
     private String formatYRange(Integer minY, Integer maxY) {
