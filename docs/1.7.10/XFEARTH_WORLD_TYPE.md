@@ -16,6 +16,12 @@ Both are pregenerated and runtime population is always disabled.
 Both distributed packs use profile `smoke` and contain no offline OSM sequence,
 imported geographic dataset or native `XFEarthRoads` pristine baseline stamps.
 Creation only installs terrain; scale selection performs no OSM download/import.
+For generalized highways and primary roads, the [offline GRIP4 workflow](XFEARTH_INSTALLATION.md#offline-major-roads-for-the-bundled-116000-earth)
+prepares a profile-matched categorical mask from local vectors without Osmium or
+a planet download. A companion client resource pack supplies an independent
+Roads overlay, even with no selected OSM dataset. New WorldPainter projects can
+apply the same mask before export; existing bundled worlds gain source display,
+not retroactive road blocks.
 Use the [external preparation, import and explicit selection workflow](XFEARTH_INSTALLATION.md#bundled-default-116000-map-and-missing-osm-data)
 for source layers. Historical bundled chunks remain excluded from block imports.
 
@@ -85,6 +91,35 @@ the raster extent. This preserves the existing border behavior and avoids
 displaying an exempt outside player on the opposite continent.
 
 ### Offline imagery and reusable map data
+
+GRIP resource packs use `assets/hfr/earthmaps/roads/<profile>/roads.json`, the
+full-grid `roads.png`, and two small maximum-pooled display levels. The manifest
+records the exact profile contract and identity, cropped geometry, source
+identity/metadata, CC0 attribution, categories and symbolic width policy.
+`EarthMapImages.loadRoads` validates this contract independently of OSM and
+terrain-image availability. Its 256-pixel RGBA tiles reuse `EarthMapTileCache`'s
+8 MiB/32-slot limit and single decoder; imagery LOD reserves room for roads.
+Tile reads are bounded to 1 MiB and metadata to 64 KiB. GL creation/release stays
+on the client thread, with the existing disconnect/world-unload/resource-reload
+cleanup. The same viewport transform aligns terrain, roads and the final player
+marker. The Roads toggle affects GRIP and OSM; GRIP status/credit and unavailable
+OSM notices remain separate. Display routes and overview widths are generalized
+and do not prove matching world blocks. No live-world mutation, OSM identity
+fabrication, source download or gameplay packet transfer is introduced.
+
+The offline converter reads source features incrementally and keeps a disk-backed
+shared-coordinate index so source endpoints/junction vertices survive projected
+simplification. It splits antimeridian segments, clips to the authoritative crop,
+and uses one pixel per X/Z column. Category overlap uses highway > primary >
+secondary. The WorldPainter launcher reads the external core from
+MinecraftEarthMapXF, hooks its checked save boundary in memory after terrain and
+vegetation, and saves a new `_grip.world`; original source fingerprints remain
+unchanged. Optional export requires a new staging directory. The helper preserves
+height, sea level, bounds, format and population settings, skips water/ice/void and
+deferred Rivers cells, and requires an explicit verified vanilla material. No
+numeric XF asphalt mapping is assumed. Unknown bridge/tunnel attributes cannot
+establish engineered structures; verified source exclusions can be supplied
+during preparation. There is no GRIP existing-world block importer.
 
 Prepared land-cover imagery is bundled under
 `assets/hfr/earthmaps/images/raster-{10,20,40}k/`. It comes from the existing

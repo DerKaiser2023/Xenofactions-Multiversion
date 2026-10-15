@@ -25,6 +25,8 @@ public final class GuiXFEarthMap extends GuiScreen {
     private final IntBuffer scissor = BufferUtils.createIntBuffer(16);
     private XFEarthMapData data;
     private EarthMapImages images;
+    private EarthMapImages roads;
+    private String gripNotice = "GRIP roads: no prepared client resource pack";
     private World requestedWorld;
     private int request, dimension, cacheGeneration;
     private String message = "gui.hfr.earthmap.loading";
@@ -50,7 +52,7 @@ public final class GuiXFEarthMap extends GuiScreen {
         clampView();
     }
     private void requestProfile() {
-        requestedWorld = mc.theWorld; data = null; images = null; dragging = false;
+        requestedWorld = mc.theWorld; data = null; images = null; roads = null; dragging = false;
         roadView="";roadNotice="";layers=null;selected=null;EarthMapLayerCache.cancel();
         message = "gui.hfr.earthmap.loading"; zoom = 1; centerX = centerZ = .5;
         if (mc.thePlayer == null || requestedWorld == null) { message = "gui.hfr.earthmap.unavailable"; return; }
@@ -67,7 +69,16 @@ public final class GuiXFEarthMap extends GuiScreen {
             images = EarthMapImages.load(data);
             message = "";
         } catch (Exception failure) { images = null; message = "gui.hfr.earthmap.images_missing"; }
+        loadGrip();
         clampView();
+    }
+    private void loadGrip() {
+        roads = null;
+        if (data == null) return;
+        try {
+            roads = EarthMapImages.loadRoads(data);
+            gripNotice = "GRIP4 / CC0: generalized routes and symbolic widths; world blocks unverified";
+        } catch (Exception failure) { gripNotice = "GRIP roads unavailable: " + failure.getMessage(); }
     }
     @Override public void updateScreen() {
         if (mc.theWorld != requestedWorld || mc.theWorld != null && mc.theWorld.provider.dimensionId != dimension) requestProfile();
@@ -75,6 +86,7 @@ public final class GuiXFEarthMap extends GuiScreen {
             cacheGeneration = EarthMapTileCache.generation();layers=null;selected=null;roadView="";
             try { images = EarthMapImages.load(data); message = ""; }
             catch (Exception failure) { images = null; message = "gui.hfr.earthmap.images_missing"; }
+            loadGrip();
         }
         if(data!=null&&++roadTicks%40==0)requestRoads();
     }
@@ -109,7 +121,7 @@ public final class GuiXFEarthMap extends GuiScreen {
             protected void actionPerformed(GuiButton button){if(button.id==0)mc.displayGuiScreen(map);else page=Math.max(0,page+(button.id==1?-1:1));}
             public boolean doesGuiPauseGame(){return false;}
             public void drawScreen(int x,int y,float ticks){drawDefaultBackground();int capacity=Math.max(1,(height-50)/11);
-                String info=(layers==null?"© OpenStreetMap contributors / ODbL":layers.attribution)+". "+roadNotice+". Source coverage is unverified. Click again to cycle overlapping features. Administrative boundaries are informational. Claims use faction color, orange safezones, red warzones and gray wilderness. Terrain: cyan pending/unavailable, green eligible, red insufficient surface. Imported features differ from recorded generic generated fragments; processed road chunks do not prove current road blocks. "+(selected==null?"":" Selected: "+selected.name+" / "+selected.category+" / "+selected.source+" / "+selected.detail);
+                String info=gripNotice+". "+(roads==null?"":roads.credit)+". GRIP is a historical generalized inventory, unsuitable for navigation; coverage/topology may be incomplete. The Roads toggle controls GRIP and OSM. GRIP lines show prepared source routes independently of OSM selection and do not establish matching blocks. OSM: "+(layers==null?"© OpenStreetMap contributors / ODbL":layers.attribution)+". "+roadNotice+". Source coverage is unverified. Click again to cycle overlapping vector features. Administrative boundaries are informational. Claims use faction color, orange safezones, red warzones and gray wilderness. Terrain: cyan pending/unavailable, green eligible, red insufficient surface. Imported features differ from recorded generic generated fragments; processed road chunks do not prove current road blocks. "+(selected==null?"":" Selected: "+selected.name+" / "+selected.category+" / "+selected.source+" / "+selected.detail);
                 java.util.List<?> lines=fontRendererObj.listFormattedStringToWidth(info,width-20);page=Math.min(page,Math.max(0,(lines.size()-1)/capacity));
                 for(int i=page*capacity,row=12;i<Math.min(lines.size(),(page+1)*capacity);i++,row+=11)drawString(fontRendererObj,lines.get(i).toString(),10,row,0xffffff);super.drawScreen(x,y,ticks);
             }
@@ -214,7 +226,7 @@ public final class GuiXFEarthMap extends GuiScreen {
             for (int i = 1; i < images.levels.length; i++) {
                 EarthMapImages.Level candidate = images.levels[i];
                 // Keep a whole visible level within the 32-tile texture budget, including square maps.
-                if ((long)((candidate.width + 255) / 256) * ((candidate.height + 255) / 256) <= 32
+                if ((long)((candidate.width + 255) / 256) * ((candidate.height + 255) / 256) <= imageryTileBudget()
                         && images.levels[level].width < w) level = i;
             }
             EarthMapImages.Level size = images.levels[level];
@@ -237,10 +249,12 @@ public final class GuiXFEarthMap extends GuiScreen {
             if (loading) drawString(fontRendererObj, I18n.format(EarthMapTileCache.hasFailure()
                     ? "gui.hfr.earthmap.images_missing" : "gui.hfr.earthmap.loading"), left() + 4, top() + 4, 0xffffff);
             }else drawString(fontRendererObj,I18n.format("gui.hfr.earthmap.images_missing"),left()+4,top()+37,0xffcc66);
+            if (roads != null && (enabledLayers & 1) != 0) drawGrip(ox, oz, w, h);
             if(layers!=null)layers.draw(ox,oz,w,h,enabledLayers);
             drawString(fontRendererObj,"Claims: faction color / orange safe / red war / gray unclaimed",left()+4,top()+4,0xffffff);
             drawString(fontRendererObj,"Terrain: cyan pending / green eligible / red insufficient",left()+4,top()+15,0xffffff);
             drawString(fontRendererObj,"Source outlines; brighter = recorded generated evidence",left()+4,top()+26,0xdddddd);
+            drawString(fontRendererObj,fontRendererObj.trimStringToWidth(gripNotice,viewWidth()-8),left()+4,top()+48,0xffd777);
             drawString(fontRendererObj,"\u00a9 OpenStreetMap contributors / ODbL",left()+4,top()+viewHeight()-50,0xeeeeee);
             if(selected!=null){
                 String status=selected.layer==5?"Territorial node":selected.state==1?"Recorded generic generated fragment":selected.state==2?"Processed road chunk fragment (blocks unverified)":"Imported; generation unrecorded/unavailable here";
@@ -249,7 +263,7 @@ public final class GuiXFEarthMap extends GuiScreen {
                 drawString(fontRendererObj,fontRendererObj.trimStringToWidth(title,viewWidth()-8),left()+4,top()+viewHeight()-36,0xffffff);
                 drawString(fontRendererObj,fontRendererObj.trimStringToWidth(selected.source+" | "+status,viewWidth()-8),left()+4,top()+viewHeight()-25,0xdddddd);
                 drawString(fontRendererObj,fontRendererObj.trimStringToWidth(selected.detail,viewWidth()-8),left()+4,top()+viewHeight()-14,0xdddddd);
-            }else if(!roadNotice.isEmpty())drawString(fontRendererObj,fontRendererObj.trimStringToWidth(roadNotice,viewWidth()-8),left()+4,top()+viewHeight()-12,0xffffff);
+            }else if(!roadNotice.isEmpty())drawString(fontRendererObj,fontRendererObj.trimStringToWidth("OSM/server layers: "+roadNotice,viewWidth()-8),left()+4,top()+viewHeight()-12,0xffffff);
             if (mc.thePlayer != null) {
                 double actualX = ox + data.mapX(mc.thePlayer.posX) * w, actualZ = oz + data.mapZ(mc.thePlayer.posZ) * h;
                 int px = (int)clamp(actualX, left() + 5, left() + viewWidth() - 6);
@@ -271,5 +285,31 @@ public final class GuiXFEarthMap extends GuiScreen {
             else GL11.glDisable(GL11.GL_SCISSOR_TEST);
             GL11.glColor4f(1, 1, 1, 1);
         }
+    }
+    private int imageryTileBudget() {
+        if (roads == null) return 32;
+        EarthMapImages.Level largest = roads.levels[roads.levels.length-1];
+        return 32 - ((largest.width+255)/256) * ((largest.height+255)/256);
+    }
+    private void drawGrip(double ox, double oz, double w, double h) {
+        int level = w > roads.levels[0].width ? roads.levels.length - 1 : 0;
+        EarthMapImages.Level size = roads.levels[level];
+        GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT);
+        try {
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            for (int z = 0; z < (size.height + 255) / 256; z++) for (int x = 0; x < (size.width + 255) / 256; x++) {
+                double x0 = ox + x * 256.0 / size.width * w, z0 = oz + z * 256.0 / size.height * h;
+                double x1 = ox + Math.min(size.width, (x+1)*256.0) / size.width * w;
+                double z1 = oz + Math.min(size.height, (z+1)*256.0) / size.height * h;
+                if (x1 < left() || z1 < top() || x0 > left()+viewWidth() || z0 > top()+viewHeight()) continue;
+                ResourceLocation texture = EarthMapTileCache.get(data, roads, level, x, z);
+                if (texture == null) continue;
+                mc.getTextureManager().bindTexture(texture); GL11.glColor4f(1,1,1,1);
+                Tessellator t = Tessellator.instance; t.startDrawingQuads();
+                t.addVertexWithUV(x0,z1,0,0,1); t.addVertexWithUV(x1,z1,0,1,1);
+                t.addVertexWithUV(x1,z0,0,1,0); t.addVertexWithUV(x0,z0,0,0,0); t.draw();
+            }
+        } finally { GL11.glPopAttrib(); }
     }
 }

@@ -171,6 +171,18 @@ player/lock/stat data, stores `level.dat` as `template-level.dat`, hashes payloa
 uses deterministic ordering/timestamps, stores already-compressed region data,
 refuses overwrite without `--force`, and verifies its output.
 
+Optional `--roads <prepared-directory>` validates a GRIP4 mask's full profile,
+dimensions, orientation, PNG checksum and display-tile checksums, then adds its
+`roads.json`, categorical `roads.png` and derived tiles under
+`data/xfearth-roads/`. These are ordinary hashed manifest payloads; the installer
+retains them without applying blocks. Use
+`build_road_resource_pack.py --roads <prepared-directory> --output <new-client.zip>`
+to package the same files at `assets/hfr/earthmaps/roads/<profile>/` for clients.
+The installed `data/xfearth-roads/` directory is also a reusable input for this
+command. Distribute and enable that resource pack separately; server save files
+are not automatically visible to client resource loading. See the
+[Windows GRIP workflow](XFEARTH_INSTALLATION.md#offline-major-roads-for-the-bundled-116000-earth).
+
 Local/future 1:1000 packs belong in `.minecraft/xenofactions/earthmaps/`. They use
 the same verifier/installer and generator options contain only a pack ID, never a
 machine path. Bundled resources are copied into the hash-named `cache/`, verified,

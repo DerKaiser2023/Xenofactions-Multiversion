@@ -69,6 +69,7 @@ def validate_archive(path):
 def main(argv=None):
     p = argparse.ArgumentParser(); p.add_argument("--input", required=True, type=Path); p.add_argument("--output", required=True, type=Path)
     p.add_argument("--profile", type=Path); p.add_argument("--id", required=True); p.add_argument("--display-name", required=True)
+    p.add_argument("--roads", type=Path, help="prepared GRIP directory to retain under data/xfearth-roads; distribute the companion client resource pack too")
     p.add_argument("--population-mode", required=True, choices=("clean-pregenerated", "already-populated")); p.add_argument("--effective-scale", required=True, type=int)
     p.add_argument("--required-mod", action="append", default=[]); p.add_argument("--version", default="1"); p.add_argument("--bundled", action="store_true"); p.add_argument("--force", action="store_true"); args=p.parse_args(argv)
     if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{2,63}", args.id): p.error("invalid pack ID")
@@ -81,6 +82,12 @@ def main(argv=None):
     if profile.get("formatVersion") != 1 or profile.get("targetMinecraftVersion") != "1.7.10": p.error("profile must be format 1 for Minecraft 1.7.10")
     if profile.get("effectiveScale") != args.effective_scale: p.error("profile scale disagrees with --effective-scale")
     files=collect(source, profile_path)
+    if args.roads:
+        from build_road_resource_pack import road_files
+        _, roads = road_files(args.roads, profile)
+        files = [(src, name) for src, name in files if not name.startswith("data/xfearth-roads/")]
+        files.extend((src, "data/xfearth-roads/" + name) for src, name in roads)
+        files.sort(key=lambda item: item[1])
     manifest=build_manifest(args,profile,files); args.output.parent.mkdir(parents=True,exist_ok=True)
     temp=args.output.with_suffix(args.output.suffix+".tmp")
     try:

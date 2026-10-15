@@ -76,6 +76,11 @@ Production outputs are `versions/<minecraft>/build/libs/hfr-<semantic>.<build>+m
 - `docs/1.7.10/`: existing gameplay documentation; `docs/MIGRATION.md`: contributor support matrix, save boundaries and migration status.
 - `tools/1.7.10/`: existing Earth source/pack authoring tools.
 
+For generalized major roads on the bundled 1:16000 Earth, use the
+[offline GRIP4 mask workflow](docs/1.7.10/XFEARTH_INSTALLATION.md#offline-major-roads-for-the-bundled-116000-earth).
+It accepts local vectors without a full OSM planet, supports new WorldPainter
+exports, and supplies a separate Roads source overlay without an OSM selection.
+
 Import the root in IntelliJ for common code and aggregate tasks. Import `versions/1.7.10` using JDK 25 for native legacy development. Import `versions/1.16.5` using JDK 21 and run `genIntellijRuns` for native Forge launch configurations. Native `runClient` and `runServer` tasks are available in each target; root shortcuts are `runClient1_7_10`, `runServer1_7_10`, `runClient1_16_5`, `runServer1_16_5`. Native launches require the appropriate Java 8 game runtime.
 
 For Forge 1.7.10 development, place **production (SRG-named) mod JARs directly in `devmods/` at the repository root** (`Xenofactions-Multiversion/devmods/`). Place already MCP-named development JARs in **`devmods/deobf/`**; these pass through unchanged. Run `.\versions\1.7.10\gradlew.bat runClient` or the root `runClient1_7_10` shortcut. Its `prepareDevMods` dependency uses RetroFuturaGradle's bundled SpecialSource and the configured SRG-to-MCP mappings to prepare production copies in `versions/1.7.10/build/devmods/remapped/`. Inherited members resolve through the source mod, the other local mods and the Minecraft/launch classpath, retaining method descriptors. Original JARs are never edited. Gradle reuses the prepared copies until input JAR contents, hierarchy dependencies, mappings, remapper or preparation settings change. Run `prepareDevMods` directly to prepare/inspect copies without launching Minecraft.

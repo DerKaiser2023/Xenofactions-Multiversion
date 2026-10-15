@@ -7,6 +7,176 @@ coremod is installed. CubicChunks remains optional and extended-height gameplay
 remains disabled; installing it still causes ordinary Earth startup to reject
 its global provider replacement. See the [injection architecture](XFEARTH_WORLD_TYPE.md#extended-networking-and-rendering-bridge-stage-3).
 
+## Offline major roads for the bundled 1:16000 Earth
+
+For approximate major roads, use **GRIP4 vectors**, not a full OSM planet or GRIP
+road-density rasters. This workflow is independent of the optional OSM importer
+below. The [GLOBIO source page](https://www.globio.info/download-grip-dataset) and
+[PBL distribution](https://dataportaal.pbl.nl/GRIP4) identify type 1 highways,
+type 2 primary roads, type 3 secondary roads, and the CC0 release. The global
+[vector FGDB ZIP](https://dataportaal.pbl.nl/data/GRIP4/GRIP4_global_vector_fgdb.zip)
+is listed as **2.2 GB**. GRIP4 is a historical, harmonized inventory from multiple
+sources, unsuitable for navigation. Coverage, topology and positional accuracy
+are limited; compressed-scale routes and widths are generalized.
+
+Use an existing local ZIP or extracted `.gdb`; acquisition never runs in Minecraft.
+The converter discovers actual layers containing `GP_RTP`, prints their names,
+fields and CRS, and transforms the declared CRS to WGS84. It fails on missing
+CRS/fields rather than assigning guessed values. `--inspect` prints the actual
+input schema without preparing a mask; `--layer NAME` explicitly selects layers.
+The publisher archive was not available during implementation: its exact internal
+layer names/CRS and a real conversion remain unverified. No names are hardcoded.
+
+**Short Windows workflow.** Run PowerShell from this repository. Use Miniforge
+already installed at the usual user location; a separate `xf-grip` environment
+keeps the existing Osmium environment unchanged. The Python/GDAL libraries are
+offline tooling only; Minecraft still runs Java 8.
+
+```powershell
+& "$env:USERPROFILE\miniforge3\shell\condabin\conda-hook.ps1"
+conda create -n xf-grip -c conda-forge --strict-channel-priority python=3.11 gdal=3.11 shapely=2 pillow=11 numpy=2 scipy=1
+conda activate xf-grip
+$repo = (Get-Location).Path
+$work = "$env:USERPROFILE\EarthRoads"
+$earth = "C:\Earth\MinecraftEarthMapXF" # existing external generator checkout
+$profile = "$repo\versions\1.7.10\src\main\resources\assets\hfr\earthmaps\bundled\earth-16k-clean.xfmap"
+```
+
+1. **Download once.** Put the manually downloaded complete archive at
+   `$work\GRIP4_global_vector_fgdb.zip`. Alternatively, opt into this downloader:
+
+   ```powershell
+   python tools/1.7.10/download_grip.py --output "$work\GRIP4_global_vector_fgdb.zip"
+   ```
+
+   It reuses a complete local archive, uses 20-second connection/socket timeouts,
+   rejects transfers below 1 KiB/s over a 30-second window, and tries at most three
+   times. `.part` and `.part.json` preserve resume position, length and available
+   HTTP validators. Refused/changed ranges fail without appending incompatible
+   content. HTTP errors, wrong lengths and ZIP CRC failures are errors. Move
+   incompatible partials aside deliberately or download manually. `--sha256 HASH`
+   verifies an actual published SHA-256 if available; the referenced publisher
+   pages do not supply one, and no expected hash is invented. Local input needs
+   no network request. A bounded metadata request timed out at TLS during
+   implementation; no large acquisition was run to validate this tool.
+
+2. **Prepare the mask.** Use the real installed profile JSON, generated profile
+   JSON, or `.xfmap` containing it. This example reads the bundled profile directly:
+
+   ```powershell
+   python tools/1.7.10/prepare_grip_roads.py --source "$work\GRIP4_global_vector_fgdb.zip" --profile $profile --output "$work\smoke-roads"
+   ```
+
+   An extracted `.gdb` can replace the ZIP path. Highways and primary roads are
+   selected by default; `--secondary` includes category 3. Defaults are
+   `--width 1 --tolerance 0.5`: one symbolic block wide and half an output pixel
+   simplification tolerance. Explicit odd widths 1..31 are supported. Two streaming
+   passes and a temporary disk-backed shared-vertex index preserve supplied
+   endpoints/junctions; they do not infer intersections or missing connections.
+   Antimeridian segments split before projection; simplification follows projection
+   into the profile's cropped grid. One pixel represents one X/Z column, with
+   `(0,0)` at `(minimumX,minimumZ)`, east right and south down. No resize/flip is
+   applied to the final mask. Priority is highway > primary > secondary; PNG sample
+   values are 3, 2, 1 respectively, with 0 absent/unknown. Output is bounded to
+   64 Mi pixels; larger profiles need a separate tiled preparation implementation.
+
+   `roads.png` is the compressed full-grid categorical mask. `roads.json` records
+   source identity/checksum, actual layers/CRS/metadata, categories, profile identity
+   and full contract, dimensions/orientation, width/simplification policy, processing
+   version, attribution and limitations. Small 256-pixel RGBA tiles are maximum
+   pooled from that same mask for overview display, retaining thin routes and
+   category priority. Their apparent widths are generalized too. Existing output
+   directories are refused. Keep this directory: exports and resource packs can
+   reuse it without reopening or downloading GRIP.
+
+3. **WorldPainter preparation and new export.** The authoritative generator is in
+   the separate [MinecraftEarthMapXF repository](https://github.com/RagexPrince683/MinecraftEarthMapXF):
+   `tools/preprocess_xenoearth.py` prepares terrain, and `world_xenofactions_core.js`
+   creates the project. Acquire that checkout and its referenced terrain assets
+   through its README if absent. Prepare its matching terrain before running:
+
+   ```powershell
+   python "$earth\tools\preprocess_xenoearth.py" --profile=smoke
+   wpscript "$repo\tools\1.7.10\world_xenofactions_grip.js" --sourceDirectory="$earth" --roadDirectory="$work\smoke-roads" --profile=smoke --material=cobblestone --exportDirectory="$work\smoke-grip-export"
+   ```
+
+   The inspected preprocessor resolves its root from its own file location.
+   `wpscript` must be WorldPainter **2.27.0**, the external source's
+   API target. The launcher loads the actual external core and inserts mask
+   application at its single checked `wp.saveWorld(world)` boundary, after terrain
+   and vegetation preparation. It evaluates the hook in memory: the external
+   original is **not modified**, preserving its source fingerprints. Changed or
+   absent save boundaries fail closed. It saves a new `_grip.world` project and
+   refuses an existing file. The reusable `worldpainter_grip_roads.js` also exposes
+   `XFRoads.apply(world, fullProfile, roadDirectory, material, vegetationLayers, waterLayers)`
+   for other generation scripts after terrain preparation and before save/export.
+
+   `--material=cobblestone` or `--material=gravel` is mandatory. XF registers asphalt
+   as `hfr:tile.asphalt`, but this source has no verified legacy numeric WorldPainter
+   export mapping; the old `street.layer` is not treated as one. Explicit vanilla
+   materials avoid inventing an ID. The helper verifies PNG identity/dimensions,
+   exact profile fields, legacy Anvil format and 0..255 height. It replaces surface
+   terrain only, leaves elevations/water levels unchanged, skips water/ice/void and
+   the generator's deferred Rivers layer (whose water is created during export), and
+   clears the supplied generator vegetation layers only in painted road cells.
+   Population settings and other cells remain intact. It does not engineer grades,
+   bridges, tunnels or approaches. GRIP's road category alone cannot identify dry
+   bridges/underground segments without structure flags. Where an input supplies
+   verified structure attributes, use `--exclude-where` with its actual OGR SQL
+   predicate; exclusions are retained in the manifest and no routes are invented.
+
+   `--exportDirectory` creates a **new staging directory** and runs WorldPainter's
+   export after project save; any existing directory is refused. Omit the option
+   to save only the project for manual inspection/export. Format remains
+   **Minecraft 1.2–1.12 / Anvil**, height 256, sea level unchanged. Never merge or
+   overwrite an existing player world. Keep the generator's existing clean
+   export/population settings and copy its matching generated profile into the
+   exported save as `xenoearth-profile.json`. Export uses the existing WorldPainter
+   operation; see its [scripting API](https://www.worldpainter.net/trac/wiki/Scripting/API).
+
+4. **Map installation and map packs.** An overlay needs no WorldPainter export:
+
+   ```powershell
+   python tools/1.7.10/build_road_resource_pack.py --roads "$work\smoke-roads" --profile $profile --output "$work\GRIP-smoke.zip"
+   ```
+
+   Copy that ZIP to the client's `resourcepacks/` and enable it. It places the mask,
+   manifest and display tiles at `assets/hfr/earthmaps/roads/smoke/`. The existing
+   **Roads** toggle controls this independent GRIP overlay as well as available OSM
+   vectors. GRIP credit/status remains separate from OSM-unavailable notices. Full
+   profile/dimension/orientation checks reject incompatible packs. Terrain and
+   `YOU ARE HERE` use the same transform; the player marker draws last. Textures
+   share the existing 8 MiB/32-slot cache, decode on its bounded worker with at
+   most 1 MiB per tile, upload/release on the client thread, and clear on world
+   changes/resource reload. No geographic dataset selection or block placement is
+   triggered by opening the Map.
+
+   For a new terrain distribution, the inspected generator exports the save as
+   `XenoEarth` inside the staging parent. Package it with the existing tool:
+
+   ```powershell
+   $save = "$work\smoke-grip-export\XenoEarth"
+   Copy-Item "$earth\generated\xenoearth-profile-smoke.json" "$save\xenoearth-profile.json"
+   $scale = (Get-Content "$save\xenoearth-profile.json" -Raw | ConvertFrom-Json).effectiveScale
+   python tools/1.7.10/build_xfmap.py --input $save --output "$work\smoke-grip.xfmap" --id smoke-grip --display-name "Earth with GRIP roads" --population-mode clean-pregenerated --effective-scale $scale --roads "$work\smoke-roads"
+   ```
+
+   Place this `.xfmap` in `.minecraft/xenofactions/earthmaps/` and select it for a
+   **new** Earth Map world through the existing installer. The normal verified
+   payload/installer retains roads under `data/xfearth-roads/`; distribute the companion resource-pack ZIP to
+   clients as well. It can be rebuilt from that installed directory without GRIP.
+   Server saves are not client resources and the mod does not transfer these
+   images over gameplay packets. The overlay displays source routes even when a
+   historical world has no matching blocks. **Existing worlds require a separate
+   supported application path**: this workflow only paints new WorldPainter
+   projects; it adds no GRIP live-world block importer and does not bypass the
+   existing native baseline, protection, preview or manual-backup safeguards.
+
+Implementation validation: pinned offline Forge 1.7.10 `compileJava` succeeded.
+Python/JavaScript parsing and direct projection/antimeridian arithmetic were
+checked. No real GRIP conversion, WorldPainter execution/export, packaging of a
+real road dataset, runtime launch or in-game rendering is claimed.
+
 ## Bundled default 1:16000 map and missing OSM data
 
 The bundled Clean and Populated packs install pregenerated terrain with the
@@ -15,10 +185,12 @@ The bundled Clean and Populated packs install pregenerated terrain with the
 region indices. The bundled background imagery is terrain land cover, not OSM.
 Selecting 1:16000 installs terrain; it does not acquire, import or select OSM.
 The displayed scale and attribution do not establish that an import exists.
+Prepared GRIP roads above provide an independent major-road alternative; they
+do not populate the OSM dataset or enable the other OSM feature layers.
 
 `Geographic data unavailable: no completed dataset selected` means a missing
 dataset selection, not an empty geographic query or a layer/zoom setting. Source
-preparation remains external. The supported setup is:
+preparation remains external. For the optional OSM vector layers, the supported setup is:
 
 1. Acquire a regional OSM extract and export the local sequence and provenance
    described below under `earthGeographicSourceDirectory/<dataset-id>/`.

@@ -38,7 +38,7 @@ public final class EarthMapTileCache {
                 new IResourceManagerReloadListener() { @Override public void onResourceManagerReload(IResourceManager manager) { clear(); } });
     }
     public static ResourceLocation get(XFEarthMapData data, EarthMapImages images, int level, int x, int z) {
-        String key = data.identity + "/" + images.sourceSha256 + "/" + level + "/" + x + "/" + z;
+        String key = data.identity + "/" + images.id + "/" + images.sourceSha256 + "/" + level + "/" + x + "/" + z;
         Entry entry = CACHE.get(key);
         if (entry != null) return entry.location;
         if (PENDING.containsKey(key) || FAILED.contains(key)) return null;
@@ -52,7 +52,15 @@ public final class EarthMapTileCache {
         Load load = null;
         try {
             // Acquire the resource on the client thread; only decode its private stream on the worker.
-            InputStream stream = Minecraft.getMinecraft().getResourceManager().getResource(images.tile(level, x, z)).getInputStream();
+            InputStream stream = new java.io.FilterInputStream(Minecraft.getMinecraft().getResourceManager()
+                    .getResource(images.tile(level, x, z)).getInputStream()) {
+                private int remaining = 1024 * 1024;
+                @Override public int read() throws IOException { if (--remaining < 0) throw new IOException("Tile exceeds 1 MiB"); return super.read(); }
+                @Override public int read(byte[] b, int off, int len) throws IOException {
+                    if (remaining <= 0) throw new IOException("Tile exceeds 1 MiB");
+                    int count = in.read(b, off, Math.min(len, remaining)); if (count > 0) remaining -= count; return count;
+                }
+            };
             EarthMapImages.Level size = images.levels[level];
             load = new Load(key, stream, epoch, Math.min(256, size.width - x * 256), Math.min(256, size.height - z * 256));
             PENDING.put(key, load);
