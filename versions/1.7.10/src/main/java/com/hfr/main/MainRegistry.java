@@ -546,6 +546,7 @@ public class MainRegistry
 		GameRegistry.registerTileEntity(TileEntityFlag.class, "tileentity_hfr_flag");
 		GameRegistry.registerTileEntity(TileEntityCap.class, "tileentity_hfr_cap");
 		GameRegistry.registerTileEntity(TileEntityFlagBig.class, "tileentity_hfr_flag_big");
+		GameRegistry.registerTileEntity(com.hfr.tileentity.clowder.TileEntityFactionDecoration.class, "tileentity_hfr_faction_decoration");
 		GameRegistry.registerTileEntity(TileEntityProp.class, "tileentity_hfr_prop");
 		GameRegistry.registerTileEntity(TileEntityStatue.class, "tileentity_hfr_statue");
 		GameRegistry.registerTileEntity(TileEntityMachineGrainmill.class, "tileentity_hfr_mill");

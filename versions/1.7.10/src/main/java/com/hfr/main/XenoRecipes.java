@@ -37,6 +37,8 @@ public final class XenoRecipes {
 				'S', Blocks.stone, 'B', Blocks.iron_bars);
 
 		shaped(ModBlocks.clowder_conquerer, " W ", " R ", " R ", 'W', Blocks.wool, 'R', Blocks.fence);
+		shaped(ModBlocks.faction_banner, "SSS", "WWW", "WWW", 'S', Items.stick, 'W', Blocks.wool);
+		shaped(ModBlocks.large_faction_flag, " WW", "IWW", "IB ", 'W', Blocks.wool, 'I', Items.iron_ingot, 'B', Blocks.iron_block);
 
 		shaped(ModBlocks.machine_net, "WWW", "RAR", "BBB", 'W', Blocks.ladder, 'R', Blocks.iron_bars, 'B', Blocks.fence, 'A', Blocks.trapped_chest);
 

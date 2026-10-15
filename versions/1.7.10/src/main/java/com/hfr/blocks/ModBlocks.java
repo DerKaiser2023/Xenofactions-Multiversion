@@ -42,6 +42,8 @@ public class ModBlocks {
 	public static Block clowder_cap;
 
 	public static Block clowder_flag_big;
+	public static Block faction_banner;
+	public static Block large_faction_flag;
 	public static final int guiID_flag_big = 19;
 	public static Block machine_grainmill;
 	public static final int guiID_grainmill = 20;
@@ -125,6 +127,10 @@ public class ModBlocks {
 		clowder_flag = new Flag(Material.iron).setStepSound(soundTypeMetal).setBlockName("clowder_flag").setHardness(5.0F).setResistance(Float.POSITIVE_INFINITY).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":clowder_flag");
 		clowder_cap = new Cap(Material.iron).setStepSound(soundTypeMetal).setBlockName("clowder_cap").setHardness(Float.POSITIVE_INFINITY).setResistance(Float.POSITIVE_INFINITY).setCreativeTab(null).setBlockTextureName(RefStrings.MODID + ":clowder_cap");
 		clowder_flag_big = new FlagBig(Material.iron).setStepSound(soundTypeMetal).setBlockName("clowder_flag_big").setLightLevel(1F).setHardness(Float.POSITIVE_INFINITY).setResistance(Float.POSITIVE_INFINITY).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":clowder_flag_big");
+		faction_banner = new FactionBanner().setStepSound(Block.soundTypeCloth).setBlockName("faction_banner")
+			.setHardness(.5F).setResistance(1F).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":clowder_flag");
+		large_faction_flag = new LargeFactionFlag().setStepSound(soundTypeMetal).setBlockName("large_faction_flag")
+			.setHardness(2F).setResistance(5F).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":clowder_flag_big");
 
 		clowder_conquerer = new Conquerer(Material.cloth).setStepSound(Block.soundTypeCloth).setBlockName("clowder_conquerer").setHardness(0.8F).setResistance(4F).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":clowder_conquerer");
 
@@ -169,6 +175,8 @@ public class ModBlocks {
 
 		GameRegistry.registerBlock(clowder_flag, com.hfr.items.ItemBlockCityCenter.class, clowder_flag.getUnlocalizedName());
 		GameRegistry.registerBlock(clowder_flag_big, ItemBlockUnstackable.class, clowder_flag_big.getUnlocalizedName());
+		GameRegistry.registerBlock(faction_banner, ItemBlockFactionDecoration.class, "faction_banner");
+		GameRegistry.registerBlock(large_faction_flag, ItemBlockFactionDecoration.class, "large_faction_flag");
 		GameRegistry.registerBlock(clowder_cap, ItemBlockUnstackable.class, clowder_cap.getUnlocalizedName());
 		GameRegistry.registerBlock(clowder_conquerer, ItemBlockConqueror.class, clowder_conquerer.getUnlocalizedName());
 		GameRegistry.registerBlock(officer_chest, ItemBlockLore.class, officer_chest.getUnlocalizedName());

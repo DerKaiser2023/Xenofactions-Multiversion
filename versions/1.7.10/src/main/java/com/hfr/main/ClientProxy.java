@@ -51,6 +51,23 @@ import cpw.mods.fml.relauncher.ReflectionHelper;
 
 public class ClientProxy extends ServerProxy
 {
+    @Override public void receiveDecoration(final TileEntityFactionDecoration tile, final NBTTagCompound data) {
+        final Minecraft mc = Minecraft.getMinecraft();
+        mc.func_152344_a(() -> {
+            if(mc.theWorld != tile.getWorldObj() || tile.isInvalid()
+                || mc.theWorld.getTileEntity(tile.xCoord, tile.yCoord, tile.zCoord) != tile) return;
+            tile.readFromNBT(data);
+            if(!tile.getCustomFlagHash().isEmpty())
+                com.hfr.client.flag.FactionFlagTextureManager.handleMetadata(tile.getFactionName(), tile.getCustomFlagHash());
+            updateDecorationTexture(tile);
+        });
+    }
+
+    @Override public void updateDecorationTexture(TileEntityFactionDecoration tile) {
+        if(!tile.getCustomFlagHash().isEmpty()) {
+            com.hfr.client.flag.FactionFlagTextureManager.requestFlagIfMissing(tile.getFactionName());
+        }
+    }
     @Override public void receiveDailyReward(final NBTTagCompound data) {
         final Minecraft mc = Minecraft.getMinecraft();
         final World receiving = mc.theWorld;
@@ -149,6 +166,7 @@ public class ClientProxy extends ServerProxy
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityFlag.class, new RenderFlag());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityCap.class, new RenderCap());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityFlagBig.class, new RenderFlagBig());
+		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityFactionDecoration.class, new RenderFactionDecoration());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityProp.class, new RenderProp());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityStatue.class, new RenderProp());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityMachineGrainmill.class, new RenderMill());

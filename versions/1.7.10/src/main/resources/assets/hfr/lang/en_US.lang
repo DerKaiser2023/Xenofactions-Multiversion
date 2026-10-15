@@ -44,6 +44,10 @@ tile.officer_chest.name=Officer Chest
 tile.clowder_flag.name=City Center
 container.flagPole=City Center
 tile.clowder_flag_big.name=Claim Territory Flag
+tile.faction_banner.name=Faction Banner
+tile.large_faction_flag.name=Large Faction Flag
+factiondecoration.error.membership=Join a faction before placing faction decorations.
+factiondecoration.error.space=The large flag needs a clear, loaded pole column and room for its cloth.
 tile.clowder_cap.name=Claim Cap Point (ALSO DON'T USE THIS ONE AS WELL)
 tile.clowder_conquerer.name=Claim Conquest Flag
 

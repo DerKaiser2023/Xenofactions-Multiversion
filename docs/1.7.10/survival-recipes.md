@@ -9,7 +9,7 @@ The audit followed block/item registration into tile entities, GUIs, faction com
 
 * **Core faction loop:** City Center (`clowder_flag`), Conquest Flag (`clowder_conquerer`), Officer Chest, and Warp Tent. City Centers found named cities and claims; `/c claim <name>` supplies the named placement item. Conquest Flags are established war infrastructure. The chest and tents enforce faction roles or provide claimed-land services.
 * **Developed production/prestige support:** Production Line (`machine_factory`), University, Temple, and Statue. These have operational multiblocks/tile entities, player-facing lore or NEI processing information, and active outputs or prestige effects.
-* **Already survival-obtainable and therefore not duplicated:** Grain Mill, wooden/scaffold/steel/mechanical/electronic components, and faction banner retain their pre-existing recipes. These existing recipes are intentionally not controlled by the new compatibility toggle.
+* **Already survival-obtainable and therefore not duplicated:** Grain Mill, wooden/scaffold/steel/mechanical/electronic components, and the Wearable Claim Banner retain their pre-existing recipes. These existing recipes are intentionally not controlled by the new compatibility toggle.
 
 ## Recipes added
 
@@ -19,6 +19,8 @@ Each diagram is a 3x3 crafting grid; a space is empty.
 | --- | --- | --- | --- |
 | Foundation (4) | `SIS / III / SIS` | S stone bricks, I iron ingots | Large multiblock footprints need an early industrial building material; four blocks per craft controls the iron cost. |
 | Conquest Flag | ` W  /  R  /  R ` | W wool, R fence | Replaceable war infrastructure. |
+| Faction Banner | `SSS / WWW / WWW` | S stick, W white wool | Wall-mounted faction decoration. |
+| Large Faction Flag | ` WW / IWW / IB ` | W white wool, I iron ingot, B iron block | Tall decorative pole with double-size cloth. |
 | Officer Chest | `I I / ICI / IRI` | I iron ingot, C chest, R redstone | A basic role-gated utility priced near other protected storage. |
 | Global Market Terminal | `IRI / ECE / IRI` | I iron ingot, R redstone, E emerald, C chest | One active terminal per faction, placed by Officers or leaders inside the designated capital. All faction members can use it. |
 | Warp Tent | `WWW / PEP / SRS` | W wool, P diamond block, E beacon, S stick, R redstone | Late-game capital travel infrastructure. |
@@ -46,6 +48,37 @@ All recipe leaves are obtainable vanilla materials or existing craftable Xenofac
 Outputs use item metadata 0. Sandbag facing and wall/HESCO/Palisade/Berlin Wall multiblock core/dummy metadata are assigned during placement, not separate craftable variants. Rubber-based recipes are removed; sand and wool are the supported sandbag ingredients.
 
 ## Supported recipe boundaries
+
+Faction Banner (`hfr:faction_banner`) and Large Faction Flag (`hfr:large_faction_flag`)
+are also available in the Xenofactions Creative tab. Their recipes follow
+`enableSurvivalRecipes`. Both require faction membership to place, including in
+creative mode, and bind to the placing player's faction UUID. Normal build/break
+protection applies. Right-click a solid wall's side for the banner. Place the large
+flag on a solid upper face with an eleven-block clear pole column and loaded,
+unobstructed space for the cloth at its top. It faces according to player yaw;
+harvesting any pole segment with a suitable tool removes the whole structure and
+yields one item in survival. Cloth and banners have no collision; the large pole and footing do.
+The banner cloth is 0.625 by 0.9375 blocks; the large cloth is 2.25 by 1.5 blocks,
+twice the ordinary flag's width and height, on a 10.25-block pole. Other blocks
+can subsequently be built into the non-colliding cloth's space.
+
+Placed decorations retain their faction across chunk unloads, restarts and faction
+renames; interaction cannot rebind them. Breaking and placing an item binds it anew.
+They show the bound faction's built-in pattern/color or custom flag image, refreshing
+within one second after design changes. Deleted/missing factions display plain gray
+cloth and retain the original UUID, so a new faction with the same name cannot take
+them over. Decorations share the existing hash-based client image cache, request
+missing PNGs through the existing flag protocol, and release textures through its
+replacement/disconnect lifecycle. They never claim territory, sample terrain,
+load neighboring chunks for clearance, contribute prestige or open the flag editor.
+
+The separate **Claim Territory Flag** (`hfr:tile.clowder_flag_big`) remains unchanged
+in identity and territory behavior. It is a legacy territory provider with a
+hatchet-defined claim set, nearby-faction capture, conquest transfer and a reward
+inventory. It is not the decorative Large Faction Flag and has no new recipe.
+Its existing model asset is reused without edits; the claim renderer shares only
+the cloth texture/tint/overlay drawing passes with decorations. Actual legacy
+capture, rewards and persistence behavior still require runtime verification.
 
 The Production Line creates only level-one cogs. University output remains original research; higher science/cog materials and all production paths for them are removed. The steel ingot and its smelting recipe are removed. Historically named steel components use iron ingots and scaffold components, keeping retained infrastructure obtainable without a metallurgy chain.
 

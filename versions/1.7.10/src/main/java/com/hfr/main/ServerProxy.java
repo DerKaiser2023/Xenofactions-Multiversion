@@ -14,6 +14,8 @@ public class ServerProxy
 	public void registerRenderInfo() { }
 	
 	public void registerTileEntitySpecialRenderer() { }
+	public void receiveDecoration(com.hfr.tileentity.clowder.TileEntityFactionDecoration tile, NBTTagCompound data) { }
+	public void updateDecorationTexture(com.hfr.tileentity.clowder.TileEntityFactionDecoration tile) { }
 	
 	public static final int SFX_BORDER = 1;
 	public void spawnSFX(World world, double posX, double posY, double posZ, int type, Object payload) { }

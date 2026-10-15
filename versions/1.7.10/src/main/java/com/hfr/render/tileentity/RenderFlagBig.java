@@ -7,11 +7,11 @@ import com.hfr.clowder.ClowderFlag;
 import com.hfr.main.ResourceManager;
 import com.hfr.tileentity.clowder.TileEntityFlagBig;
 
-import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import net.minecraft.tileentity.TileEntity;
 
 public class RenderFlagBig extends TileEntitySpecialRenderer {
+	private static final Runnable CLOTH = () -> ResourceManager.flag_big.renderOnly("Flag");
 
 	@Override
 	public void renderTileEntityAt(TileEntity te, double x, double y, double z, float interp) {
@@ -46,41 +46,18 @@ public class RenderFlagBig extends TileEntitySpecialRenderer {
         GL11.glDisable(GL11.GL_CULL_FACE);
         
         ClowderFlag flag = flagpole.flag;
-        int color = flagpole.color;
         
         if(flag == ClowderFlag.NONE || flag == null) {
         	flag = ClowderFlag.TRICOLOR;
         }
 
-	    int r = ((color & 0xFF0000) >> 16) / 2;
-	    int g = ((color & 0xFF00) >> 8) / 2;
-	    int b = (color & 0xFF) / 2;
-
 	    if(!flagpole.isClaimed)
 	    	GL11.glTranslatef(0, -8F, 0);
 
-        GL11.glEnable(GL11.GL_BLEND);
-        OpenGlHelper.glBlendFunc(770, 771, 1, 0);
-        GL11.glDisable(GL11.GL_ALPHA_TEST);
-        
         boolean hasCustomFlag = flagpole.customFlagHash != null && flagpole.customFlagHash.length() > 0;
         if(hasCustomFlag)
             FactionFlagTextureManager.handleMetadata(flagpole.ownerName, flagpole.customFlagHash);
-        bindTexture(hasCustomFlag ? FactionFlagTextureManager.getFlagTexture(flagpole.ownerName) : flag.getFlag());
-        if(hasCustomFlag)
-            GL11.glColor3b((byte)127, (byte)127, (byte)127);
-        else
-            GL11.glColor3b((byte)r, (byte)g, (byte)b);
-        ResourceManager.flag_big.renderOnly("Flag");
-
-        if(!hasCustomFlag) {
-            bindTexture(flag.getFlagOverlay());
-            GL11.glColor3b((byte)127, (byte)127, (byte)127);
-            ResourceManager.flag_big.renderOnly("Flag");
-        }
-	    
-        GL11.glEnable(GL11.GL_ALPHA_TEST);
-        GL11.glDisable(GL11.GL_BLEND);
+        FlagDesignRenderer.render(flag, flagpole.color, flagpole.ownerName, flagpole.customFlagHash, CLOTH);
 
         GL11.glEnable(GL11.GL_CULL_FACE);
         GL11.glPopMatrix();
