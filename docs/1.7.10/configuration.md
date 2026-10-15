@@ -30,6 +30,46 @@ Claims attempt immediate delivery; **Collect saved items** retries later. Partia
 
 Source/build verification cannot establish actual client rendering or persistence under forced process termination. In-game wheel alignment, duplicate requests, full/partial inventory collection, disconnect/reconnect, death, dedicated-server restart, integrated-server recovery, DST boundaries and storage failures require runtime validation. Atomic replacement support is required; unsupported filesystems reject the transaction. Normal Minecraft saves and unrelated gameplay retain their own durability behavior.
 
+## Chat reward phrases
+
+Forge 1.7.10 loads the server-only UTF-8 file `config/xenofactions-chat-rewards.json` at server start, after item registration. The first start creates `{"version":1,"phrases":[]}`; no phrases or rewards are enabled by default. Direct file edits require a restart. Level-3 `/xc chatreward` commands validate and atomically save changes immediately; do not edit the file concurrently with commands. Definitions are never sent to clients. Ordinary players cannot list or inspect them.
+
+```json
+{
+  "version": 1,
+  "phrases": [
+    {
+      "id": "welcome_gift",
+      "phrase": "Welcome to Xenofactions",
+      "enabled": true,
+      "repeatable": false,
+      "cooldownSeconds": 60,
+      "startsAt": "",
+      "expiresAt": "",
+      "totalLimit": -1,
+      "rewards": [
+        {"item": "minecraft:bread", "metadata": 0, "count": 8, "nbt": "{}"},
+        {"item": "minecraft:diamond", "metadata": 0, "count": 1, "nbt": "{display:{Name:\"Welcome Gift\"}}"}
+      ]
+    }
+  ]
+}
+```
+
+The stable `id` contains 1–48 lowercase letters, digits, `_` or `-`. Up to 256 phrases are supported. The complete raw chat message matches after trimming its edges and lowercasing with `Locale.ROOT`; internal spaces remain significant. Phrases contain 1–100 legal chat characters and cannot start with `/`. Substrings and slash commands never match. Duplicate text is rejected under those rules, including disabled definitions. `enabled` defaults to false; disabled drafts may have no rewards. Every supplied reward entry is validated, and enabling requires 1–16 valid entries. Unknown items, malformed compound SNBT, invalid numbers/times and duplicate IDs/text reject the entire file at startup, leaving it untouched and disabling phrase matching until repaired and restarted. Command validation failures retain the previous live definitions.
+
+Each reward uses a registered item name, integer metadata 0–32767, integer count 1–4096, and item-tag SNBT of at most 8192 characters. Metadata defaults to 0, count to 1 and NBT to `{}`. Unknown JSON fields, null/incorrect field types, fractional numbers and overflowing integers are rejected. The total expanded reward may contain at most 8192 legal item stacks. `/xc chatreward addheld <id>` copies an administrator's server-owned held stack without consuming it. It stores optional `nbtBase64`: Base64 of an uncompressed binary NBT compound, including its type/name header, with `nbt` left as `{}`. This preserves exact NBT types, byte arrays and explicit empty compounds that legacy `NBTTagCompound.toString()` cannot round-trip. Leave `nbtBase64` empty or omit it when editing SNBT; do not supply both nonempty binary NBT and nonempty SNBT. Both formats must serialize to at most 16384 bytes; binary input also uses a 65536-byte NBT parser allocation quota. Ordinary `{}` SNBT represents an untagged stack. Item registry names are persisted alongside exact stack data so missing mod items remain pending until restored.
+
+By default each UUID can successfully redeem each ID once, independently of faction identity settings. `repeatable: true` permits further redemptions after `cooldownSeconds` (default 60, range 1–315360000). All repeatable phrases enforce at least one second between accepted redemptions. `startsAt` and `expiresAt` default to empty (unbounded); nonempty values must be positive ISO-8601 instants with an offset, such as `2026-12-01T00:00:00Z`, with expiry strictly after start. Start is inclusive and expiry exclusive. `totalLimit` defaults to -1 (unlimited); 0 prevents new redemptions. Limits apply to accepted rewards, including items awaiting collection. Muted players cannot redeem. Earlier pending items for that ID must be collected before another redemption; resending its phrase retries collection without granting a second reward.
+
+The existing UniMixins early loader installs a required, remapped `NetHandlerPlayServer.processChatMessage(C01PacketChatMessage)` HEAD injection. Matched packets are cancelled before vanilla whitespace normalization, command dispatch, `ServerChatEvent`, faction/alliance/public dispatch, chat filtering or `PublicChat` bridge callbacks. Disabled, exhausted, premature, expired and already redeemed phrases are also private. Unmatched packets take the unchanged chat path. Duplicate queued intents for a UUID/ID coalesce; processing rechecks current configuration, connection, mute status, history and limits on the owning server thread through the existing always-registered server task queue. No custom redemption packet accepts client item stacks or counters. Third-party transformations that broadcast before this hook, or manually bypass the vanilla packet handler, are outside this interception boundary.
+
+The overworld owns `data/hfr_chat_rewards.dat` (schema version 1): per-ID total counts, per-UUID counts/last redemption timestamps, exact pending rewards and delivery intents. Acceptance atomically saves the count, cooldown and escrow together before any inventory grant; simultaneous players serialize on the server thread. Inventory delivery first saves an intent while retaining original escrow, then atomically replaces the native `playerdata/<UUID>.dat` with both the inventory and `ForgeData.PlayerPersisted.xfChatRewardDelivery` receipt. It finally reduces escrow according to that receipt. Interrupted finalization is recovered before any later delivery can overwrite the marker; an absent receipt leaves original escrow available. The integrated-server load hook restores a newer committed UUID snapshot if `level.dat` supplied an older delivery revision. The marker follows Forge's persisted-player clone path; eligibility itself stays in the world ledger. Files are flushed before atomic replacement; unsupported atomic moves or corrupt state refuse mutation and retain the previous committed data. Restore world ledger and player snapshots together when restoring backups. Normal Minecraft saves and unrelated gameplay retain their existing durability behavior.
+
+Delivery fills available inventory space and retains every leftover, including in creative mode, without dropping items. It is deferred during TDM/kit editing, while another container is open, or with a cursor-held stack. `/xrewards collect` retries all saved rewards, including from disabled, expired or removed phrases; login reminds players about pending items. Editing spelling/rewards, disabling, removing or recreating an ID never erases history or changes already accepted items. Only `/xc chatreward reset <id> confirm` clears all UUID counts/cooldowns and that ID's total count; it preserves pending items and in-flight receipts. Successful acceptance is logged through `XFLog.info` as `[ChatRewards] Redeemed phrase=<internal ID> player=<UUID> count=... total=...`. Player/admin responses use `chatreward.hfr.*` translations.
+
+Compilation and source tracing cannot prove interruption recovery or mod interoperability in a running server. Dedicated/integrated restarts, forced interruption at delivery stages, full/partial inventories, missing item restoration, simultaneous final-limit claims, repeated packets, cooldown/time boundaries, death, mute interaction and early Mixin conflicts still require runtime feedback.
+
 ## Player identity
 
 `XENOFACTIONS_09C_PLAYER_IDENTITY.playerIdentityMode` accepts case-insensitive `AUTO`, `UUID`, or `NAME` and defaults to `AUTO`. `AUTO` selects `NAME` in Forge's deobfuscated development environment or with `online-mode=false`, and `UUID` on a packaged online-mode server. Invalid values fail closed to `UUID`. Startup logs both modes and warns prominently for `NAME`; debug logging does not affect selection.

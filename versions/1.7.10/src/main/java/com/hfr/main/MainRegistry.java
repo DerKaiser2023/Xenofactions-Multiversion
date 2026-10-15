@@ -353,6 +353,9 @@ public class MainRegistry
         com.hfr.daily.DailyRewardService dailyRewards = new com.hfr.daily.DailyRewardService();
         MinecraftForge.EVENT_BUS.register(dailyRewards);
         FMLCommonHandler.instance().bus().register(dailyRewards);
+        com.hfr.rewards.ChatRewardService chatRewards = new com.hfr.rewards.ChatRewardService();
+        MinecraftForge.EVENT_BUS.register(chatRewards);
+        FMLCommonHandler.instance().bus().register(chatRewards);
 		MinecraftForge.EVENT_BUS.register(adminEditorLifecycle);
 		FMLCommonHandler.instance().bus().register(adminEditorLifecycle);
 		if(XFConfig.enableTDM) {
@@ -661,6 +664,9 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStarting(FMLServerStartingEvent event) {
+        com.hfr.rewards.ChatRewardService.clear();
+        com.hfr.rewards.ChatRewardConfig.load();
+        event.registerServerCommand(new com.hfr.command.CommandXRewards());
         com.hfr.daily.DailyRewardService.clear();
         event.registerServerCommand(new com.hfr.command.CommandXDaily());
 		XFDynmapIntegration.resetServerSession();
@@ -707,6 +713,7 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStopping(FMLServerStoppingEvent event) {
+        com.hfr.rewards.ChatRewardService.clear();
         com.hfr.daily.DailyRewardService.clear();
         com.hfr.clowder.ClaimTerrainService.clear();
 		com.hfr.world.earth.geo.XFEarthGeoImportJob.shutdown();
@@ -772,6 +779,7 @@ public class MainRegistry
 		PacketDispatcher.registerPackets();
 
 		config = new Configuration(event.getSuggestedConfigurationFile());
+        com.hfr.rewards.ChatRewardConfig.configure(event.getModConfigurationDirectory());
 
 		config.load();
 		XFConfig.load(config);

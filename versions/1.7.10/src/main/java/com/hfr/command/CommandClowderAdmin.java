@@ -61,6 +61,10 @@ public class CommandClowderAdmin extends CommandBase {
 
 	@Override
 	public void processCommand(ICommandSender sender, String[] args) {
+        if (args.length > 0 && "chatreward".equalsIgnoreCase(args[0])) {
+            ChatRewardCommandHandler.execute(sender, Arrays.copyOfRange(args, 1, args.length));
+            return;
+        }
         if (args.length > 0 && "enderchest".equalsIgnoreCase(args[0])) {
             EnderChestCommandHandler.execute(sender, Arrays.copyOfRange(args, 1, args.length));
             return;
@@ -265,6 +269,7 @@ public class CommandClowderAdmin extends CommandBase {
 		if(p == 2) {
 			sender.addChatMessage(new ChatComponentText(TITLE + "Claims, prestige & protection"));
             sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-enderchest [show [setting] | set <setting> <value...|clear>]" + TITLE + " - Global ender chest deposit settings"));
+            com.hfr.rewards.ChatRewardService.say(sender, "admin.help");
             sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-leaderboard" + TITLE + " - Place and configure faction ranking displays"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-setclaim <wild/safe/war> <s/c> <radius>" + TITLE + " - Claims chunks in a radius"));
 			sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-editor select <safezone|warzone|wilderness|border_exempt>" + TITLE + " - Start a typed area selection"));
@@ -648,10 +653,12 @@ public class CommandClowderAdmin extends CommandBase {
 
 	@Override
     public List addTabCompletionOptions(ICommandSender sender, String[] args) {
+		if (!sender.canCommandSenderUseCommand(3, "xclowder")) return null;
 		if(args.length == 1)
 			return getListOfStringsMatchingLastWord(args, getAdminCommandNames());
 
 		String cmd = args[0].toLowerCase();
+		if (cmd.equals("chatreward")) return ChatRewardCommandHandler.complete(sender, Arrays.copyOfRange(args, 1, args.length));
 		if(cmd.equals("earth") && args.length == 2)
 			return getListOfStringsMatchingLastWord(args, new String[] { "status", "packs", "verify", "check", "source", "pregen", "geo", "roads", "features" });
         if(cmd.equals("leaderboard") && args.length == 2)
@@ -684,7 +691,7 @@ public class CommandClowderAdmin extends CommandBase {
     }
 
 	private String[] getAdminCommandNames() {
-		return new String[] { "help", "enderchest", "leaderboard", "factiontimeoutcreationreset", "earth", "worldborder", "editor", "clearcreationcooldown", "resetcreationcooldown", "forcejoin", "fj", "forcekick", "fk", "forcedisband", "fd", "forcerename", "fr",
+		return new String[] { "help", "chatreward", "enderchest", "leaderboard", "factiontimeoutcreationreset", "earth", "worldborder", "editor", "clearcreationcooldown", "resetcreationcooldown", "forcejoin", "fj", "forcekick", "fk", "forcedisband", "fd", "forcerename", "fr",
 				"hijack", "hi", "deletedata", "deldat", "setclaim", "sc", "addprestige", "ap", "disband", "rename",
 				"warenable", "wardisable", "newplayerprotection", "resetnewplayerprotection", "endnewplayerprotection",
 				"skipwarcooldowns", "ignorewarcooldowncheck", "ignorewaronlinecheck", "ignorewarstatecheck",

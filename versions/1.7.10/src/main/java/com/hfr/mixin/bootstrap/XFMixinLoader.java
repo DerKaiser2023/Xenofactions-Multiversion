@@ -19,10 +19,10 @@ public final class XFMixinLoader implements IFMLLoadingPlugin, IEarlyMixinLoader
         // The pinned coremod JAR is already on LaunchClassLoader's path at this phase.
         // Do not load its classes here, or query FML's not-yet-discovered normal mods.
         if (loadedCoreMods.contains("com.cardinalstar.cubicchunks.asm.coremod.CubicChunksCoreMod")) {
-            return Arrays.asList("earth.MixinCubicPlayerManager", "earth.MixinNetworkChannel",
+            return Arrays.asList("MixinChatRewards", "earth.MixinCubicPlayerManager", "earth.MixinNetworkChannel",
                     "earth.MixinWorldSyncStateMachine");
         }
-        return Collections.emptyList();
+        return Collections.singletonList("MixinChatRewards");
     }
 
     @Override public String[] getASMTransformerClass() { return new String[0]; }

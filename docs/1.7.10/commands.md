@@ -291,4 +291,28 @@ Alliance targets resolve a faction name first, otherwise a player and their curr
 
 ## Daily rewards (Forge 1.7.10)
 
+See also [chat reward phrases](#chat-reward-phrases-forge-1710) for administrator-configured rewards triggered by private phrase entry.
+
 `/xdaily` (alias `/daily`, permission level 0) opens the custom daily wheel. **Spin daily wheel** accepts one server-selected item reward per UUID per server calendar date. **Collect saved items** retries pending item delivery after making inventory space. Closing the GUI leaves unclaimed eligibility available and preserves accepted results. Consecutive claim dates advance the streak; missing a date restarts the next claim at one. Streak milestone bonuses are granted once per day-number milestone per UUID. See [daily reward configuration and persistence](configuration.md#daily-reward-wheel).
+
+## Chat reward phrases (Forge 1.7.10)
+
+All management commands require the existing level-3 `/xc` authorization; `/xclowder` remains an alias. Console administration is supported except `addheld`. Players redeem by entering an exact configured phrase in chat, ignoring case and edge whitespace. Matched messages are private, including rejected redemptions. Ordinary players have no phrase list, reward inspection or phrase-management command. `/xrewards collect` (level 0) collects that player's saved items across all phrases.
+
+| Admin command | Effect |
+| --- | --- |
+| `/xc chatreward create <id> <phrase...>` | Create a disabled draft. Spaces in the phrase need no quotes. |
+| `/xc chatreward set <id> phrase <text...>` | Change spelling while retaining the ID and all history. |
+| `/xc chatreward addheld <id>` | Append the server-owned held stack, including its count, metadata and NBT. Does not consume it. |
+| `/xc chatreward set <id> rewards <JSON array>` | Replace all reward entries after validation. Same array format as the configuration file. |
+| `/xc chatreward set <id> repeatable <true|false>` | Default false: one successful redemption per UUID. |
+| `/xc chatreward set <id> cooldownSeconds <seconds>` | Repeat cooldown; default 60, minimum 1. |
+| `/xc chatreward set <id> startsAt <ISO instant|clear>` | Optional inclusive start, e.g. `2026-12-01T00:00:00Z`. |
+| `/xc chatreward set <id> expiresAt <ISO instant|clear>` | Optional exclusive expiry. |
+| `/xc chatreward set <id> totalLimit <-1|count>` | Total accepted rewards across UUIDs; -1 unlimited, 0 prevents new claims. |
+| `/xc chatreward enable <id>` / `disable <id>` | Enable only with valid items; both preserve history and pending items. |
+| `/xc chatreward list` / `show <id>` | List definitions or inspect the full configuration and total accepted count. |
+| `/xc chatreward remove <id>` | Remove matching/configuration; retain history and pending items. |
+| `/xc chatreward reset <id> confirm` | Explicitly clear that ID's total and all UUID counts/cooldowns, including removed IDs. Preserve pending items and receipts. |
+
+Example: `/xc chatreward create welcome Welcome to Xenofactions`, hold the first reward and run `/xc chatreward addheld welcome`, repeat for additional items, then `/xc chatreward enable welcome`. Console example: `/xc chatreward set welcome rewards [{"item":"minecraft:bread","metadata":0,"count":8,"nbt":"{}"}]`. JSON quotes are literal; do not wrap the entire array or phrase in additional quotes. Successful changes are saved immediately to `config/xenofactions-chat-rewards.json`; direct file edits require restart. Reusing a removed ID retains its old history until an explicit reset. See [configuration, limits and delivery persistence](configuration.md#chat-reward-phrases).
