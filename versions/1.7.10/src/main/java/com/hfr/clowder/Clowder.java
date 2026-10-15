@@ -2043,7 +2043,7 @@ public class Clowder {
 		if(!nbt.hasKey(i + "_allyWarpDim") && MainRegistry.logger != null) MainRegistry.logger.info("Migrating legacy ally warp for " + c.name + " to dimension 0.");
 		c.allyWarpDim = nbt.hasKey(i + "_allyWarpDim") ? nbt.getInteger(i + "_allyWarpDim") : 0;
 		// Legacy saves have no presence flag. Preserve every distinguishable rally point,
-		// including those on a coordinate axis; all-zero legacy values also meant unset.
+		// including those on a coordinate axis; an all-zero overworld record also meant unset.
 		c.allyWarpSet = nbt.hasKey(i + "_allyWarpSet") ? nbt.getBoolean(i + "_allyWarpSet")
 				: c.allyWarpX != 0 || c.allyWarpY != 0 || c.allyWarpZ != 0 || c.allyWarpDim != 0;
 		c.prestige = nbt.getFloat(i + "_prestige");
