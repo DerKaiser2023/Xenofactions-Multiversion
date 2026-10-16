@@ -352,6 +352,8 @@ GTNH publishes set labels even when a world's marker geometry is empty. Visible 
 
 JourneyMap is optional. JourneyMap 6.0.x uses its client API 2.0.0 plugin to show faction claims and zones, plus the selected map boundary when enforcement is enabled and both sites during a running Search and Destroy pairing. The enabled selected-map boundary is visible to all players in its dimension even before a match starts and without `/tdm overlay on`, including administrators. The optional overlay preference adds only the active gamemode's applicable spawn markers and nearby zone details. The API is compile-only and is not bundled into Xenofactions or required on the server. The 5.2.x reflection hook remains for older clients. When JourneyMap is unavailable or cannot accept polygons, the same public shapes appear on the standalone HUD map. Right Alt, configurable in Controls, toggles in-world border effects and the standalone HUD map and defaults on; it never hides JourneyMap shapes or changes server-side enforcement.
 
+Nearby territory sparks refresh in four stripes over 12 server ticks, with at most 32 edges sent to each player every three ticks. Territory and local TDM border sparks share a client queue: at most 96 new particles per tick on All, 48 with reduced segment density on Decreased, and none on Minimal. Sparks require loaded nearby columns within 96 horizontal blocks; visual work expires after 12 client ticks and clears on world changes or disconnect. These limits affect presentation only. Client and server must use matching border packet implementations.
+
 Category: `XENOFACTIONS_09B_JOURNEYMAP_CLIENT`
 
 The automatic Earth day/night background preload is separate from these claim

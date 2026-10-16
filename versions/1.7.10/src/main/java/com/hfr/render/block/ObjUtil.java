@@ -2,7 +2,7 @@ package com.hfr.render.block;
 
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.util.IIcon;
-import net.minecraft.util.Vec3;
+import net.minecraft.util.MathHelper;
 import net.minecraftforge.client.model.obj.Face;
 import net.minecraftforge.client.model.obj.GroupObject;
 import net.minecraftforge.client.model.obj.TextureCoordinate;
@@ -13,6 +13,9 @@ public class ObjUtil {
 	
     public static void renderWithIcon(WavefrontObject model, IIcon icon, Tessellator tes, float rot, boolean shadow)
     {
+        // Match Vec3.rotateAroundY's lookup-table arithmetic, once per submission.
+        double cos = MathHelper.cos(rot);
+        double sin = MathHelper.sin(rot);
         for(GroupObject go : model.groupObjects)
         {
             for(Face f : go.faces) {
@@ -33,19 +36,18 @@ public class ObjUtil {
                 	
                     Vertex v = f.vertices[i];
                     
-                    Vec3 vec = Vec3.createVectorHelper(v.x, v.y, v.z);
-                    vec.rotateAroundY(rot);
-
-                    double x = vec.xCoord;
-                    double y = vec.yCoord;
-                    double z = vec.zCoord;
+                    double x = v.x * cos + v.z * sin;
+                    double y = v.y;
+                    double z = v.z * cos - v.x * sin;
                     
                     TextureCoordinate t = f.textureCoordinates[i];
-                    tes.addVertexWithUV(x, y, z, icon.getInterpolatedU(t.u * 16D), icon.getInterpolatedV(t.v * 16D));
+                    double u = icon.getInterpolatedU(t.u * 16D);
+                    double tv = icon.getInterpolatedV(t.v * 16D);
+                    tes.addVertexWithUV(x, y, z, u, tv);
                     
                     //The shoddy way of rendering a tringulated model with a quad tessellator
                     if(i % 3 == 2)
-                        tes.addVertexWithUV(x, y, z, icon.getInterpolatedU(t.u * 16D), icon.getInterpolatedV(t.v * 16D));
+                        tes.addVertexWithUV(x, y, z, u, tv);
                 }
             }
         }

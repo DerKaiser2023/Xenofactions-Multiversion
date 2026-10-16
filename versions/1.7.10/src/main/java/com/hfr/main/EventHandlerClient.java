@@ -426,6 +426,7 @@ public class EventHandlerClient {
 	
 	@SubscribeEvent
 	public void onClientDisconnect(ClientDisconnectionFromServerEvent event) {
+		com.hfr.client.journeymap.ClientBorderParticles.requestClear();
 		GUIXenofactionsMenu.requestSessionReset();
 		com.hfr.client.journeymap.ClientClaimOverlayCache.requestClear();
 		com.hfr.client.flag.FactionFlagTextureManager.requestClear();
@@ -441,14 +442,26 @@ public class EventHandlerClient {
 
 	@SubscribeEvent
 	public void onClientConnect(cpw.mods.fml.common.network.FMLNetworkEvent.ClientConnectedToServerEvent event) {
+		com.hfr.client.journeymap.ClientBorderParticles.requestClear();
 		GUIXenofactionsMenu.requestSessionReset();
 	}
 
 	@SubscribeEvent
 	public void onClientWorldUnload(WorldEvent.Unload event) {
+		if(event.world != null && event.world.isRemote) com.hfr.client.journeymap.ClientBorderParticles.worldUnloaded(event.world);
 		if(event.world != null && event.world.isRemote) com.hfr.client.journeymap.ClientClaimOverlayCache.requestClear();
 		if(event.world != null && event.world.isRemote) com.hfr.client.earth.EarthMapTileCache.requestClear();
 		if(event.world!=null&&event.world.isRemote) { resetTDMClientState(); GUIAdminEditor.clearSelectionPreview(); com.hfr.client.journeymap.ClientTDMMapOverlay.clear(); }
+	}
+
+	@SubscribeEvent
+	public void onBorderChunkLoad(net.minecraftforge.event.world.ChunkEvent.Load event) {
+		if(event.world.isRemote) com.hfr.client.journeymap.ClientBorderParticles.loaded(event.getChunk());
+	}
+
+	@SubscribeEvent
+	public void onBorderChunkUnload(net.minecraftforge.event.world.ChunkEvent.Unload event) {
+		if(event.world.isRemote) com.hfr.client.journeymap.ClientBorderParticles.unloaded(event.getChunk());
 	}
 
 	private void renderTag(EntityPlayer player, double x, double y, double z, RendererLivingEntity renderer, String name) {
@@ -563,9 +576,11 @@ public class EventHandlerClient {
 	public void xenofactionsClientTick(ClientTickEvent event) {
 		if(event.phase == TickEvent.Phase.START) GUIXenofactionsMenu.updateSession();
 		if(event.phase == TickEvent.Phase.START) com.hfr.client.journeymap.ClientClaimOverlayCache.tick();
+		if(event.phase == TickEvent.Phase.START) com.hfr.client.journeymap.ClientBorderParticles.beginTick();
 		if(event.phase == TickEvent.Phase.START) com.hfr.client.flag.FactionFlagTextureManager.tick();
 		if(event.phase==TickEvent.Phase.END)enforceMandatoryKitGui();
 		if(event.phase==TickEvent.Phase.END)com.hfr.client.journeymap.ClientTDMMapOverlay.emitWorldBorder();
+		if(event.phase == TickEvent.Phase.END) com.hfr.client.journeymap.ClientBorderParticles.endTick();
 		Minecraft xfMc = Minecraft.getMinecraft();
 		boolean xfHasWorld = xfMc.theWorld != null;
 		if(xfHadWorld&&!xfHasWorld) { resetTDMClientState(); GUIAdminEditor.clearSelectionPreview(); com.hfr.client.journeymap.ClientTDMMapOverlay.clear(); }

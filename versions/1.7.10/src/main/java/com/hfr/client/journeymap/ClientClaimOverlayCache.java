@@ -40,7 +40,7 @@ public final class ClientClaimOverlayCache {
 		} else if(retryTicks < 200) retryTicks++;
 	}
 	public static void accept(long token, int dimension, int generation, int part, int parts, List<Claim> claims) {
-		if(resetRequested || token != subscription || world == null || world != Minecraft.getMinecraft().theWorld || dimension != world.provider.dimensionId) return;
+		if(!isCurrentSubscription(token, dimension)) return;
 		if(hasGeneration && generation != newestGeneration && generation - newestGeneration <= 0) return;
 		if(!hasGeneration || generation != newestGeneration) {
 			if(part != 0) return;
@@ -68,6 +68,10 @@ public final class ClientClaimOverlayCache {
 			copy.put(Integer.valueOf(dimension), new Snapshot(assembly.claims, lookup, groups)); snapshots = Collections.unmodifiableMap(copy);
 			assembly = null;
 		}
+	}
+	public static boolean isCurrentSubscription(long token, int dimension) {
+		return !resetRequested && token != 0 && token == subscription && world != null
+				&& world == Minecraft.getMinecraft().theWorld && dimension == world.provider.dimensionId;
 	}
 	private static void fail(String text) {
 		assembly = null; notice = text;

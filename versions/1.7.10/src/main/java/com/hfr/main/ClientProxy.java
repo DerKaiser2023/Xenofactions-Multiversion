@@ -5,7 +5,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.EntityBreakingFX;
 import net.minecraft.client.particle.EntityCloudFX;
 import net.minecraft.client.particle.EntityFX;
-import net.minecraft.client.particle.EntityFireworkSparkFX;
 import net.minecraft.client.particle.EntityFlameFX;
 import net.minecraft.client.particle.EntityLavaFX;
 import net.minecraft.client.particle.EntityReddustFX;
@@ -136,6 +135,7 @@ public class ClientProxy extends ServerProxy
 		net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new com.hfr.client.earth.XFEarthCreateWorldHandler());
 		new EventHandlerClient().register();
 		com.hfr.client.earth.EarthMapTileCache.registerReloadListener();
+		ResourceManager.registerReloadListener();
 		com.hfr.client.journeymap.XFJourneyMapIntegration.register();
 		com.hfr.client.journeymap.XFEarthJourneyMapImport.register();
 		
@@ -195,59 +195,16 @@ public class ClientProxy extends ServerProxy
 	@Override
 	public void spawnSFX(World world, double posX, double posY, double posZ, int type, Object payload) {
 		
-		int part = Minecraft.getMinecraft().gameSettings.particleSetting;
-
 		switch(type) {
 			
 		/// CLOWDER BORDER ///
 		case SFX_BORDER:
-			if(!com.hfr.client.journeymap.ClientBorderVisuals.enabled()) return;
-			if(!(payload instanceof int[]))
-				return;
-			
-			int[] pl = (int[]) payload;
-			
-			if(pl.length != 5)
-				return;
-
-			int x1 = pl[0];
-			int z1 = pl[1];
-			int x2 = pl[2];
-			int z2 = pl[3];
-			int color = pl[4];
-
-		    /*float r = Math.max(((color & 0xFF0000) >> 16) / 256F, 0.01F);
-		    float g = Math.max(((color & 0xFF00) >> 8) / 256F, 0.01F);
-		    float b = Math.max((color & 0xFF) / 256F, 0.01F);*/
-			
-			/*int a = 5;
-			
-			if(part == 1)
-				a = 2;
-			
-			if(part == 2)
-				a = 1;*/
-			
-			int a = Math.max(1, Math.min(16,
-					(int)Math.ceil(Math.max(Math.abs((long)x2 - x1), Math.abs((long)z2 - z1)) / 6D)));
-			
-			for(int i = 0; i < a; i++) {
-				double along = (i + world.rand.nextDouble()) / a;
-				double xs = x1 + ((long)x2 - x1) * along;
-				double zs = z1 + ((long)z2 - z1) * along;
-				double ys = world.getHeightValue((int)Math.floor(xs), (int)Math.floor(zs - 0.01D)) + 0.25D;
-				
-				/*EntityReddustFX fx = new EntityReddustFX(world, xs, ys, zs, r, g, b);
-				fx.motionY = 0.1;
-				Minecraft.getMinecraft().effectRenderer.addEffect(fx);*/
-				
-				EntityFireworkSparkFX blast = new EntityFireworkSparkFX(world, xs, ys, zs, 0.0, 0.4 * world.rand.nextGaussian() + 0.6, 0.0, Minecraft.getMinecraft().effectRenderer);
-				blast.setColour(color);
-				Minecraft.getMinecraft().effectRenderer.addEffect(blast);
+			if(payload instanceof int[] && ((int[])payload).length == 5) {
+				int[] edge = (int[])payload;
+				com.hfr.client.journeymap.ClientBorderParticles.enqueue(world, edge[0], edge[1], edge[2], edge[3], edge[4]);
 			}
-			
 			break;
-			
+
 			/// CUMMIES ///
 			case 3:
 				

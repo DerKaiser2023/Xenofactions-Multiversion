@@ -915,20 +915,28 @@ public void handleChatServer(ServerChatEvent event) {
 	/** Sends the exposed edges of nearby stored territory cells in exact block coordinates. */
 	private static void particleBorder2(World world, EntityPlayer player) {
 		
-		if(world.rand.nextInt(3) != 0) //let's reduce that a little
-			return;
+		// One two-column stripe every three END ticks; all 8x8 cells within 12 ticks.
+		long schedule = (long)player.ticksExisted + player.getEntityId();
+		if(Math.floorMod(schedule, 3L) != 0) return;
+		long subscription = com.hfr.journeymap.ClaimOverlaySync.visualSubscription((EntityPlayerMP)player);
+		if(subscription == 0) return;
 
 		CoordPair around = ClowderTerritory.getCoordPair(world,
 				(int)Math.floor(player.posX), (int)Math.floor(player.posZ));
 		
-		int range = 4;
-
-		for(int x = -range; x < range; x++) {
-			for(int z = -range; z < range; z++) {
-				int tx = around.x + x, tz = around.z + z;
-				Ownership center = ClowderTerritory.getOwner(player.dimension, tx, tz);
-				Ownership north = ClowderTerritory.getOwner(player.dimension, tx, tz - 1);
-				Ownership west = ClowderTerritory.getOwner(player.dimension, tx - 1, tz);
+		int firstX = around.x - 4 + (int)(Math.floorDiv(schedule, 3L) & 3L) * 2;
+		int firstZ = around.z - 4;
+		// Detached for this pass only: 26 unique ownership reads instead of 48.
+		// Recompute each stripe so every ownership/color mutation is naturally observed.
+		Ownership[][] owners = new Ownership[3][9];
+		for(int x = 0; x < 3; x++) for(int z = 0; z < 9; z++)
+			if(x != 0 || z != 0) owners[x][z] = ClowderTerritory.getOwner(player.dimension, firstX + x - 1, firstZ + z - 1);
+		for(int x = 1; x < 3; x++) {
+			for(int z = 1; z < 9; z++) {
+				int tx = firstX + x - 1, tz = firstZ + z - 1;
+				Ownership center = owners[x][z];
+				Ownership north = owners[x][z - 1];
+				Ownership west = owners[x - 1][z];
 
 				Ownership none = ClowderTerritory.WILDERNESS;
 				boolean n = isTerritoryDifferent(north, center);
@@ -942,9 +950,9 @@ public void handleChatServer(ServerChatEvent event) {
 				TerritoryCoordinateBounds.Bounds bz = TerritoryCoordinateBounds.forCoordinate(tz);
 				if(bx.minInclusive < Integer.MIN_VALUE || bx.maxExclusive > Integer.MAX_VALUE
 						|| bz.minInclusive < Integer.MIN_VALUE || bz.maxExclusive > Integer.MAX_VALUE) continue;
-				if(n) PacketDispatcher.wrapper.sendTo(new ClowderBorderPacket((int)bx.minInclusive, (int)bz.minInclusive,
+				if(n) PacketDispatcher.wrapper.sendTo(new ClowderBorderPacket(subscription, player.dimension, (int)bx.minInclusive, (int)bz.minInclusive,
 						(int)bx.maxExclusive, (int)bz.minInclusive, nc), (EntityPlayerMP)player);
-				if(w) PacketDispatcher.wrapper.sendTo(new ClowderBorderPacket((int)bx.minInclusive, (int)bz.minInclusive,
+				if(w) PacketDispatcher.wrapper.sendTo(new ClowderBorderPacket(subscription, player.dimension, (int)bx.minInclusive, (int)bz.minInclusive,
 						(int)bx.minInclusive, (int)bz.maxExclusive, wc), (EntityPlayerMP)player);
 			}
 		}
@@ -1364,7 +1372,7 @@ public void onEntityJoinWorld(EntityJoinWorldEvent event) {
 				}
 			}
 			
-			particleBorder2(player.worldObj, player);
+			if(event.phase == TickEvent.Phase.END) particleBorder2(player.worldObj, player);
 			
 			if(player.inventory.armorInventory[0] != null && player.inventory.armorInventory[0].getItem() == ModItems.clowder_banner) {
 				ItemStack banner = player.inventory.armorInventory[0];

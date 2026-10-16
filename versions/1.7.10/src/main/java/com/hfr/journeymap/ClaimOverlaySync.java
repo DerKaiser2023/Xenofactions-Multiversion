@@ -42,6 +42,12 @@ public class ClaimOverlaySync {
 		send(player);
 	}
 
+	/** Existing per-client-world subscription, also echoed by transient border effects. Server thread only. */
+	public static long visualSubscription(EntityPlayerMP player) {
+		Subscription subscription = subscriptions.get(player.getUniqueID());
+		return subscription != null && subscription.world == player.worldObj ? subscription.token : 0L;
+	}
+
 	@SubscribeEvent public void login(PlayerLoggedInEvent event) { if(event.player instanceof EntityPlayerMP) send((EntityPlayerMP)event.player); }
 	@SubscribeEvent public void changed(PlayerChangedDimensionEvent event) { if(event.player instanceof EntityPlayerMP) send((EntityPlayerMP)event.player); }
 	@SubscribeEvent public void respawn(PlayerRespawnEvent event) { if(event.player instanceof EntityPlayerMP) send((EntityPlayerMP)event.player); }
