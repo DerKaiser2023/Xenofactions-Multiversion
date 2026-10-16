@@ -48,6 +48,7 @@ public class ItemBlockCityCenter extends ItemBlock {
             error=Flag.foundingError(world,x,y,z,player,stack);
             if(error!=null)return reject(player,error);
             Flag.foundCity(world,x,y,z,player,stack,(TileEntityFlag)tile);
+            com.hfr.main.XFAchievements.cityFounded(player);
             success=true;return true; // ItemBlock consumes the item only for a successful commit.
         } catch(RuntimeException failure) {
             com.hfr.main.MainRegistry.logger.error("City Center founding failed; rolling back placement",failure);

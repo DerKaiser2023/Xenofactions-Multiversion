@@ -24,15 +24,15 @@ public final class DailyActionPacket implements IMessage {
         token = ByteBufUtils.readUTF8String(buf);
         if (token.length() != 36) throw new IllegalArgumentException("Invalid daily session");
         revision = buf.readLong(); action = buf.readUnsignedByte();
-        if (action > 4) throw new IllegalArgumentException("Invalid daily action");
-        if (action >= 3) {
+        if (action > 5) throw new IllegalArgumentException("Invalid daily action");
+        if (action == 3 || action == 4) {
             claim = ByteBufUtils.readUTF8String(buf);
             if (claim.length() != 36) throw new IllegalArgumentException("Invalid daily claim");
         }
     }
     public void toBytes(ByteBuf buf) {
         ByteBufUtils.writeUTF8String(buf, token); buf.writeLong(revision); buf.writeByte(action);
-        if (action >= 3) ByteBufUtils.writeUTF8String(buf, claim);
+        if (action == 3 || action == 4) ByteBufUtils.writeUTF8String(buf, claim);
     }
     public static final class Handler implements IMessageHandler<DailyActionPacket, IMessage> {
         public IMessage onMessage(final DailyActionPacket message, MessageContext context) {

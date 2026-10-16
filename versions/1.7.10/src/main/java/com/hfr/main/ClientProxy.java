@@ -73,6 +73,7 @@ public class ClientProxy extends ServerProxy
         final World receiving = mc.theWorld;
         mc.func_152344_a(new Runnable() { public void run() {
             if (data == null || mc.thePlayer == null || receiving == null || mc.theWorld != receiving) return;
+            if (data.getBoolean("achievementProgress")) { XFAchievements.receiveClient(mc.thePlayer, data); return; }
             if (mc.currentScreen instanceof com.hfr.inventory.gui.GUIDailyReward
                 && ((com.hfr.inventory.gui.GUIDailyReward)mc.currentScreen).token().equals(data.getString("token")))
                 ((com.hfr.inventory.gui.GUIDailyReward)mc.currentScreen).receive(data);

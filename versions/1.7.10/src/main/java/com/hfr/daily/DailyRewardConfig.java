@@ -28,6 +28,7 @@ import net.minecraftforge.common.config.Configuration;
 /** Server-thread definitions: validate, durably replace, then publish. Player history lives elsewhere. */
 public final class DailyRewardConfig {
     public static final String CATEGORY = "XENOFACTIONS_24_DAILY_REWARDS";
+    public static int achievementTravelBlocks = 10000;
     private static Path file;
     private static boolean writable;
     private static boolean loaded;
@@ -85,6 +86,8 @@ public final class DailyRewardConfig {
     private DailyRewardConfig() { }
     public static void configure(File directory) { file = new File(directory, "xenofactions-daily-rewards.dat").toPath().toAbsolutePath(); }
     public static void configure(Configuration config) {
+        achievementTravelBlocks = config.get("XENOFACTIONS_25_ACHIEVEMENTS", "mapInspectorDistanceBlocks", 10000,
+            "Cumulative native movement distance required by Map Inspector, in blocks. Server restart required; completed achievements remain earned.", 1, 100000000).getInt(10000);
         importConfig = config;
         timezone = config.get(CATEGORY, "serverTimezone", "UTC", "Initial import only: IANA timezone, e.g. UTC or America/New_York. Use /xc daily timezone for live management after import.").getString();
         definitions = config.get(CATEGORY, "rewards", new String[] {

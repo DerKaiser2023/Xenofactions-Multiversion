@@ -32,7 +32,7 @@ public final class GUIDailyReward extends GuiScreen {
     private boolean revealSoundPending;
     private int soundedSegment;
     private double startAngle, endAngle;
-    private GuiButton spin, collect;
+    private GuiButton spin, collect, achievementSpin;
 
     public GUIDailyReward(NBTTagCompound data) {
         this.data = data; settle();
@@ -89,11 +89,14 @@ public final class GUIDailyReward extends GuiScreen {
         buttonList.clear();
         spin = new GuiButton(1, left + 6, top + 226, (panelWidth - 18) / 2, 20, I18n.format("gui.hfr.daily.spin"));
         collect = new GuiButton(2, left + 12 + (panelWidth - 18) / 2, top + 226, (panelWidth - 18) / 2, 20, I18n.format("gui.hfr.daily.collect"));
-        buttonList.add(spin); buttonList.add(collect); buttons();
+        achievementSpin = new GuiButton(5, left + 6, top + 173, 134, 18,
+            I18n.format("gui.hfr.daily.achievement_spin", data.getInteger("achievementSpins")));
+        buttonList.add(spin); buttonList.add(collect); buttonList.add(achievementSpin); buttons();
     }
     private void buttons() {
         spin.enabled = !waiting && !data.getBoolean("unfinished") && data.getBoolean("eligible") && data.getInteger("pending") == 0;
         collect.enabled = !waiting && data.getInteger("pending") > 0;
+        achievementSpin.enabled = !waiting && data.getBoolean("achievementEligible");
     }
     @Override protected void actionPerformed(GuiButton button) {
         if (!button.enabled || waiting) return;
@@ -186,7 +189,7 @@ public final class GUIDailyReward extends GuiScreen {
         wheel(mouseX, mouseY);
         int x = left + 146, w = panelWidth - 152;
         String status = data.getBoolean("unavailable") ? "unavailable" : data.getBoolean("empty") ? "empty" : data.getBoolean("disabled") ? "disabled"
-            : waiting ? "waiting" : data.getBoolean("unfinished") ? "spinning" : data.getBoolean("eligible") ? "eligible" : "claimed";
+            : waiting ? "waiting" : data.getBoolean("unfinished") ? (data.getBoolean("achievementSpin") ? "achievement_spinning" : "spinning") : data.getBoolean("eligible") ? "eligible" : "claimed";
         text(I18n.format("gui.hfr.daily." + status), x, top + 24, w, 0xFFD780);
         text(I18n.format("gui.hfr.daily.streak", data.getInteger("streak"), data.getInteger("nextStreak")), x, top + 48, w, 0xFFFFFF);
         fitted(I18n.format("gui.hfr.daily." + (data.getBoolean("unfinished") ? "spin_multiplier" : "next_multiplier"),
@@ -215,6 +218,9 @@ public final class GUIDailyReward extends GuiScreen {
         text(I18n.format("gui.hfr.daily.rules"), left + 6, top + 207, panelWidth - 12, 0xAAAAAA);
         super.drawScreen(mouseX, mouseY, partialTicks);
         if (hover != null) func_146283_a(Arrays.asList(reward(hover), calculation(hover)), mouseX, mouseY);
+        else if (mouseX >= achievementSpin.xPosition && mouseX < achievementSpin.xPosition + achievementSpin.width
+            && mouseY >= achievementSpin.yPosition && mouseY < achievementSpin.yPosition + achievementSpin.height)
+            func_146283_a(fontRendererObj.listFormattedStringToWidth(I18n.format("gui.hfr.daily.achievement_rules"), 220), mouseX, mouseY);
         // Acknowledge only after actually drawing the stopped wheel, including after a render stall.
         if (!closed && data.getBoolean("unfinished") && wheelStopped && !acknowledged && animationClaim.equals(data.getString("claim"))) {
             acknowledged = true;

@@ -714,6 +714,7 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStopping(FMLServerStoppingEvent event) {
+        XFAchievements.flushActions();
         com.hfr.rewards.ChatRewardService.clear();
         com.hfr.daily.DailyRewardService.clear();
         com.hfr.clowder.ClaimTerrainService.clear();

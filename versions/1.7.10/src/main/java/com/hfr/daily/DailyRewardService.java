@@ -72,7 +72,12 @@ public final class DailyRewardService {
         if (BLOCKED.containsKey(player)) throw new IllegalStateException("Daily player data failed to load");
         return DailyRewardStore.read(player);
     }
-    public static void clear() { SESSIONS.clear(); BLOCKED.clear(); COMPLETIONS.clear(); }
+    public static void clear() { SESSIONS.clear(); BLOCKED.clear(); COMPLETIONS.clear(); com.hfr.main.XFAchievements.clearTracking(); }
+    public static NBTTagCompound achievementState(EntityPlayerMP player) { return state(player); }
+    public static void achievementBalanceChanged(EntityPlayerMP player) {
+        Session session = SESSIONS.get(player);
+        if (session != null && online(player)) snapshot(player, session, false, false);
+    }
     public static int reset(String administrator, EntityPlayerMP player) throws IOException {
         NBTTagCompound saved = state(player);
         if (saved.hasKey("Day")) saved.setBoolean("ClaimReset", true);
@@ -125,12 +130,14 @@ public final class DailyRewardService {
         boolean spin = false;
         try {
             NBTTagCompound saved = state(player);
-            if (action == 1) {
+            if (action == 1 || action == 5) {
+                boolean earned = action == 5;
                 long day = today();
                 DailyRewardConfig.Table table = DailyRewardConfig.active();
                 if (table.rewards.isEmpty()) say(player, "empty");
                 else if (!DailyRewardConfig.ready()) say(player, "disabled");
-                else if (unfinished(saved) || !eligible(saved, day)) say(player, "claimed");
+                else if (unfinished(saved) || saved.getBoolean("DeliveryDue")) say(player, "claimed");
+                else if (earned ? saved.getInteger("AchievementSpins") <= 0 : !eligible(saved, day)) say(player, earned ? "no_achievement_spins" : "claimed");
                 else if (saved.getTagList("Pending", 10).tagCount() > 0) say(player, "collect_first");
                 else {
                     int chosen = RANDOM.nextInt(table.totalWeight), selected = 0;
@@ -140,22 +147,26 @@ public final class DailyRewardService {
                     }
                     DailyRewardConfig.Reward reward = table.rewards.get(selected);
                     NBTTagList pending = new NBTTagList(), wheel = new NBTTagList();
-                    int streak = nextStreak(saved, day);
+                    int streak = earned ? 0 : nextStreak(saved, day);
                     // Freeze this claim's amount, independently of later streak/reset/definition changes.
                     long multiplier = Math.max(1L, (long)streak);
                     for (DailyRewardConfig.Reward entry : table.rewards) wheel.appendTag(entry.preview(multiplier));
                     NBTTagCompound result = (NBTTagCompound)wheel.getCompoundTagAt(selected).copy();
                     reward.append(pending, result.getLong("amount"));
                     NBTTagCompound reached = saved.getCompoundTag("Milestones");
-                    DailyRewardConfig.Reward bonus = table.milestones.containsKey(streak) ? table.reward(table.milestones.get(streak)) : null;
+                    DailyRewardConfig.Reward bonus = !earned && table.milestones.containsKey(streak) ? table.reward(table.milestones.get(streak)) : null;
                     if (bonus != null && !reached.hasKey(Integer.toString(streak))) {
                         bonus.append(pending); reached.setBoolean(Integer.toString(streak), true);
                         saved.setTag("Bonus", bonus.preview());
                     } else saved.removeTag("Bonus");
                     if (pending.tagCount() > 8192) throw new IllegalStateException("Daily escrow capacity exceeded");
-                    saved.setLong("Day", day); saved.setInteger("Streak", streak);
-                    saved.removeTag("ClaimReset");
-                    saved.setLong("AvailableAfter", LocalDate.ofEpochDay(day).plusDays(1).atStartOfDay(table.zone).toInstant().toEpochMilli());
+                    if (earned) saved.setInteger("AchievementSpins", saved.getInteger("AchievementSpins") - 1);
+                    else {
+                        saved.setLong("Day", day); saved.setInteger("Streak", streak);
+                        saved.removeTag("ClaimReset");
+                        saved.setLong("AvailableAfter", LocalDate.ofEpochDay(day).plusDays(1).atStartOfDay(table.zone).toInstant().toEpochMilli());
+                    }
+                    saved.setBoolean("AchievementSpin", earned);
                     saved.setString("Claim", UUID.randomUUID().toString()); saved.setTag("Result", result);
                     saved.setTag("Wheel", wheel); saved.setInteger("Selected", selected);
                     saved.setTag("SpinItems", pending); saved.setTag("Milestones", reached);
@@ -253,6 +264,10 @@ public final class DailyRewardService {
             boolean unfinished = unfinished(saved);
             schedule(player, saved);
             out.setBoolean("unfinished", unfinished);
+            out.setBoolean("achievementSpin", saved.getBoolean("AchievementSpin"));
+            out.setInteger("achievementSpins", saved.getInteger("AchievementSpins"));
+            out.setBoolean("achievementEligible", !unfinished && !saved.getBoolean("DeliveryDue")
+                && saved.getTagList("Pending", 10).tagCount() == 0 && saved.getInteger("AchievementSpins") > 0 && DailyRewardConfig.ready());
             out.setBoolean("deliveryDue", saved.getBoolean("DeliveryDue"));
             session.resultAvailable = !unfinished && saved.getBoolean("DeliveryDue");
             if (session.resultAvailable && session.animationClaim.isEmpty()) session.animationClaim = saved.getString("Claim");
@@ -273,7 +288,7 @@ public final class DailyRewardService {
             out.setInteger("streak", current);
             out.setInteger("nextStreak", eligible ? nextStreak(saved, day) : current == Integer.MAX_VALUE ? current : current + 1);
             out.setLong("nextMultiplier", Math.max(1L, (long)out.getInteger("nextStreak")));
-            out.setBoolean("eligible", !unfinished && eligible && DailyRewardConfig.ready());
+            out.setBoolean("eligible", !unfinished && !saved.getBoolean("DeliveryDue") && eligible && DailyRewardConfig.ready());
             out.setInteger("pending", saved.getTagList("Pending", 10).tagCount());
             out.setBoolean("disabled", !DailyRewardConfig.ready());
             out.setBoolean("empty", table.rewards.isEmpty());
@@ -281,7 +296,7 @@ public final class DailyRewardService {
             if (!unfinished && saved.hasKey("Result")) out.setTag("result", saved.getTag("Result").copy());
             if (!unfinished && saved.hasKey("Bonus")) out.setTag("bonus", saved.getTag("Bonus").copy());
             NBTTagList wheel = new NBTTagList();
-            if (saved.hasKey("Day") && (unfinished || !eligible || saved.getTagList("Pending", 10).tagCount() > 0)) {
+            if (saved.hasKey("Claim") && (unfinished || saved.getBoolean("DeliveryDue") || !eligible || saved.getTagList("Pending", 10).tagCount() > 0)) {
                 wheel = saved.getTagList("Wheel", 10); out.setInteger("selected", saved.getInteger("Selected"));
             } else {
                 for (DailyRewardConfig.Reward reward : table.rewards) wheel.appendTag(reward.preview(out.getLong("nextMultiplier")));
