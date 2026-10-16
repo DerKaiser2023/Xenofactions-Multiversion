@@ -31,6 +31,8 @@ import net.minecraftforge.event.world.WorldEvent;
  */
 public class XFDynmapIntegration {
 
+	// Forge mod IDs are case-sensitive; GTNH-Web-Map registers @Mod(modid = "Dynmap").
+	private static final String DYNMAP_MOD_ID = "Dynmap";
 	private static final String MARKER_SET_ID = "xenofactions_cities";
 	private static final String MARKER_SET_LABEL = "Faction Cities";
 	private static final int UPDATE_INTERVAL_TICKS = 20 * 30;
@@ -42,6 +44,7 @@ public class XFDynmapIntegration {
 	private static boolean dirty = true;
 	private static boolean dynmapAvailabilityChecked;
 	private static boolean dynmapAvailable;
+	private static String lastStatus;
 	private static Field dynmapApiField;
 	private static Class<?> markerIconClass;
 	private static Class<?> forgeWorldClass;
@@ -62,6 +65,7 @@ public class XFDynmapIntegration {
 		dirty = true;
 		dynmapAvailabilityChecked = false;
 		dynmapAvailable = false;
+		lastStatus = null;
 		dynmapApiField = null;
 		markerIconClass = null;
 		forgeWorldClass = null;
@@ -82,10 +86,11 @@ public class XFDynmapIntegration {
 	private static boolean isDynmapAvailable() throws ReflectiveOperationException {
 		if(dynmapAvailabilityChecked)
 			return dynmapAvailable;
-		if(!Loader.isModLoaded("dynmap")) {
-			disableDynmap();
+		if(!Loader.isModLoaded(DYNMAP_MOD_ID)) {
+			disableDynmap("Forge mod ID '" + DYNMAP_MOD_ID + "' is not loaded (no supported Dynmap detected)");
 			return false;
 		}
+		logStatus("Dynmap detected with Forge mod ID '" + DYNMAP_MOD_ID + "'; discovering marker API.");
 		// Discover optional types once, before any marker work. A null API below
 		// still means Dynmap is starting and must be retried, not disabled.
 		try {
@@ -96,12 +101,12 @@ public class XFDynmapIntegration {
 			forgeWorldClass = Class.forName("org.dynmap.forge.ForgeWorld");
 			dynmapWorldClass = Class.forName("org.dynmap.DynmapWorld");
 		} catch(ClassNotFoundException e) {
-			disableDynmap();
+			disableDynmap("Forge mod ID '" + DYNMAP_MOD_ID + "' detected, but required class is missing: " + e.getMessage());
 			return false;
 		} catch(NoClassDefFoundError e) {
 			if(!isMissingDynmapClass(e))
 				throw e;
-			disableDynmap();
+			disableDynmap("Forge mod ID '" + DYNMAP_MOD_ID + "' detected, but required Dynmap class could not be linked: " + e.getMessage());
 			return false;
 		}
 		dynmapAvailabilityChecked = true;
@@ -114,10 +119,23 @@ public class XFDynmapIntegration {
 		return missingClass != null && (missingClass.startsWith("org/dynmap/") || missingClass.startsWith("org.dynmap."));
 	}
 
-	private static void disableDynmap() {
+	private static void disableDynmap(String reason) {
 		dynmapAvailabilityChecked = true;
 		dynmapAvailable = false;
-		MainRegistry.logger.error("Dynmap unavailable; marker updates disabled for this server session.");
+		MainRegistry.logger.error("Dynmap unavailable; marker updates disabled for this server session. Reason: " + reason);
+	}
+
+	private static void logStatus(String status) {
+		if(!status.equals(lastStatus)) {
+			MainRegistry.logger.info(status);
+			lastStatus = status;
+		}
+	}
+
+	private static Object waitForMarkerApi(String reason) {
+		logStatus("Dynmap (Forge mod ID '" + DYNMAP_MOD_ID + "') waiting: " + reason
+				+ "; refresh remains pending and will retry at updateIntervalTicks.");
+		return null;
 	}
 
 	public static void markDirty() {
@@ -145,7 +163,7 @@ public class XFDynmapIntegration {
 			if(!isDynmapAvailable())
 				return;
 		} catch(ReflectiveOperationException e) {
-			throw new IllegalStateException("Could not discover Dynmap API", e);
+			throw new IllegalStateException("Could not discover Dynmap API (Forge mod ID '" + DYNMAP_MOD_ID + "')", e);
 		}
 
 		tickCounter++;
@@ -163,6 +181,8 @@ public class XFDynmapIntegration {
 		try {
 			if(!XFConfig.enableDynmapIntegration)
 				return;
+			// A refresh triggered only by a TDM change must also survive early returns.
+			dirty = true;
 			Object markerApi = getMarkerApi();
 			if(markerApi == null)
 				return;
@@ -171,6 +191,15 @@ public class XFDynmapIntegration {
 			markerSet = getOrCreateMarkerSet(markerApi);
 			if(markerSet == null)
 				return;
+			// Resolve every set before deleting any existing geometry. A null set is
+			// an incomplete refresh, not success, even after the API reports ready.
+			Object citySet = markerSet;
+			Object factionSet = getOrCreateMarkerSet(markerApi, "xenofactions_claims", "Clowder Faction Claims", false);
+			if(factionSet == null) return;
+			Object zoneSet = getOrCreateMarkerSet(markerApi, "xenofactions_zones", "Clowder Safezones and Warzones", false);
+			if(zoneSet == null) return;
+			Object tdmSet = getOrCreateMarkerSet(markerApi, "xenofactions_tdm", "Active TDM Map", false);
+			if(tdmSet == null) return;
 
 			cityIcon = getMarkerIcon(markerApi, "tower");
 			if(cityIcon == null)
@@ -189,18 +218,18 @@ public class XFDynmapIntegration {
 				if(dimWorld != null && worldName != null && !worldName.isEmpty())
 					createCityMarkers(dimWorld, worldName);
 			}
-			Object citySet = markerSet;
-			markerSet = getOrCreateMarkerSet(markerApi, "xenofactions_claims", "Clowder Faction Claims", false);
-			if(markerSet != null) { clearMarkerSet(markerSet, "xf_faction_"); createFactionClaimMarkers(); }
-			markerSet = getOrCreateMarkerSet(markerApi, "xenofactions_zones", "Clowder Safezones and Warzones", false);
-			if(markerSet != null) { clearMarkerSet(markerSet, "xf_zone_"); createZoneMarkers(); }
-			markerSet = getOrCreateMarkerSet(markerApi, "xenofactions_tdm", "Active TDM Map", false);
-			if(markerSet != null) { clearMarkerSet(markerSet, "xf_map_", "xf_bomb_", "xf_spawn_"); createTdmMarkers(markerApi); }
+			markerSet = factionSet;
+			clearMarkerSet(markerSet, "xf_faction_"); createFactionClaimMarkers();
+			markerSet = zoneSet;
+			clearMarkerSet(markerSet, "xf_zone_"); createZoneMarkers();
+			markerSet = tdmSet;
+			clearMarkerSet(markerSet, "xf_map_", "xf_bomb_", "xf_spawn_"); createTdmMarkers(markerApi);
 			markerSet = citySet;
 			lastTdmSignature = tdmSignature();
 			dirty = false;
+			logStatus("Dynmap marker refresh completed (Forge mod ID '" + DYNMAP_MOD_ID + "').");
 		} catch(ReflectiveOperationException e) {
-			throw new IllegalStateException("Could not update Dynmap markers", e);
+			throw new IllegalStateException("Could not update Dynmap markers (Forge mod ID '" + DYNMAP_MOD_ID + "')", e);
 		}
 	}
 
@@ -229,20 +258,23 @@ public class XFDynmapIntegration {
 		try {
 			Object dynmapApi = dynmapApiField.get(null);
 			if(dynmapApi == null)
-				return null;
+				return waitForMarkerApi("DynmapCommonAPIListener.dynmapapi is null; common API has not started");
 
 			Method markerApiInitialized = dynmapApi.getClass().getMethod("markerAPIInitialized");
 			Object initialized = markerApiInitialized.invoke(dynmapApi);
 			if(initialized instanceof Boolean && !((Boolean)initialized).booleanValue())
-				return null;
+				return waitForMarkerApi("markerAPIInitialized() is false; marker API is not initialized");
 
 			Method getMarkerApi = dynmapApi.getClass().getMethod("getMarkerAPI");
-			return getMarkerApi.invoke(dynmapApi);
+			Object markerApi = getMarkerApi.invoke(dynmapApi);
+			if(markerApi == null)
+				return waitForMarkerApi("getMarkerAPI() returned null; marker API is unavailable");
+			return markerApi;
 		} catch(NoClassDefFoundError e) {
 			// Reflecting on the concrete API can resolve additional optional types.
 			if(!isMissingDynmapClass(e))
 				throw e;
-			disableDynmap();
+			disableDynmap("Forge mod ID '" + DYNMAP_MOD_ID + "' detected, but required Dynmap class could not be linked: " + e.getMessage());
 			return null;
 		}
 	}
@@ -258,6 +290,8 @@ public class XFDynmapIntegration {
 			Method createMarkerSet = markerApi.getClass().getMethod("createMarkerSet", String.class, String.class, Set.class, boolean.class);
 			set = createMarkerSet.invoke(markerApi, id, label, null, false);
 		}
+		if(set == null)
+			return waitForMarkerApi("marker set '" + id + "' could not be obtained or created");
 		if(set != null) {
 			callIfPresent(set, "setMarkerSetLabel", new Class[] { String.class }, new Object[] { label });
 			callIfPresent(set, "setLayerPriority", new Class[] { int.class }, new Object[] { Integer.valueOf(10) });
@@ -326,6 +360,7 @@ public class XFDynmapIntegration {
 			double[] z = new double[] { claimZ.minInclusive, claimZ.maxExclusive };
 
 			Object area = createAreaMarkerMethod.invoke(markerSet, markerId, label, Boolean.TRUE, worldName, x, z, Boolean.FALSE);
+			requireMarker(area, markerId);
 			if(area != null) {
 				if(setLineStyleMethod == null) {
 					setLineStyleMethod = area.getClass().getMethod("setLineStyle", int.class, double.class, int.class);
@@ -408,15 +443,16 @@ public class XFDynmapIntegration {
 		}
 		if(!XFConfig.dynmapShowTdmSpawns) return;
 		Object icon = getMarkerIcon(markerApi, "default");
-		if(icon == null) return;
+		if(icon == null) throw new IllegalStateException("Dynmap default marker icon is unavailable (Forge mod ID '" + DYNMAP_MOD_ID + "')");
 		java.util.List<TDMManager.SpawnPoint> spawns = map.resolvedSpawns(TDMManager.getGameMode(world));
 		for(int i = 0; i < spawns.size(); i++) {
 			TDMManager.SpawnPoint spawn = spawns.get(i);
 			String worldName = getWorldName(spawn.dim);
 			if(worldName == null || worldName.isEmpty()) continue;
 			String type = spawn.team == null ? "FFA" : spawn.team.name.toUpperCase();
-			createMarkerMethod.invoke(markerSet, "xf_spawn_" + id + "_" + i, "TDM " + escapeHtml(map.name) + " " + type + " spawn " + (i + 1),
-					Boolean.TRUE, worldName, spawn.x + 0.5D, (double)spawn.y, spawn.z + 0.5D, icon, Boolean.FALSE);
+			String markerId = "xf_spawn_" + id + "_" + i;
+			requireMarker(createMarkerMethod.invoke(markerSet, markerId, "TDM " + escapeHtml(map.name) + " " + type + " spawn " + (i + 1),
+					Boolean.TRUE, worldName, spawn.x + 0.5D, (double)spawn.y, spawn.z + 0.5D, icon, Boolean.FALSE), markerId);
 		}
 	}
 
@@ -433,7 +469,7 @@ public class XFDynmapIntegration {
 			int color, double opacity, double y1, double y2) throws ReflectiveOperationException {
 		Object marker = createAreaMarkerMethod.invoke(markerSet, id, label, Boolean.TRUE, worldName,
 				new double[] { x1, x2 }, new double[] { z1, z2 }, Boolean.FALSE);
-		if(marker == null) return;
+		requireMarker(marker, id);
 		Method line = marker.getClass().getMethod("setLineStyle", int.class, double.class, int.class); line.setAccessible(true);
 		Method fill = marker.getClass().getMethod("setFillStyle", double.class, int.class); fill.setAccessible(true);
 		Method range = marker.getClass().getMethod("setRangeY", double.class, double.class); range.setAccessible(true);
@@ -467,6 +503,7 @@ public class XFDynmapIntegration {
 		double[] y = new double[] { 64.0D, 64.0D };
 		double[] z = new double[] { z1, z2 };
 		Object line = createPolyLineMarkerMethod.invoke(markerSet, markerId, buildCityLabel(city.meta, city.owner, city.claimCount), Boolean.TRUE, worldName, x, y, z, Boolean.FALSE);
+		requireMarker(line, markerId);
 		if(line != null) {
 			Method setLineStyle = line.getClass().getMethod("setLineStyle", int.class, double.class, int.class);
 			setLineStyle.setAccessible(true);
@@ -479,7 +516,12 @@ public class XFDynmapIntegration {
 		String markerId = "xf_city_" + sanitizeId(safeCityId(meta));
 		String label = buildCityLabel(meta, city.owner, city.claimCount);
 		double y = meta.flagY >= 0 ? meta.flagY + 1.0D : MARKER_Y;
-		createMarkerMethod.invoke(markerSet, markerId, label, Boolean.TRUE, worldName, meta.flagX + 0.5D, y, meta.flagZ + 0.5D, cityIcon, Boolean.FALSE);
+		requireMarker(createMarkerMethod.invoke(markerSet, markerId, label, Boolean.TRUE, worldName, meta.flagX + 0.5D, y, meta.flagZ + 0.5D, cityIcon, Boolean.FALSE), markerId);
+	}
+
+	private static void requireMarker(Object marker, String id) {
+		if(marker == null)
+			throw new IllegalStateException("Dynmap rejected marker '" + id + "' (Forge mod ID '" + DYNMAP_MOD_ID + "'); refresh remains pending");
 	}
 
 	private static String getWorldName(int dimension) throws ReflectiveOperationException {

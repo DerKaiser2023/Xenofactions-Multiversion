@@ -324,7 +324,9 @@ server-stored PNG.
 
 Category: `XENOFACTIONS_09_DYNMAP`
 
-With integration enabled, absent Dynmap or missing optional Dynmap classes log one `Dynmap unavailable` error without a stack trace and disable marker updates for that server session. Starting another server session resets discovery and cached marker state. Installed Dynmap with an API that is still initializing continues to retry on the normal refresh interval. Other reflection or marker failures remain visible as errors.
+With integration enabled, discovery checks the case-sensitive Forge mod ID `Dynmap`, as registered by GTNH-Web-Map's `@Mod` annotation; jar filenames and `mcmod.info` labels are not used for detection. Absent Dynmap or missing optional Dynmap classes log one `Dynmap unavailable` error with the expected/detected mod ID and a specific reason, then disable marker updates for that server session. Starting another server session resets discovery, diagnostics and cached marker state.
+
+An installed Dynmap whose common API is null, whose marker API is not initialized, or whose marker API/set is unavailable keeps the refresh pending at `updateIntervalTicks`. Discovery, waiting reasons and completed refreshes are logged only when the status changes. Existing markers are not cleared until the API and all required marker sets are available. A refresh is marked complete only after all marker passes finish; rejected marker creation and other reflection/marker failures remain visible as errors. Once the API is ready, saved claims are rebuilt on the server tick without players replacing flags or changing territory. No Dynmap fullrender is needed for these vector overlays. Publication does not depend on Earth datasets, terrain eligibility, zoom or loaded claim chunks.
 
 | Key | Default | Meaning |
 | --- | ---: | --- |
