@@ -51,10 +51,8 @@ public class FactionFlagBytesPacket implements IMessage {
 		@Override
 		@SideOnly(Side.CLIENT)
 		public IMessage onMessage(final FactionFlagBytesPacket m, MessageContext ctx) {
-			Minecraft.getMinecraft().func_152344_a(new Runnable() {
-				@Override
-				public void run() { FactionFlagTextureManager.handleBytes(m.factionName, m.hash, m.png); }
-			});
+            net.minecraft.world.World receiving=Minecraft.getMinecraft().theWorld;
+            if(receiving!=null)com.hfr.client.render.ClientRenderSession.enqueue(ctx.netHandler,receiving.provider.dimensionId,() -> FactionFlagTextureManager.handleBytes(m.factionName, m.hash, m.png));
 			return null;
 		}
 	}

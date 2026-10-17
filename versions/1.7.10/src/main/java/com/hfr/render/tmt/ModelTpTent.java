@@ -14,7 +14,7 @@ import com.hfr.tmt.ModelRendererTurbo;
 
 public class ModelTpTent extends ModelItemHolder //Same as Filename
 {
-	public static final ModelTpTent instance = new ModelTpTent();
+
 	int textureX = 512;
 	int textureY = 512;
 

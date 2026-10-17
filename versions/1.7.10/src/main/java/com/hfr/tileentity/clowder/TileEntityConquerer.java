@@ -49,6 +49,14 @@ public class TileEntityConquerer extends TileEntityMachineBase implements ITerri
 
 	@Override
 	public void updateEntity() {
+        if(!worldObj.isRemote && worldObj.getTotalWorldTime()%20==0) {
+            com.hfr.packet.tile.CityCenterPacket appearance=new com.hfr.packet.tile.CityCenterPacket(worldObj.provider.dimensionId,xCoord,yCoord,zCoord,name,
+                owner==null?"":owner.name);
+            appearance.flagHash=owner==null?"":owner.customFlagHash;
+            com.hfr.packet.PacketDispatcher.wrapper.sendToAllAround(appearance,
+                new cpw.mods.fml.common.network.NetworkRegistry.TargetPoint(worldObj.provider.dimensionId,xCoord,yCoord,zCoord,256));
+        }
+
 		
 		if(!worldObj.isRemote) {
 			
@@ -276,8 +284,8 @@ public class TileEntityConquerer extends TileEntityMachineBase implements ITerri
 
 	@Override
 	public AxisAlignedBB getRenderBoundingBox() {
-		return TileEntity.INFINITE_EXTENT_AABB;
-	}
+        return com.hfr.main.MainRegistry.proxy.modelBounds(this);
+    }
 
 	@Override
 	@SideOnly(Side.CLIENT)

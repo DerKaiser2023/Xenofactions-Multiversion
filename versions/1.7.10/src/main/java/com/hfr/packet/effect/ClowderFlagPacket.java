@@ -21,6 +21,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 
 public class ClowderFlagPacket implements IMessage {
+    private static final ClowderFlag[] FLAGS=ClowderFlag.values();
 
 	int flag;
 	int color;
@@ -106,10 +107,8 @@ public class ClowderFlagPacket implements IMessage {
 		@Override
 		@SideOnly(Side.CLIENT)
 		public IMessage onMessage(final ClowderFlagPacket m, MessageContext ctx) {
-			Minecraft.getMinecraft().func_152344_a(new Runnable() {
-				@Override
-				public void run() { applyFlag(m); }
-			});
+            net.minecraft.world.World receiving=Minecraft.getMinecraft().theWorld;
+            if(receiving!=null)com.hfr.client.render.ClientRenderSession.enqueue(ctx.netHandler,receiving.provider.dimensionId,() -> applyFlag(m));
 			return null;
 		}
 
@@ -124,7 +123,7 @@ public class ClowderFlagPacket implements IMessage {
 					RenderFlagOverlay.tintFlag = false;
 					RenderFlagOverlay.customFlagName = m.customFlagName;
 				} else {
-					ClowderFlag flag = ClowderFlag.values()[m.flag];
+					ClowderFlag flag = m.flag < FLAGS.length ? FLAGS[m.flag] : ClowderFlag.TRICOLOR;
 					MainRegistry.proxy.updateFlag(flag.getFlag(), flag.getFlagOverlay(), m.color, m.name, m.title);
 				}
 			} else {

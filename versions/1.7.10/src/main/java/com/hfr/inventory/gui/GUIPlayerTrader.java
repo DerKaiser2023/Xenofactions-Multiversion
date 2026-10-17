@@ -18,9 +18,11 @@ public final class GUIPlayerTrader extends GuiScreen {
     private int left, top, panelWidth;
     private boolean pending;
     private ItemStack hover;
-    public GUIPlayerTrader(NBTTagCompound data) { this.data = data; }
+    private ItemStack[] salePreviews,paymentPreviews;
+    private ItemStack draftSale,draftPayment;
+    public GUIPlayerTrader(NBTTagCompound data) { this.data = (NBTTagCompound)data.copy(); preparePreviews(); }
     public String token() { return data.getString("token"); }
-    public void receive(NBTTagCompound updated) { data = updated; pending = false; initGui(); }
+    public void receive(NBTTagCompound updated) { data = (NBTTagCompound)updated.copy(); preparePreviews(); pending = false; initGui(); }
     private boolean creating() { return data.getBoolean("creating"); }
     @Override public void initGui() {
         String bar = hotbar == null ? "1" : hotbar.getText();
@@ -93,8 +95,14 @@ public final class GUIPlayerTrader extends GuiScreen {
         if (code == mc.gameSettings.keyBindInventory.getKeyCode()) { mc.displayGuiScreen(null); return; }
         super.keyTyped(key, code);
     }
+    private void preparePreviews() {
+        draftSale=item(data,"sale");draftPayment=item(data,"payment");
+        NBTTagList rows=data.getTagList("offers",10);
+        salePreviews=new ItemStack[rows.tagCount()];paymentPreviews=new ItemStack[rows.tagCount()];
+        for(int i=0;i<rows.tagCount();i++){NBTTagCompound row=rows.getCompoundTagAt(i);salePreviews[i]=item(row,"sale");paymentPreviews[i]=item(row,"payment");}
+    }
     private ItemStack item(NBTTagCompound tag, String key) {
-        return tag.hasKey(key, 10) ? ItemStack.loadItemStackFromNBT(tag.getCompoundTag(key)) : null;
+        return tag.hasKey(key, 10) ? ItemStack.loadItemStackFromNBT((NBTTagCompound)tag.getCompoundTag(key).copy()) : null;
     }
     private void icon(ItemStack stack, int x, int y, int mouseX, int mouseY) {
         if (stack == null) return;
@@ -110,7 +118,7 @@ public final class GUIPlayerTrader extends GuiScreen {
         drawDefaultBackground(); drawRect(left, top, left + panelWidth, top + 226, 0xe0202020); hover = null;
         drawCenteredString(fontRendererObj, I18n.format(creating() ? "gui.hfr.playertrader.create" : "gui.hfr.playertrader.title"), left + panelWidth / 2, top + 8, 0xffffff);
         if (creating()) {
-            ItemStack sale = item(data, "sale"), payment = item(data, "payment");
+            ItemStack sale = draftSale, payment = draftPayment;
             icon(sale, left + 12, top + 29, mouseX, mouseY); icon(payment, left + 12, top + 52, mouseX, mouseY);
             text(I18n.format("gui.hfr.playertrader.sale", sale == null ? I18n.format("gui.hfr.playertrader.not_set")
                 : I18n.format("gui.hfr.playertrader.item_quantity", data.getInteger("saleQuantity"), sale.getDisplayName())), 35, 33, panelWidth - 47, 0xffffff);
@@ -126,7 +134,7 @@ public final class GUIPlayerTrader extends GuiScreen {
                 I18n.format(data.getInteger("view") == 1 ? "gui.hfr.playertrader.empty_own" : "gui.hfr.playertrader.empty"), left + panelWidth / 2, top + 103, 0xffffff);
             for (int i = 0; i < rows.tagCount(); i++) {
                 NBTTagCompound row = rows.getCompoundTagAt(i); int y = 49 + i * 47;
-                ItemStack sale = item(row, "sale"), payment = item(row, "payment");
+                ItemStack sale = salePreviews[i], payment = paymentPreviews[i];
                 icon(sale, left + 8, top + y, mouseX, mouseY); icon(payment, left + 8, top + y + 21, mouseX, mouseY);
                 int limit = panelWidth - (data.getInteger("view") == 0 ? 102 : 154);
                 text(I18n.format("gui.hfr.playertrader.item_quantity", row.getInteger("saleQuantity"),

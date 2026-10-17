@@ -62,14 +62,11 @@ public class ClowderBorderPacket implements IMessage {
 		@Override
 		@SideOnly(Side.CLIENT)
 		public IMessage onMessage(final ClowderBorderPacket m, MessageContext ctx) {
-			final net.minecraft.client.network.NetHandlerPlayClient connection = ctx.getClientHandler();
-			Minecraft.getMinecraft().func_152344_a(new Runnable() { @Override public void run() {
-				if (Minecraft.getMinecraft().getNetHandler() == connection
-						&& com.hfr.client.journeymap.ClientClaimOverlayCache.isCurrentSubscription(m.subscription, m.dimension))
-					com.hfr.client.journeymap.ClientBorderParticles.enqueue(Minecraft.getMinecraft().theWorld,
-							m.x1, m.z1, m.x2, m.z2, m.color);
-			} });
-			
+            com.hfr.client.render.ClientRenderSession.enqueue(ctx.netHandler, m.dimension, () -> {
+                if (com.hfr.client.journeymap.ClientClaimOverlayCache.isCurrentSubscription(m.subscription, m.dimension))
+                    com.hfr.client.journeymap.ClientBorderParticles.enqueue(Minecraft.getMinecraft().theWorld,
+                        m.x1, m.z1, m.x2, m.z2, m.color);
+            });
 			return null;
 		}
 	}

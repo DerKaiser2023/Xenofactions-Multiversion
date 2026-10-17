@@ -66,7 +66,10 @@ public class AuxParticlePacketNT implements IMessage {
 				NBTTagCompound nbt = m.buffer.readNBTTagCompoundFromBuffer();
 				
 				if(nbt != null)
-					MainRegistry.proxy.effectNT(nbt);
+					{
+                        final net.minecraft.world.World receiving=Minecraft.getMinecraft().theWorld;
+                        if(receiving!=null)com.hfr.client.render.ClientRenderSession.enqueue(ctx.netHandler,receiving.provider.dimensionId,() -> MainRegistry.proxy.effectNT(nbt));
+                    }
 				
 			} catch (IOException e) {
 				e.printStackTrace();

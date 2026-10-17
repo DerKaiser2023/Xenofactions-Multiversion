@@ -32,10 +32,18 @@ import net.minecraft.util.ResourceLocation;
  */
 public class ModelRendererTurbo extends ModelRenderer
 {
-	public boolean glow = false;
+	private static final java.util.Set<ModelRendererTurbo> LIVE = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<ModelRendererTurbo,Boolean>());
+    public static void reloadGeometry() { for(ModelRendererTurbo part:LIVE)part.releaseGeometry(); }
+    private void releaseGeometry() {
+        if(displayList!=0){GL11.glDeleteLists(displayList,1);displayList=0;}
+        if(displayListArray!=null){for(int id:displayListArray)if(id!=0)GL11.glDeleteLists(id,1);displayListArray=null;}
+        compiled=false;
+    }
+    public boolean glow = false;
 	public ModelRendererTurbo(ModelBase modelbase, String s)
 	{
 		super(modelbase, s);
+        LIVE.add(this);
 		flip = false;
 		compiled = false;
 		displayList = 0;
@@ -2060,92 +2068,22 @@ public class ModelRendererTurbo extends ModelRenderer
 	 * @param worldScale	The scale of the shape
 	 * @param oldRotateOrder	Whether to use the old rotate order (ZYX) instead of the new one (YZX)
 	 */
-	public void render(float worldScale, boolean oldRotateOrder)
-	{
-		GL11.glPushMatrix();
-		if(glow){
-			glowOn();
-		}
-		GL11.glAlphaFunc(GL11.GL_GREATER, 0.001F);
-		GL11.glEnable(GL11.GL_BLEND);
-		int srcBlend = GL11.glGetInteger(GL11.GL_BLEND_SRC);
-		int dstBlend = GL11.glGetInteger(GL11.GL_BLEND_DST);
-		GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-		
-		if(field_1402_i)
-		{
-			return;
-		}
-		if(!showModel)
-		{
-			return;
-		}
-		if(!compiled || forcedRecompile)
-		{
-			compileDisplayList(worldScale);
-		}
-		if(rotateAngleX != 0.0F || rotateAngleY != 0.0F || rotateAngleZ != 0.0F)
-		{
-			GL11.glPushMatrix();
-			GL11.glTranslatef(rotationPointX * worldScale, rotationPointY * worldScale, rotationPointZ * worldScale);
-			if(!oldRotateOrder && rotateAngleY != 0.0F)
-			{
-				GL11.glRotatef(rotateAngleY * 57.29578F, 0.0F, 1.0F, 0.0F);
-			}
-			if(rotateAngleZ != 0.0F)
-			{
-				GL11.glRotatef((oldRotateOrder ? -1 : 1) * rotateAngleZ * 57.29578F, 0.0F, 0.0F, 1.0F);
-			}
-			if(oldRotateOrder && rotateAngleY != 0.0F)
-			{
-				GL11.glRotatef(-rotateAngleY * 57.29578F, 0.0F, 1.0F, 0.0F);
-			}
-			if(rotateAngleX != 0.0F)
-			{
-				GL11.glRotatef(rotateAngleX * 57.29578F, 1.0F, 0.0F, 0.0F);
-			}
-			
-			callDisplayList();
-			if(childModels != null)
-			{
-				for (Object childModel : childModels) {
-					((ModelRenderer) childModel).render(worldScale);
-				}
+    public void render(float worldScale, boolean oldRotateOrder) {
+        if(field_1402_i || !showModel) return;
+        if(!compiled || forcedRecompile) compileDisplayList(worldScale);
+        GL11.glPushMatrix();
+        if(glow) glowOn();
+        try {
+            GL11.glTranslatef(rotationPointX*worldScale,rotationPointY*worldScale,rotationPointZ*worldScale);
+            if(!oldRotateOrder && rotateAngleY!=0) GL11.glRotatef(rotateAngleY*57.29578F,0,1,0);
+            if(rotateAngleZ!=0) GL11.glRotatef((oldRotateOrder?-1:1)*rotateAngleZ*57.29578F,0,0,1);
+            if(oldRotateOrder && rotateAngleY!=0) GL11.glRotatef(-rotateAngleY*57.29578F,0,1,0);
+            if(rotateAngleX!=0) GL11.glRotatef(rotateAngleX*57.29578F,1,0,0);
+            callDisplayList();
+            if(childModels!=null) for(Object child:childModels)((ModelRenderer)child).render(worldScale);
+        } finally {if(glow)glowOff();GL11.glPopMatrix();}
+    }
 
-			}
-			GL11.glPopMatrix();
-		} else
-		if(rotationPointX != 0.0F || rotationPointY != 0.0F || rotationPointZ != 0.0F)
-		{
-			GL11.glTranslatef(rotationPointX * worldScale, rotationPointY * worldScale, rotationPointZ * worldScale);
-			callDisplayList();
-			if(childModels != null)
-			{
-				for (Object childModel : childModels) {
-					((ModelRenderer) childModel).render(worldScale);
-				}
-
-			}
-			GL11.glTranslatef(-rotationPointX * worldScale, -rotationPointY * worldScale, -rotationPointZ * worldScale);
-		} else
-		{
-			callDisplayList();
-			if(childModels != null)
-			{
-				for (Object childModel : childModels) {
-					((ModelRenderer) childModel).render(worldScale);
-				}
-
-			}
-		}
-		if(glow) {
-			glowOff();
-		}
-		GL11.glBlendFunc(srcBlend, dstBlend);
-		GL11.glDisable(GL11.GL_BLEND);
-		GL11.glPopMatrix();
-	}
-	
 	@Override
 	public void renderWithRotation(float f)
 	{
@@ -2157,11 +2095,12 @@ public class ModelRendererTurbo extends ModelRenderer
 		{
 			return;
 		}
-		if(!compiled)
+		if(!compiled || forcedRecompile)
 		{
 			compileDisplayList(f);
 		}
 		GL11.glPushMatrix();
+        try {
 		GL11.glTranslatef(rotationPointX * f, rotationPointY * f, rotationPointZ * f);
 		if(rotateAngleY != 0.0F)
 		{
@@ -2176,7 +2115,7 @@ public class ModelRendererTurbo extends ModelRenderer
 			GL11.glRotatef(rotateAngleZ * 57.29578F, 0.0F, 0.0F, 1.0F);
 		}
 		callDisplayList();
-		GL11.glPopMatrix();
+		} finally { GL11.glPopMatrix(); }
 	}
 
 	@Override
@@ -2240,6 +2179,8 @@ public class ModelRendererTurbo extends ModelRenderer
 
 	private void compileDisplayList(float worldScale)
 	{
+        releaseGeometry();
+        forcedRecompile=false;
 		if(useLegacyCompiler)
 			compileLegacyDisplayList(worldScale);
 		else
@@ -2327,6 +2268,8 @@ public class ModelRendererTurbo extends ModelRenderer
 
 	private PositionTextureVertex vertices[];
 	private TexturedPolygon faces[];
+    /** Preparation only; callers must not mutate the authoring polygons. */
+    public TexturedPolygon[] preparedFaces() { return faces; }
 	private int textureOffsetX;
 	private int textureOffsetY;
 	private boolean compiled;

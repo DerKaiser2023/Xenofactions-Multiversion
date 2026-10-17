@@ -3,14 +3,14 @@ package com.hfr.client.journeymap;
 import java.awt.geom.Point2D;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
-import java.nio.FloatBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import com.hfr.client.render.RenderState;
 
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import com.hfr.client.journeymap.ClientClaimOverlayCache.Snapshot;
 import com.hfr.client.journeymap.ClientClaimOverlayCache.TerritoryGroup;
-import com.hfr.clowder.ClaimOverlayData.Claim;
 import com.hfr.clowder.TerritoryCoordinateBounds;
 import com.hfr.clowder.TerritoryCoordinateBounds.Bounds;
 import com.hfr.config.XFConfig;
@@ -24,6 +24,9 @@ import net.minecraft.nbt.NBTTagList;
 final class JourneyMapClaimDrawHandler implements InvocationHandler {
 	private final boolean minimap; private final JourneyMapReflection reflection; private final XFJourneyMapIntegration integration;
 	private boolean renderFailureLogged;
+    private final List<PreparedClaims.Cell> visible=new ArrayList<PreparedClaims.Cell>();
+    private final List<PreparedClaims.Group> labels=new ArrayList<PreparedClaims.Group>();
+    private double originX,originZ,baseX,baseY,ax,az,bx,bz;
 	JourneyMapClaimDrawHandler(boolean minimap, JourneyMapReflection reflection, XFJourneyMapIntegration integration) { this.minimap = minimap; this.reflection = reflection; this.integration = integration; }
 	@Override public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 		String name = method.getName();
@@ -49,14 +52,13 @@ final class JourneyMapClaimDrawHandler implements InvocationHandler {
 						|| preview.getBoolean("overlay") && preview.hasKey("map"));
 		if((snapshot == null || snapshot.claims.isEmpty()) && !mapEnabled) return;
 		int width = ((Integer)reflection.getWidth.invoke(grid)).intValue(), height = ((Integer)reflection.getHeight.invoke(grid)).intValue();
-		boolean texture = GL11.glIsEnabled(GL11.GL_TEXTURE_2D), blend = GL11.glIsEnabled(GL11.GL_BLEND), alpha = GL11.glIsEnabled(GL11.GL_ALPHA_TEST);
-		int blendSrc = GL11.glGetInteger(GL11.GL_BLEND_SRC), blendDst = GL11.glGetInteger(GL11.GL_BLEND_DST); float oldWidth = GL11.glGetFloat(GL11.GL_LINE_WIDTH);
-		// LWJGL 2 generic glGetFloat requires room for 16 floats even when reading GL_CURRENT_COLOR.
-		FloatBuffer color = BufferUtils.createFloatBuffer(16); GL11.glGetFloat(GL11.GL_CURRENT_COLOR, color);
-		// JourneyMap owns the active depth state: its depth buffer clips minimap DrawStep rendering to the minimap mask.
-		GL11.glDisable(GL11.GL_TEXTURE_2D); GL11.glEnable(GL11.GL_BLEND); GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA); GL11.glDisable(GL11.GL_ALPHA_TEST);
-		try {
-			if(snapshot != null) for(Claim claim : snapshot.claims) renderClaim(grid, claim, snapshot, xOffset, yOffset, width, height);
+        prepareProjection(grid,mc.thePlayer.posX,mc.thePlayer.posZ);
+        if(snapshot!=null)select(snapshot,xOffset,yOffset,width,height);
+        // JourneyMap retains depth ownership: its depth buffer supplies minimap clipping.
+        try(RenderState state=new RenderState()) {
+        GL11.glDisable(GL11.GL_TEXTURE_2D); GL11.glDisable(GL11.GL_CULL_FACE);GL11.glDisable(GL11.GL_LIGHTING); GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA); GL11.glDisable(GL11.GL_ALPHA_TEST);
+			if(snapshot != null) renderClaims(xOffset,yOffset);
 			if(mapEnabled) {
 				if(publicMap.hasKey("map")) renderMap(grid, publicMap, xOffset, yOffset, width, height, false, false, publicMap);
 				if(preview.getBoolean("overlay") && preview.hasKey("map"))
@@ -65,14 +67,9 @@ final class JourneyMapClaimDrawHandler implements InvocationHandler {
 			if(snapshot != null && XFConfig.journeyMapShowTerritoryLabels) {
 				GL11.glEnable(GL11.GL_TEXTURE_2D);
 				GL11.glColor4f(1F, 1F, 1F, 1F);
-				for(TerritoryGroup group : snapshot.groups) renderLabel(grid, group, xOffset, yOffset, width, height);
+				for(int i=0;i<labels.size();i++) renderLabel(grid, labels.get(i), xOffset, yOffset, width, height);
 			}
-		} finally {
-			if(texture) GL11.glEnable(GL11.GL_TEXTURE_2D); else GL11.glDisable(GL11.GL_TEXTURE_2D);
-			if(blend) GL11.glEnable(GL11.GL_BLEND); else GL11.glDisable(GL11.GL_BLEND); GL11.glBlendFunc(blendSrc, blendDst);
-			if(alpha) GL11.glEnable(GL11.GL_ALPHA_TEST); else GL11.glDisable(GL11.GL_ALPHA_TEST);
-			GL11.glLineWidth(oldWidth); GL11.glColor4f(color.get(0), color.get(1), color.get(2), color.get(3));
-		}
+        } finally {visible.clear();labels.clear();}
 	}
 	private void renderMap(Object grid, NBTTagCompound map, double xo, double yo, int width, int height,
 			boolean drawZones, boolean preview, NBTTagCompound publicMap) throws Exception {
@@ -146,31 +143,58 @@ final class JourneyMapClaimDrawHandler implements InvocationHandler {
 		GL11.glColor4f(r,g,b,0.9F); GL11.glLineWidth(2F); t.startDrawing(GL11.GL_LINES);
 		edge(t,p0,p1,xo,yo); edge(t,p1,p2,xo,yo); edge(t,p2,p3,xo,yo); edge(t,p3,p0,xo,yo); t.draw();
 	}
-	private void renderClaim(Object grid, Claim claim, Snapshot snapshot, double xo, double yo, int width, int height) throws Exception {
-		Bounds xBounds = TerritoryCoordinateBounds.forCoordinate(claim.chunkX), zBounds = TerritoryCoordinateBounds.forCoordinate(claim.chunkZ);
-		double x = xBounds.minInclusive, z = zBounds.minInclusive;
-		double maxWorldX = xBounds.maxExclusive, maxWorldZ = zBounds.maxExclusive;
-		// Invoke the required public conversion, then use its uncropped companion so partially visible claims retain all corners.
-		reflection.getPixel.invoke(grid, x, z);
-		Point2D p0 = point(grid, x, z), p1 = point(grid, maxWorldX, z), p2 = point(grid, maxWorldX, maxWorldZ), p3 = point(grid, x, maxWorldZ);
-		double minX = Math.min(Math.min(p0.getX(), p1.getX()), Math.min(p2.getX(), p3.getX())) + xo, maxX = Math.max(Math.max(p0.getX(), p1.getX()), Math.max(p2.getX(), p3.getX())) + xo;
-		double minY = Math.min(Math.min(p0.getY(), p1.getY()), Math.min(p2.getY(), p3.getY())) + yo, maxY = Math.max(Math.max(p0.getY(), p1.getY()), Math.max(p2.getY(), p3.getY())) + yo;
-		if(maxX < -8 || maxY < -8 || minX > width + 8 || minY > height + 8) return;
-		float r = ((claim.color >> 16) & 255) / 255F, g = ((claim.color >> 8) & 255) / 255F, b = (claim.color & 255) / 255F;
-		Tessellator t = Tessellator.instance; GL11.glColor4f(r, g, b, (float)XFConfig.journeyMapClaimFillOpacity);
-		t.startDrawingQuads(); vertex(t,p0,xo,yo); vertex(t,p1,xo,yo); vertex(t,p2,xo,yo); vertex(t,p3,xo,yo); t.draw();
-		GL11.glColor4f(r,g,b,(float)XFConfig.journeyMapClaimBorderOpacity); GL11.glLineWidth((float)XFConfig.journeyMapClaimBorderWidth); t.startDrawing(GL11.GL_LINES);
-		if(!snapshot.sameGroup(claim.chunkX, claim.chunkZ - 1, claim.groupId)) edge(t,p0,p1,xo,yo);
-		if(!snapshot.sameGroup(claim.chunkX + 1, claim.chunkZ, claim.groupId)) edge(t,p1,p2,xo,yo);
-		if(!snapshot.sameGroup(claim.chunkX, claim.chunkZ + 1, claim.groupId)) edge(t,p2,p3,xo,yo);
-		if(!snapshot.sameGroup(claim.chunkX - 1, claim.chunkZ, claim.groupId)) edge(t,p3,p0,xo,yo); t.draw();
-	}
-	private void renderLabel(Object grid, TerritoryGroup group, double xo, double yo, int width, int height) throws Exception {
+    private void prepareProjection(Object grid,double x,double z)throws Exception {
+        originX=x;originZ=z;
+        Point2D zero=(Point2D)reflection.getBlockPixel.invoke(grid,x,z);
+        Point2D east=(Point2D)reflection.getBlockPixel.invoke(grid,x+1024,z);
+        Point2D south=(Point2D)reflection.getBlockPixel.invoke(grid,x,z+1024);
+        baseX=zero.getX();baseY=zero.getY();
+        ax=(east.getX()-baseX)/1024;bx=(east.getY()-baseY)/1024;
+        az=(south.getX()-baseX)/1024;bz=(south.getY()-baseY)/1024;
+        if(!Double.isFinite(ax)||!Double.isFinite(az)||!Double.isFinite(bx)||!Double.isFinite(bz)||Math.abs(ax*bz-az*bx)<1e-20)
+            throw new IllegalStateException("JourneyMap projection is not invertible");
+        Point2D diagonal=(Point2D)reflection.getBlockPixel.invoke(grid,x+512,z+512);
+        if(Math.abs(diagonal.getX()-px(x+512,z+512))>1.01 || Math.abs(diagonal.getY()-py(x+512,z+512))>1.01)
+            throw new IllegalStateException("Unsupported non-affine JourneyMap projection");
+    }
+    private double px(double x,double z){return baseX+(x-originX)*ax+(z-originZ)*az;}
+    private double py(double x,double z){return baseY+(x-originX)*bx+(z-originZ)*bz;}
+    private void select(Snapshot snapshot,double xo,double yo,int width,int height) {
+        double determinant=ax*bz-az*bx;
+        double x0=Double.POSITIVE_INFINITY,z0=x0,x1=-x0,z1=-x0;
+        for(int i=0;i<4;i++) {
+            double x=((i&1)==0?-8:width+8)-xo-baseX,y=((i&2)==0?-8:height+8)-yo-baseY;
+            double wx=originX+(x*bz-y*az)/determinant,wz=originZ+(y*ax-x*bx)/determinant;
+            x0=Math.min(x0,wx);x1=Math.max(x1,wx);z0=Math.min(z0,wz);z1=Math.max(z1,wz);
+        }
+        snapshot.prepared.select(x0,z0,x1,z1,visible,labels);
+    }
+    private void vertex(Tessellator t,double x,double z,double xo,double yo){t.addVertex(px(x,z)+xo,py(x,z)+yo,0);}
+    private void segment(Tessellator t,double x,double z,double xx,double zz,double xo,double yo){vertex(t,x,z,xo,yo);vertex(t,xx,zz,xo,yo);}
+    private void renderClaims(double xo,double yo) {
+        Tessellator t=Tessellator.instance;
+        for(int pass=0;pass<2;pass++) {
+            if(pass==1)GL11.glLineWidth((float)XFConfig.journeyMapClaimBorderWidth);
+            t.startDrawing(pass==0?GL11.GL_QUADS:GL11.GL_LINES);
+            for(int i=0;i<visible.size();i++) {
+                PreparedClaims.Cell cell=visible.get(i);int color=cell.claim.color;
+                t.setColorRGBA_F((color>>16&255)/255F,(color>>8&255)/255F,(color&255)/255F,
+                    (float)(pass==0?XFConfig.journeyMapClaimFillOpacity:XFConfig.journeyMapClaimBorderOpacity));
+                if(pass==0){vertex(t,cell.x0,cell.z0,xo,yo);vertex(t,cell.x1,cell.z0,xo,yo);vertex(t,cell.x1,cell.z1,xo,yo);vertex(t,cell.x0,cell.z1,xo,yo);}
+                else {
+                    if((cell.edges&1)!=0)segment(t,cell.x0,cell.z0,cell.x1,cell.z0,xo,yo);
+                    if((cell.edges&2)!=0)segment(t,cell.x1,cell.z0,cell.x1,cell.z1,xo,yo);
+                    if((cell.edges&4)!=0)segment(t,cell.x1,cell.z1,cell.x0,cell.z1,xo,yo);
+                    if((cell.edges&8)!=0)segment(t,cell.x0,cell.z1,cell.x0,cell.z0,xo,yo);
+                }
+            }
+            t.draw();
+        }
+    }
+	private void renderLabel(Object grid, PreparedClaims.Group prepared, double xo, double yo, int width, int height) throws Exception {
+		TerritoryGroup group=prepared.group;
 		if(group.label == null || group.label.length() == 0) return;
-		Bounds minXBounds = TerritoryCoordinateBounds.forCoordinate(group.minChunkX), maxXBounds = TerritoryCoordinateBounds.forCoordinate(group.maxChunkX);
-		Bounds minZBounds = TerritoryCoordinateBounds.forCoordinate(group.minChunkZ), maxZBounds = TerritoryCoordinateBounds.forCoordinate(group.maxChunkZ);
-		double minWorldX = minXBounds.minInclusive, maxWorldX = maxXBounds.maxExclusive;
-		double minWorldZ = minZBounds.minInclusive, maxWorldZ = maxZBounds.maxExclusive;
+        double minWorldX=prepared.x0,maxWorldX=prepared.x1,minWorldZ=prepared.z0,maxWorldZ=prepared.z1;
 		Point2D b0 = point(grid, minWorldX, minWorldZ), b1 = point(grid, maxWorldX, minWorldZ);
 		Point2D b2 = point(grid, maxWorldX, maxWorldZ), b3 = point(grid, minWorldX, maxWorldZ);
 		double minX = Math.min(Math.min(b0.getX(), b1.getX()), Math.min(b2.getX(), b3.getX())) + xo, maxX = Math.max(Math.max(b0.getX(), b1.getX()), Math.max(b2.getX(), b3.getX())) + xo;
@@ -192,7 +216,7 @@ final class JourneyMapClaimDrawHandler implements InvocationHandler {
 		while(text.length() > 0 && font.getStringWidth(text) + ellipsisWidth > maxWidth) text = text.substring(0, text.length() - 1);
 		return text.length() == 0 ? "" : text + ellipsis;
 	}
-	private Point2D point(Object grid,double x,double z) throws Exception { return (Point2D)reflection.getBlockPixel.invoke(grid, x, z); }
+	private Point2D point(Object grid,double x,double z) throws Exception { return new Point2D.Double(px(x,z),py(x,z)); }
 	private static void vertex(Tessellator t,Point2D p,double x,double y){t.addVertex(p.getX()+x,p.getY()+y,0);}
 	private static void edge(Tessellator t,Point2D a,Point2D b,double x,double y){vertex(t,a,x,y);vertex(t,b,x,y);}
 }

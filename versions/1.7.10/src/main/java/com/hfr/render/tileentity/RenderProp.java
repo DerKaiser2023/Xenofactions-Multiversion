@@ -1,6 +1,7 @@
 package com.hfr.render.tileentity;
 
 import org.lwjgl.opengl.GL11;
+import com.hfr.client.render.RenderState;
 
 import com.hfr.blocks.BlockDummyable;
 import com.hfr.blocks.ModBlocks;
@@ -15,13 +16,18 @@ public class RenderProp extends TileEntitySpecialRenderer {
 
 	@Override
 	public void renderTileEntityAt(TileEntity tile, double x, double y, double z, float p_147500_8_) {
+        com.hfr.client.render.RenderMetrics.tesr(4);
 		
-        GL11.glPushMatrix();
+        try(RenderState state = RenderState.model()) {
         GL11.glTranslated(x + 0.5D, y, z + 0.5D);
         GL11.glEnable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_CULL_FACE);
         
         Block b = tile.getBlockType();
+        if(b == ModBlocks.hesco_block || b == ModBlocks.tp_tent) {
+            GL11.glEnable(GL11.GL_BLEND); GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glAlphaFunc(GL11.GL_GREATER,.001F);
+        }
 
         if(b == ModBlocks.hesco_block) GL11.glRotatef(180, 0F, 1F, 0F);
 
@@ -48,50 +54,21 @@ public class RenderProp extends TileEntitySpecialRenderer {
         if(b == ModBlocks.statue) GL11.glTranslated(0, 0, p * 3);
 		
         if(b == ModBlocks.hesco_block) {
-            bindTexture(ResourceManager.tmt_hescoblock);
-            ModelHescoBlock.instance.render();
+            com.hfr.client.render.RenderMetrics.bind(ResourceManager.tmt_hescoblock);
+            ResourceManager.hesco.renderAll();
         }
-		
-        /*if(b == ModBlocks.palisade) {
-            bindTexture(ResourceManager.tmt_palisade);
-            ModelPalisade.instance.render();
-            ResourceManager.palisade.renderAll();
-        }
-		
-        if(b == ModBlocks.stone_wall) {
-            bindTexture(ResourceManager.tmt_stonewall);
-            ModelStoneWall.instance.render();
-            ResourceManager.stonewall.renderAll();
-        }
-		
-        if(b == ModBlocks.brick_wall) {
-            bindTexture(ResourceManager.tmt_brickwall);
-            ModelBrickWall.instance.render();
-            ResourceManager.brickwall.renderAll();
-        }
-		
-        if(b == ModBlocks.great_wall) {
-            bindTexture(ResourceManager.tmt_greatwall);
-            ModelGreatWall.instance.render();
-            ResourceManager.stonewall.renderAll();
-        }
-		
-        if(b == ModBlocks.berlin_wall) {
-            bindTexture(ResourceManager.tmt_berliner);
-            ModelBerliner.instance.render();
-        }*/
 		
         if(b == ModBlocks.tp_tent) {
-            bindTexture(ResourceManager.tmt_tptent);
-            ModelTpTent.instance.render();
+            com.hfr.client.render.RenderMetrics.bind(ResourceManager.tmt_tptent);
+            ResourceManager.tent.renderAll();
         }
 		
         if(b == ModBlocks.statue) {
-            bindTexture(ResourceManager.tmt_statue);
+            com.hfr.client.render.RenderMetrics.bind(ResourceManager.tmt_statue);
             ResourceManager.statue.renderAll();
         }
 
-        GL11.glPopMatrix();
+        }
 	}
 
 }

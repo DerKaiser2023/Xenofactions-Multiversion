@@ -25,7 +25,9 @@ public class ModelCustomArmor extends ModelBiped {
 	{ 
 		float scale = 1F;
 		
-		GL11.glPushMatrix();
+		try(com.hfr.client.render.RenderState state = new com.hfr.client.render.RenderState()) {
+        GL11.glEnable(GL11.GL_BLEND); GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glAlphaFunc(GL11.GL_GREATER,.001F);
 		GL11.glScalef(scale, scale, scale);
 		isSneak = entity.isSneaking();
 		ItemStack itemstack = ((EntityLivingBase)entity).getEquipmentInSlot(0);
@@ -77,7 +79,7 @@ public class ModelCustomArmor extends ModelBiped {
 				mod.render(f5);
 			}
 		}*/
-		GL11.glPopMatrix();
+		}
 	} 
 	
 	public void render(ModelRendererTurbo[] models, ModelRenderer bodyPart, float f5, float scale)

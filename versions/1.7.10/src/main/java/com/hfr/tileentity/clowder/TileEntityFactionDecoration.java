@@ -86,8 +86,6 @@ public final class TileEntityFactionDecoration extends TileEntity {
     }
 
     @Override public AxisAlignedBB getRenderBoundingBox() {
-        if(getBlockType() == ModBlocks.large_faction_flag)
-            return AxisAlignedBB.getBoundingBox(xCoord - 2, yCoord, zCoord - 2, xCoord + 3, yCoord + 10.25, zCoord + 3);
-        return AxisAlignedBB.getBoundingBox(xCoord, yCoord, zCoord, xCoord + 1, yCoord + 1, zCoord + 1);
+        return com.hfr.main.MainRegistry.proxy.modelBounds(this);
     }
 }

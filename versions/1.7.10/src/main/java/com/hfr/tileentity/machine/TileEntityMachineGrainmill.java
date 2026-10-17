@@ -33,6 +33,9 @@ public class TileEntityMachineGrainmill extends TileEntityMachineBase {
 	
 	@SideOnly(Side.CLIENT)
 	public float rotation;
+    @SideOnly(Side.CLIENT) public float previousRotation;
+    @SideOnly(Side.CLIENT) private boolean renderOperational;
+    @SideOnly(Side.CLIENT) private int renderTicks;
 
 	public TileEntityMachineGrainmill() {
 		super(6);
@@ -46,7 +49,18 @@ public class TileEntityMachineGrainmill extends TileEntityMachineBase {
 	@Override
 	public void updateEntity() {
 
-		if(!worldObj.isRemote) {
+		if(worldObj.isRemote) {
+            if(renderTicks++ % 10 == 0) {
+                renderOperational = operational();
+                com.hfr.main.MainRegistry.proxy.recordMillStructureCheck();
+            }
+            if(rotation > Math.PI * 2) rotation -= (float)(Math.PI * 2);
+            previousRotation = rotation;
+            // Preserve approximately the former 60 FPS speed, now expressed in radians/client tick.
+            if(renderOperational) rotation += .045F;
+            return;
+        }
+        if(!worldObj.isRemote) {
 			
 			if(operational()) {
 				
@@ -199,14 +213,14 @@ public class TileEntityMachineGrainmill extends TileEntityMachineBase {
 	
 	@Override
 	public AxisAlignedBB getRenderBoundingBox() {
-		return TileEntity.INFINITE_EXTENT_AABB;
-	}
+        return com.hfr.main.MainRegistry.proxy.modelBounds(this);
+    }
 	
 	@Override
 	@SideOnly(Side.CLIENT)
 	public double getMaxRenderDistanceSquared()
 	{
-		return 65536.0D;
+		return 16384.0D;
 	}
 
 }

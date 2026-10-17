@@ -7,12 +7,13 @@ import cpw.mods.fml.relauncher.SideOnly;
 import io.netty.buffer.ByteBuf;
 public final class WallArtImageChunkPacket implements IMessage {
   String hash = "";
-  int index, total, fullLength;
+  int index, total, fullLength, dimension;
+  long token;
   byte[] bytes;
   boolean valid;
   public WallArtImageChunkPacket() {}
-  public WallArtImageChunkPacket(String h, int i, int t, int f, byte[] b) {
-    hash = h;
+  public WallArtImageChunkPacket(String h, long token, int dimension, int i, int t, int f, byte[] b) {
+    hash = h; this.token = token; this.dimension = dimension;
     index = i;
     total = t;
     fullLength = f;
@@ -21,11 +22,12 @@ public final class WallArtImageChunkPacket implements IMessage {
   }
   public void fromBytes(ByteBuf b) {
     valid = false;
-    if (b.readableBytes() < 80)
+    if (b.readableBytes() < 92)
       return;
     byte[] h = new byte[64];
     b.readBytes(h);
     hash = new String(h, Charset.forName("US-ASCII"));
+    token = b.readLong(); dimension = b.readInt();
     index = b.readInt();
     total = b.readInt();
     fullLength = b.readInt();
@@ -44,6 +46,7 @@ public final class WallArtImageChunkPacket implements IMessage {
   }
   public void toBytes(ByteBuf b) {
     b.writeBytes(hash.getBytes(Charset.forName("US-ASCII")));
+    b.writeLong(token); b.writeInt(dimension);
     b.writeInt(index);
     b.writeInt(total);
     b.writeInt(fullLength);
@@ -53,10 +56,9 @@ public final class WallArtImageChunkPacket implements IMessage {
   public static final class Handler
       implements IMessageHandler<WallArtImageChunkPacket, IMessage> {
     @SideOnly(Side.CLIENT)
-    public IMessage onMessage(WallArtImageChunkPacket m, MessageContext c) {
-      if (m.valid)
-        com.hfr.main.MainRegistry.proxy.acceptWallArtChunk(
-            m.hash, m.index, m.total, m.fullLength, m.bytes);
+    public IMessage onMessage(final WallArtImageChunkPacket m, MessageContext c) {
+      if (m.valid) com.hfr.client.render.ClientRenderSession.enqueue(c.netHandler, m.dimension, () ->
+          com.hfr.main.MainRegistry.proxy.acceptWallArtChunk(m.hash,m.token,m.dimension,m.index,m.total,m.fullLength,m.bytes));
       return null;
     }
   }

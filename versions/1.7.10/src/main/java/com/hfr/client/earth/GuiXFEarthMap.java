@@ -43,6 +43,7 @@ public final class GuiXFEarthMap extends GuiScreen {
     private int roadRequest,roadTicks=39,enabledLayers=63,pressX,pressY,selectX,selectY;private String roadView="",roadNotice="",profileId="";
     private EarthMapLayerCache.Frame layers;private com.hfr.world.earth.map.XFEarthMapLayers.Feature selected;
     private Snapshot claimSnapshot;
+    private final java.util.List<com.hfr.client.journeymap.PreparedClaims.Cell> visibleClaims=new java.util.ArrayList<com.hfr.client.journeymap.PreparedClaims.Cell>();
 
     @Override public void initGui() {
         buttonList.clear();
@@ -331,29 +332,31 @@ public final class GuiXFEarthMap extends GuiScreen {
     }
     private void drawClaims(double ox,double oz,double w,double h) {
         if((enabledLayers&32)==0)return;
-        Snapshot snapshot=ClientClaimOverlayCache.get(dimension);if(snapshot==null)return;
+        Snapshot snapshot=ClientClaimOverlayCache.get(dimension);if(snapshot==null||w<=0||h<=0)return;
+        double worldX=data.profile.getBounds().minimumX,worldZ=data.profile.getBounds().minimumZ;
+        snapshot.prepared.select(worldX+(left()-ox)/w*data.profile.getWidth(),worldZ+(top()-oz)/h*data.profile.getHeight(),
+            worldX+(left()+viewWidth()-ox)/w*data.profile.getWidth(),worldZ+(top()+viewHeight()-oz)/h*data.profile.getHeight(),visibleClaims,null);
         GL11.glPushAttrib(GL11.GL_ENABLE_BIT|GL11.GL_COLOR_BUFFER_BIT|GL11.GL_CURRENT_BIT|GL11.GL_LINE_BIT);
         try {
-            GL11.glDisable(GL11.GL_TEXTURE_2D);GL11.glDisable(GL11.GL_CULL_FACE);GL11.glEnable(GL11.GL_BLEND);GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA);GL11.glLineWidth(1F);
+            GL11.glDisable(GL11.GL_TEXTURE_2D);GL11.glDisable(GL11.GL_CULL_FACE);GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA);GL11.glLineWidth(1F);
             for(int pass=0;pass<2;pass++){
                 GL11.glBegin(pass==0?GL11.GL_QUADS:GL11.GL_LINES);
-                for(Claim claim:snapshot.claims){
-                    Bounds bx=TerritoryCoordinateBounds.forCoordinate(claim.chunkX),bz=TerritoryCoordinateBounds.forCoordinate(claim.chunkZ);
-                    double x0=ox+data.mapX(bx.minInclusive)*w,x1=ox+data.mapX(bx.maxExclusive)*w;
-                    double z0=oz+data.mapZ(bz.minInclusive)*h,z1=oz+data.mapZ(bz.maxExclusive)*h;
-                    if(x1<=left()||z1<=top()||x0>=left()+viewWidth()||z0>=top()+viewHeight())continue;
-                    GL11.glColor4f((claim.color>>16&255)/255F,(claim.color>>8&255)/255F,(claim.color&255)/255F,pass==0?.35F:.95F);
+                try { for(int i=0;i<visibleClaims.size();i++) {
+                    com.hfr.client.journeymap.PreparedClaims.Cell cell=visibleClaims.get(i);int color=cell.claim.color;
+                    double x0=ox+data.mapX(cell.x0)*w,x1=ox+data.mapX(cell.x1)*w;
+                    double z0=oz+data.mapZ(cell.z0)*h,z1=oz+data.mapZ(cell.z1)*h;
+                    GL11.glColor4f((color>>16&255)/255F,(color>>8&255)/255F,(color&255)/255F,pass==0?.35F:.95F);
                     if(pass==0){GL11.glVertex2d(x0,z0);GL11.glVertex2d(x1,z0);GL11.glVertex2d(x1,z1);GL11.glVertex2d(x0,z1);}
                     else {
-                        if(!snapshot.sameGroup(claim.chunkX,claim.chunkZ-1,claim.groupId)){GL11.glVertex2d(x0,z0);GL11.glVertex2d(x1,z0);}
-                        if(!snapshot.sameGroup(claim.chunkX+1,claim.chunkZ,claim.groupId)){GL11.glVertex2d(x1,z0);GL11.glVertex2d(x1,z1);}
-                        if(!snapshot.sameGroup(claim.chunkX,claim.chunkZ+1,claim.groupId)){GL11.glVertex2d(x1,z1);GL11.glVertex2d(x0,z1);}
-                        if(!snapshot.sameGroup(claim.chunkX-1,claim.chunkZ,claim.groupId)){GL11.glVertex2d(x0,z1);GL11.glVertex2d(x0,z0);}
+                        if((cell.edges&1)!=0){GL11.glVertex2d(x0,z0);GL11.glVertex2d(x1,z0);}
+                        if((cell.edges&2)!=0){GL11.glVertex2d(x1,z0);GL11.glVertex2d(x1,z1);}
+                        if((cell.edges&4)!=0){GL11.glVertex2d(x1,z1);GL11.glVertex2d(x0,z1);}
+                        if((cell.edges&8)!=0){GL11.glVertex2d(x0,z1);GL11.glVertex2d(x0,z0);}
                     }
-                }
-                GL11.glEnd();
+                }} finally {GL11.glEnd();}
             }
-        } finally { GL11.glPopAttrib(); }
+        } finally {GL11.glPopAttrib();visibleClaims.clear();}
     }
     private void drawGrip(double ox, double oz, double w, double h) {
         int level = w > roads.levels[0].width ? roads.levels.length - 1 : 0;

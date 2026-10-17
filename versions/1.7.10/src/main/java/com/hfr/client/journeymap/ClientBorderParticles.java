@@ -94,6 +94,7 @@ public final class ClientBorderParticles {
                     0.4 * world.rand.nextGaussian() + 0.6, 0, mc.effectRenderer);
             spark.setColour(segment.color);
             mc.effectRenderer.addEffect(spark);
+            if (com.hfr.client.render.RenderMetrics.ENABLED) com.hfr.client.render.RenderMetrics.particles++;
             budget--;
         }
     }

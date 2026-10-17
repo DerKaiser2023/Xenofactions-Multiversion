@@ -28,7 +28,7 @@ public class RenderFlagOverlay {
 		if(endTime < System.currentTimeMillis())
 			return;
 
-		GL11.glPushMatrix();
+		try(com.hfr.client.render.RenderState state = new com.hfr.client.render.RenderState()) {
 
 		Minecraft minecraft = Minecraft.getMinecraft();
 
@@ -92,7 +92,7 @@ public class RenderFlagOverlay {
 		GL11.glColor4f(1F,1F,1F,1F);
 		// --------------------------
 
-		GL11.glPopMatrix();
+		}
 	}
 	
 	int delay;

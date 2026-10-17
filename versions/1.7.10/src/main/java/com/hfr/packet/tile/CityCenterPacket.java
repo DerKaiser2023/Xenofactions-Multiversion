@@ -14,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.tileentity.TileEntity;
 
 public class CityCenterPacket implements IMessage {
+    int dimension;
 
 	public int x;
 	public int y;
@@ -24,7 +25,8 @@ public class CityCenterPacket implements IMessage {
 
 	public CityCenterPacket() { }
 
-	public CityCenterPacket(int x, int y, int z, String cityName, String ownerName) {
+	public CityCenterPacket(int dimension, int x, int y, int z, String cityName, String ownerName) {
+		this.dimension = dimension;
 		this.x = x;
 		this.y = y;
 		this.z = z;
@@ -35,6 +37,7 @@ public class CityCenterPacket implements IMessage {
 
 	@Override
 	public void fromBytes(ByteBuf buf) {
+		dimension = buf.readInt();
 		x = buf.readInt();
 		y = buf.readInt();
 		z = buf.readInt();
@@ -45,6 +48,7 @@ public class CityCenterPacket implements IMessage {
 
 	@Override
 	public void toBytes(ByteBuf buf) {
+		buf.writeInt(dimension);
 		buf.writeInt(x);
 		buf.writeInt(y);
 		buf.writeInt(z);
@@ -58,10 +62,7 @@ public class CityCenterPacket implements IMessage {
 		@Override
 		@SideOnly(Side.CLIENT)
 		public IMessage onMessage(final CityCenterPacket m, MessageContext ctx) {
-			Minecraft.getMinecraft().func_152344_a(new Runnable() {
-				@Override
-				public void run() { applyMetadata(m); }
-			});
+            com.hfr.client.render.ClientRenderSession.enqueue(ctx.netHandler,m.dimension,() -> applyMetadata(m));
 			return null;
 		}
 
@@ -69,14 +70,17 @@ public class CityCenterPacket implements IMessage {
 		private void applyMetadata(CityCenterPacket m) {
 			try {
 				TileEntity te = Minecraft.getMinecraft().theWorld.getTileEntity(m.x, m.y, m.z);
-				if(te instanceof TileEntityFlag) {
-					TileEntityFlag flag = (TileEntityFlag)te;
-					flag.name = m.cityName == null ? "" : m.cityName;
-					flag.ownerName = m.ownerName == null ? "" : m.ownerName;
-					flag.customFlagHash = m.flagHash == null ? "" : m.flagHash;
-					if(flag.ownerName.length() > 0 && flag.customFlagHash.length() > 0)
-						FactionFlagTextureManager.handleMetadata(flag.ownerName, flag.customFlagHash);
-				}
+                if(te==null||te.isInvalid())return;
+                if(te instanceof TileEntityFlag) {
+                    TileEntityFlag flag=(TileEntityFlag)te;flag.name=m.cityName;flag.ownerName=m.ownerName;flag.customFlagHash=m.flagHash;
+                } else if(te instanceof com.hfr.tileentity.clowder.TileEntityFlagBig) {
+                    com.hfr.tileentity.clowder.TileEntityFlagBig flag=(com.hfr.tileentity.clowder.TileEntityFlagBig)te;
+                    flag.ownerName=m.ownerName;flag.customFlagHash=m.flagHash;
+                } else if(te instanceof com.hfr.tileentity.clowder.TileEntityConquerer) {
+                    com.hfr.tileentity.clowder.TileEntityConquerer flag=(com.hfr.tileentity.clowder.TileEntityConquerer)te;
+                    flag.ownerName=m.ownerName;flag.customFlagHash=m.flagHash;
+                } else return;
+                FactionFlagTextureManager.handleMetadata(m.ownerName,m.flagHash);
 			} catch(Exception e) { }
 		}
 	}

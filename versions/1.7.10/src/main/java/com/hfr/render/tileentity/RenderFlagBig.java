@@ -1,6 +1,7 @@
 package com.hfr.render.tileentity;
 
 import org.lwjgl.opengl.GL11;
+import com.hfr.client.render.RenderState;
 
 import com.hfr.client.flag.FactionFlagTextureManager;
 import com.hfr.clowder.ClowderFlag;
@@ -11,16 +12,18 @@ import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import net.minecraft.tileentity.TileEntity;
 
 public class RenderFlagBig extends TileEntitySpecialRenderer {
-	private static final Runnable CLOTH = () -> ResourceManager.flag_big.renderOnly("Flag");
+	private static final Runnable CLOTH = () -> ResourceManager.flag_big.renderPart("Flag");
 
 	@Override
 	public void renderTileEntityAt(TileEntity te, double x, double y, double z, float interp) {
+        com.hfr.client.render.RenderMetrics.tesr(7);
 		
+try(RenderState state = RenderState.model()) {
         TileEntityFlagBig flagpole = (TileEntityFlagBig)te;
-        bindTexture(FlagBeamRenderer.BEACON_BEAM);
+        com.hfr.client.render.RenderMetrics.bind(FlagBeamRenderer.BEACON_BEAM);
         FlagBeamRenderer.render(te, x, y, z, interp, flagpole.color);
 
-        GL11.glPushMatrix();
+
         GL11.glTranslated(x + 0.5D, y, z + 0.5D);
         GL11.glEnable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_CULL_FACE);
@@ -36,17 +39,17 @@ public class RenderFlagBig extends TileEntitySpecialRenderer {
 		case 5:
 			GL11.glRotatef(0, 0F, 1F, 0F); break;
 		}
-        
-        bindTexture(ResourceManager.flag_tex);
-        
+
+        com.hfr.client.render.RenderMetrics.bind(ResourceManager.flag_tex);
+
         GL11.glShadeModel(GL11.GL_SMOOTH);
-        ResourceManager.flag_big.renderOnly("Pole");
+        ResourceManager.flag_big.renderPart("Pole");
         GL11.glShadeModel(GL11.GL_FLAT);
 
         GL11.glDisable(GL11.GL_CULL_FACE);
-        
+
         ClowderFlag flag = flagpole.flag;
-        
+
         if(flag == ClowderFlag.NONE || flag == null) {
         	flag = ClowderFlag.TRICOLOR;
         }
@@ -55,11 +58,10 @@ public class RenderFlagBig extends TileEntitySpecialRenderer {
 	    	GL11.glTranslatef(0, -8F, 0);
 
         boolean hasCustomFlag = flagpole.customFlagHash != null && flagpole.customFlagHash.length() > 0;
-        if(hasCustomFlag)
-            FactionFlagTextureManager.handleMetadata(flagpole.ownerName, flagpole.customFlagHash);
+        com.hfr.client.render.ModelLighting.cloth(te, flagpole.isClaimed ? 9 : 1);
         FlagDesignRenderer.render(flag, flagpole.color, flagpole.ownerName, flagpole.customFlagHash, CLOTH);
 
         GL11.glEnable(GL11.GL_CULL_FACE);
-        GL11.glPopMatrix();
+        }
 	}
 }

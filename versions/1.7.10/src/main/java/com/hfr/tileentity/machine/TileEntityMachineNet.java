@@ -238,7 +238,7 @@ public class TileEntityMachineNet extends TileEntity implements ISidedInventory 
 				}
 			}
 			
-			PacketDispatcher.wrapper.sendToAll(new AuxGaugePacket(xCoord, yCoord, zCoord, slots[4] == null ? 0 : 1, 0));
+			PacketDispatcher.wrapper.sendToAll(new AuxGaugePacket(worldObj.provider.dimensionId, xCoord, yCoord, zCoord, slots[4] == null ? 0 : 1, 0));
 		}
 	}
 	
@@ -275,13 +275,13 @@ public class TileEntityMachineNet extends TileEntity implements ISidedInventory 
 	
 	@Override
 	public AxisAlignedBB getRenderBoundingBox() {
-		return TileEntity.INFINITE_EXTENT_AABB;
-	}
+        return com.hfr.main.MainRegistry.proxy.modelBounds(this);
+    }
 	
 	@Override
 	@SideOnly(Side.CLIENT)
 	public double getMaxRenderDistanceSquared()
 	{
-		return 65536.0D;
+		return 16384.0D;
 	}
 }

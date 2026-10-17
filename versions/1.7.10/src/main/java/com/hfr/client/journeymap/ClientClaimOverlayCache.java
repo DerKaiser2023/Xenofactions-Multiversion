@@ -85,12 +85,14 @@ public final class ClientClaimOverlayCache {
 
 	public static final class Snapshot {
 		public final List<Claim> claims; public final Map<Long, Claim> byChunk; public final List<TerritoryGroup> groups;
+        public final PreparedClaims prepared;
 		private Snapshot(List<Claim> claims, Map<Long, Claim> byChunk, Map<String, GroupBuilder> groups) {
 			this.claims = Collections.unmodifiableList(new ArrayList<Claim>(claims));
 			this.byChunk = Collections.unmodifiableMap(byChunk);
 			ArrayList<TerritoryGroup> built = new ArrayList<TerritoryGroup>();
 			for(GroupBuilder group : groups.values()) built.add(group.build());
 			this.groups = Collections.unmodifiableList(built);
+            this.prepared = new PreparedClaims(this.claims,this.byChunk,this.groups);
 		}
 		public boolean sameGroup(int x, int z, String group) {
 			Claim neighbor = byChunk.get(Long.valueOf(ClaimOverlayData.chunkKey(x, z)));

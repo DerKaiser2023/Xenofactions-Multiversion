@@ -14,8 +14,8 @@ import com.hfr.tmt.ModelRendererTurbo;
 
 public class ModelGrainmill extends ModelItemHolder //Same as Filename
 {
-	public static final ModelGrainmill instance = new ModelGrainmill();
 	
+
 	int textureX = 512;
 	int textureY = 512;
 
@@ -404,20 +404,4 @@ public class ModelGrainmill extends ModelItemHolder //Same as Filename
 		flipAll();
 	}
 	
-	public void render(float rot)
-	{
-		float f5 = 1F / 16F;
-		int cap = 36;
-		
-		for(int i = 0; i < baseModel.length; i++) {
-			
-			if(i > cap)
-				baseModel[i].rotateAngleZ += rot;
-			
-			baseModel[i].render(f5);
-			
-			if(i > cap)
-				baseModel[i].rotateAngleZ -= rot;
-		}
-	}
 }

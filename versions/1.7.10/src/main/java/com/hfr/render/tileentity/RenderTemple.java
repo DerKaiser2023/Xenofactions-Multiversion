@@ -1,6 +1,7 @@
 package com.hfr.render.tileentity;
 
 import org.lwjgl.opengl.GL11;
+import com.hfr.client.render.RenderState;
 
 import com.hfr.blocks.BlockDummyable;
 import com.hfr.main.ResourceManager;
@@ -12,8 +13,9 @@ public class RenderTemple extends TileEntitySpecialRenderer {
 
 	@Override
 	public void renderTileEntityAt(TileEntity tile, double x, double y, double z, float f) {
+        com.hfr.client.render.RenderMetrics.tesr(0);
 		
-        GL11.glPushMatrix();
+        try(RenderState state = RenderState.model()) {
         GL11.glTranslated(x + 0.5D, y, z + 0.5D);
         GL11.glEnable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_CULL_FACE);
@@ -31,11 +33,11 @@ public class RenderTemple extends TileEntitySpecialRenderer {
 		case 5: GL11.glRotatef(0, 0F, 1F, 0F); break;
 		}
 
-        bindTexture(ResourceManager.temple_tex);
+        com.hfr.client.render.RenderMetrics.bind(ResourceManager.temple_tex);
         
         ResourceManager.temple.renderAll();
 
-        GL11.glPopMatrix();
+        }
 
 	}
 }

@@ -118,7 +118,26 @@ public class TexturedPolygon
 		tessellator.draw();
 	}
 	
-	public PositionTextureVertex[] vertexPositions;
+	/** Export the exact authored UVs (including projective W) and normals during retained-model preparation. */
+    public float[][] preparedVertices() {
+        if(nVertices != 3 && nVertices != 4) throw new IllegalArgumentException("Unsupported TMT polygon size: " + nVertices);
+        float[][] result = new float[nVertices][10];
+        for(int i=0;i<nVertices;i++) {
+            PositionTextureVertex p=vertexPositions[i];
+            result[i][0]=(float)p.vector3D.xCoord;result[i][1]=(float)p.vector3D.yCoord;result[i][2]=(float)p.vector3D.zCoord;
+            result[i][3]=p.texturePositionX;result[i][4]=p.texturePositionY;result[i][6]=p.texturePositionW;
+        }
+        float[] face=com.hfr.client.render.GpuModelManager.normal(result[0],result[1],result[2]);
+        for(int i=0;i<nVertices;i++) {
+            float x=face[0],y=face[1],z=face[2];
+            if(normals.length==3){x=normals[0];y=normals[1];z=normals[2];}
+            if(i<iNormals.size()){Vec3 n=iNormals.get(i);x=(float)n.xCoord;y=(float)n.yCoord;z=(float)n.zCoord;}
+            float sign=invertNormal?-1:1;result[i][7]=x*sign;result[i][8]=y*sign;result[i][9]=z*sign;
+        }
+        return result;
+    }
+
+    public PositionTextureVertex[] vertexPositions;
 	public int nVertices;
 	private boolean invertNormal;
 	private float[] normals;

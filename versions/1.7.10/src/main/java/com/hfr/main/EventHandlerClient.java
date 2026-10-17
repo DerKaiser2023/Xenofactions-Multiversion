@@ -291,7 +291,7 @@ public class EventHandlerClient {
 	}
 	
 	@SubscribeEvent
-	public void drawHUD(RenderGameOverlayEvent event) {
+	public void drawHUD(RenderGameOverlayEvent.Post event) {
 		
 		EntityPlayer player = Minecraft.getMinecraft().thePlayer;
 		
@@ -391,64 +391,55 @@ public class EventHandlerClient {
 	}
 	
 	public static HashMap<String, String> lookup = new HashMap();
+    private static final java.util.Map<java.util.UUID,String> renderedNames = new java.util.HashMap<java.util.UUID,String>();
+    public static void updateFactionName(String player,String value) {
+        lookup.put(player,value);
+        java.util.UUID id;
+        try { id=java.util.UUID.fromString(player); } catch(IllegalArgumentException invalid) { return; }
+        if(value==null || value.equals("###")) { renderedNames.remove(id); return; }
+        String[] relation=value.split("\\|",2);String name=relation[0].replace('_',' ');
+        String kind=relation.length>1?relation[1]:"neutral";
+        renderedNames.put(id,("own".equals(kind)?EnumChatFormatting.GREEN:"ally".equals(kind)?EnumChatFormatting.BLUE:"enemy".equals(kind)?EnumChatFormatting.RED:EnumChatFormatting.YELLOW)+name);
+    }
 
 	@SubscribeEvent
 	public void preRenderEvent(RenderLivingEvent.Pre event) {
 
 		if(event.entity instanceof EntityPlayer) {
 			//allahu bookmark note important - this is the part where player name changes based on clowder
-			String clowder = lookup.get(event.entity.getUniqueID().toString());
-
-			//doesnt work this way
-			//Clowder enemy = Clowder.getClowderFromName(clowder);
-			//Clowder mines =  Clowder.getClowderFromName(own);
-
-			if(clowder != null && !clowder.equals("###")) {
-
-				String[] relationData = clowder.split("\\|", 2);
-				String trueName = relationData[0];
-				String relation = relationData.length > 1 ? relationData[1] : "neutral";
-
-				if("own".equals(relation)) {
-					clowder = EnumChatFormatting.GREEN + trueName;
-				} else if("ally".equals(relation)) {
-					clowder = EnumChatFormatting.BLUE + trueName;
-				} else if("enemy".equals(relation)) {
-					clowder = EnumChatFormatting.RED + trueName;
-				} else {
-					clowder = EnumChatFormatting.YELLOW + trueName;
-				}
-
-				renderTag((EntityPlayer)event.entity, event.x, event.y, event.z, event.renderer, clowder.replaceAll("_", " "));
-			}
+            String name=renderedNames.get(event.entity.getUniqueID());
+            if(name!=null)renderTag((EntityPlayer)event.entity,event.x,event.y,event.z,event.renderer,name);
 		}
 	}
 	
 	@SubscribeEvent
 	public void onClientDisconnect(ClientDisconnectionFromServerEvent event) {
 		com.hfr.client.journeymap.ClientBorderParticles.requestClear();
+        com.hfr.client.render.ClientRenderSession.invalidate();
 		GUIXenofactionsMenu.requestSessionReset();
 		com.hfr.client.journeymap.ClientClaimOverlayCache.requestClear();
 		com.hfr.client.flag.FactionFlagTextureManager.requestClear();
 		com.hfr.client.earth.EarthMapTileCache.requestClear();
-		resetTDMClientState();
-		GUIAdminEditor.clearSelectionPreview();
-		com.hfr.client.journeymap.ClientTDMMapOverlay.clear();
-		lookup.clear();
-		com.hfr.client.wallart.WallArtTextureCache.clear();
-		com.hfr.stonedrops.StoneDropDisplaySnapshot.clearClientSnapshot();
-		MachineDisplaySnapshot.clearClientSnapshot();
+        disconnectCleanup=true;
+
 	}
 
 	@SubscribeEvent
 	public void onClientConnect(cpw.mods.fml.common.network.FMLNetworkEvent.ClientConnectedToServerEvent event) {
 		com.hfr.client.journeymap.ClientBorderParticles.requestClear();
+        com.hfr.client.render.ClientRenderSession.invalidate();
 		GUIXenofactionsMenu.requestSessionReset();
 	}
 
 	@SubscribeEvent
 	public void onClientWorldUnload(WorldEvent.Unload event) {
 		if(event.world != null && event.world.isRemote) com.hfr.client.journeymap.ClientBorderParticles.worldUnloaded(event.world);
+        if(event.world != null && event.world.isRemote) {
+            com.hfr.client.render.ClientRenderSession.invalidate();
+            com.hfr.client.wallart.WallArtTextureCache.requestClear();
+            com.hfr.client.flag.FactionFlagTextureManager.requestClear();
+            com.hfr.client.render.GpuModelManager.release();
+        }
 		if(event.world != null && event.world.isRemote) com.hfr.client.journeymap.ClientClaimOverlayCache.requestClear();
 		if(event.world != null && event.world.isRemote) com.hfr.client.earth.EarthMapTileCache.requestClear();
 		if(event.world!=null&&event.world.isRemote) { resetTDMClientState(); GUIAdminEditor.clearSelectionPreview(); com.hfr.client.journeymap.ClientTDMMapOverlay.clear(); }
@@ -569,21 +560,40 @@ public class EventHandlerClient {
 		}
 	}
 	
-	private boolean xfHadWorld = false;
+	private volatile boolean disconnectCleanup;
+    private boolean xfHadWorld = false;
 	private boolean xfTutorialQueued = false;
 
 	@SubscribeEvent
 	public void xenofactionsClientTick(ClientTickEvent event) {
 		if(event.phase == TickEvent.Phase.START) GUIXenofactionsMenu.updateSession();
 		if(event.phase == TickEvent.Phase.START) com.hfr.client.journeymap.ClientClaimOverlayCache.tick();
-		if(event.phase == TickEvent.Phase.START) com.hfr.client.journeymap.ClientBorderParticles.beginTick();
-		if(event.phase == TickEvent.Phase.START) com.hfr.client.flag.FactionFlagTextureManager.tick();
+		if(event.phase == TickEvent.Phase.START) {
+            com.hfr.client.journeymap.ClientBorderParticles.beginTick();
+            if(disconnectCleanup) {
+                disconnectCleanup=false;
+                resetTDMClientState();
+                GUIAdminEditor.clearSelectionPreview();
+                com.hfr.client.journeymap.ClientTDMMapOverlay.clear();
+                lookup.clear();renderedNames.clear();
+                com.hfr.client.wallart.WallArtTextureCache.requestClear();
+                com.hfr.stonedrops.StoneDropDisplaySnapshot.clearClientSnapshot();
+                MachineDisplaySnapshot.clearClientSnapshot();
+                com.hfr.client.render.GpuModelManager.release();
+            }
+            com.hfr.client.wallart.WallArtTextureCache.tick();
+            com.hfr.client.flag.FactionFlagTextureManager.tick();
+            com.hfr.client.render.ClientPresentation.tick();
+            if(Minecraft.getMinecraft().theWorld != null) com.hfr.client.render.GpuModelManager.resume();
+            com.hfr.client.render.RenderMetrics.tick(com.hfr.client.flag.FactionFlagTextureManager.size(),
+                com.hfr.client.wallart.WallArtTextureCache.size(),com.hfr.client.wallart.WallArtTextureCache.pending());
+        }
 		if(event.phase==TickEvent.Phase.END)enforceMandatoryKitGui();
 		if(event.phase==TickEvent.Phase.END)com.hfr.client.journeymap.ClientTDMMapOverlay.emitWorldBorder();
 		if(event.phase == TickEvent.Phase.END) com.hfr.client.journeymap.ClientBorderParticles.endTick();
 		Minecraft xfMc = Minecraft.getMinecraft();
 		boolean xfHasWorld = xfMc.theWorld != null;
-		if(xfHadWorld&&!xfHasWorld) { resetTDMClientState(); GUIAdminEditor.clearSelectionPreview(); com.hfr.client.journeymap.ClientTDMMapOverlay.clear(); }
+		if(xfHadWorld&&!xfHasWorld) { com.hfr.client.render.GpuModelManager.release(); resetTDMClientState(); GUIAdminEditor.clearSelectionPreview(); com.hfr.client.journeymap.ClientTDMMapOverlay.clear(); }
 		if(!xfHadWorld && xfHasWorld) xfTutorialQueued = true;
 		if(!xfHasWorld) xfTutorialQueued = false;
 		xfHadWorld = xfHasWorld;

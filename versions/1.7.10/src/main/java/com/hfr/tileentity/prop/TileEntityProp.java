@@ -108,14 +108,14 @@ public class TileEntityProp extends TileEntity {
 	
 	@Override
 	public AxisAlignedBB getRenderBoundingBox() {
-		return TileEntity.INFINITE_EXTENT_AABB;
-	}
+        return com.hfr.main.MainRegistry.proxy.modelBounds(this);
+    }
 	
 	@Override
 	@SideOnly(Side.CLIENT)
 	public double getMaxRenderDistanceSquared()
 	{
-		return 65536.0D;
+		return 16384.0D;
 	}
 	
 	public boolean operational() {

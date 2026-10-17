@@ -14,7 +14,7 @@ import com.hfr.tmt.ModelRendererTurbo;
 
 public class ModelHescoBlock extends ModelItemHolder //Same as Filename
 {
-	public static final ModelHescoBlock instance = new ModelHescoBlock();
+
 	int textureX = 512;
 	int textureY = 512;
 

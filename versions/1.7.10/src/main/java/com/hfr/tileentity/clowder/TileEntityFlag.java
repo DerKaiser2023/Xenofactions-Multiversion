@@ -91,8 +91,8 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 	@Override
 	@SideOnly(Side.CLIENT)
 	public AxisAlignedBB getRenderBoundingBox() {
-		return AxisAlignedBB.getBoundingBox(xCoord, 0, zCoord, xCoord + 1, 256, zCoord + 1);
-	}
+        return com.hfr.main.MainRegistry.proxy.modelBounds(this);
+    }
 
 	@Override
 	public void updateEntity() {
@@ -233,7 +233,7 @@ public class TileEntityFlag extends TileEntityMachineBase implements ITerritoryP
 			ownerName = owner == null ? "" : owner.name;
 			if(worldObj.getTotalWorldTime() % 20 == 0)
 				{
-					CityCenterPacket packet = new CityCenterPacket(xCoord, yCoord, zCoord, name, ownerName);
+					CityCenterPacket packet = new CityCenterPacket(worldObj.provider.dimensionId, xCoord, yCoord, zCoord, name, ownerName);
 					packet.flagHash = owner == null ? "" : owner.customFlagHash;
 					PacketDispatcher.wrapper.sendToAllAround(packet, new TargetPoint(this.worldObj.provider.dimensionId, xCoord, yCoord, zCoord, 250));
 				}

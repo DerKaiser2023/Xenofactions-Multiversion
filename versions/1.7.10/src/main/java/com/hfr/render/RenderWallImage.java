@@ -19,11 +19,13 @@ public final class RenderWallImage extends TileEntitySpecialRenderer {
     ResourceLocation texture = WallArtTextureCache.get(t.getImageHash());
     if (texture == null)
       return;
+    try(com.hfr.client.render.RenderState state = com.hfr.client.render.RenderState.model()) {
     Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
     double w = t.getDisplayWidth(), h = t.getDisplayHeight(), eps = .002;
-    GL11.glPushMatrix();
     GL11.glTranslated(x, y, z);
     GL11.glDisable(GL11.GL_LIGHTING);
+    GL11.glEnable(GL11.GL_BLEND);GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA);
+    GL11.glDisable(GL11.GL_CULL_FACE);
     Tessellator q = Tessellator.instance;
     q.startDrawingQuads();
     switch (t.getFacing()) {
@@ -54,6 +56,6 @@ public final class RenderWallImage extends TileEntitySpecialRenderer {
     }
     q.draw();
     GL11.glEnable(GL11.GL_LIGHTING);
-    GL11.glPopMatrix();
+    }
   }
 }

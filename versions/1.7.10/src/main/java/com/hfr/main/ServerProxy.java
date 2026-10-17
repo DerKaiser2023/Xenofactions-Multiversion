@@ -11,6 +11,8 @@ import com.hfr.tileentity.TileEntityWallImage;
 
 public class ServerProxy
 {
+    public void recordMillStructureCheck() { }
+    public net.minecraft.util.AxisAlignedBB modelBounds(net.minecraft.tileentity.TileEntity tile) { return net.minecraft.util.AxisAlignedBB.getBoundingBox(tile.xCoord,tile.yCoord,tile.zCoord,tile.xCoord+1,tile.yCoord+1,tile.zCoord+1); }
 	public void registerRenderInfo() { }
 	
 	public void registerTileEntitySpecialRenderer() { }
@@ -33,7 +35,7 @@ public class ServerProxy
 	public void receiveEarthMap(int request, int dimension, String profile, String identity, String error) { }
 	public void receiveEarthHeight(com.hfr.world.earth.network.XFEarthHeightPacket packet, net.minecraft.network.INetHandler handler) { }
 	public com.hfr.world.earth.XFEarthProfile getEarthHeightProfile(World world) { return null; }
-	public void acceptWallArtChunk(String hash, int index, int total, int fullLength, byte[] bytes) { }
+	public void acceptWallArtChunk(String hash, long token, int dimension, int index, int total, int fullLength, byte[] bytes) { }
 
 	public void spawnEFX(double posX, double posY, double posZ, float pow) { }
 }

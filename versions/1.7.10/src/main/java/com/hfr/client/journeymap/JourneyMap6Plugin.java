@@ -123,13 +123,12 @@ public final class JourneyMap6Plugin implements IClientPlugin {
     private void addClaims(Snapshot snapshot, int dimension) throws Exception {
         Map<String, Area> areas = new HashMap<String, Area>();
         Map<String, Claim> sample = new HashMap<String, Claim>();
-        for (Claim claim : snapshot.claims) {
-            TerritoryCoordinateBounds.Bounds bx = TerritoryCoordinateBounds.forCoordinate(claim.chunkX);
-            TerritoryCoordinateBounds.Bounds bz = TerritoryCoordinateBounds.forCoordinate(claim.chunkZ);
+        for (PreparedClaims.Cell cell : snapshot.prepared.cells) {
+            Claim claim = cell.claim;
             Area area = areas.get(claim.groupId);
             if (area == null) { area = new Area(); areas.put(claim.groupId, area); sample.put(claim.groupId, claim); }
-            area.add(new Area(new Rectangle((int)bx.minInclusive, (int)bz.minInclusive,
-                    (int)(bx.maxExclusive - bx.minInclusive), (int)(bz.maxExclusive - bz.minInclusive))));
+            area.add(new Area(new Rectangle((int)cell.x0, (int)cell.z0,
+                    (int)(cell.x1-cell.x0), (int)(cell.z1-cell.z0))));
         }
         for (Map.Entry<String, Area> entry : areas.entrySet()) {
             Claim claim = sample.get(entry.getKey());

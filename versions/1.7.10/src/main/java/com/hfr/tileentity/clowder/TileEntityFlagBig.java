@@ -62,11 +62,19 @@ public class TileEntityFlagBig extends TileEntityMachineBase implements ITerrito
 	@Override
 	@SideOnly(Side.CLIENT)
 	public AxisAlignedBB getRenderBoundingBox() {
-		return AxisAlignedBB.getBoundingBox(xCoord, 0, zCoord, xCoord + 1, 256, zCoord + 1);
-	}
+        return com.hfr.main.MainRegistry.proxy.modelBounds(this);
+    }
 
 	@Override
 	public void updateEntity() {
+        if(!worldObj.isRemote && worldObj.getTotalWorldTime()%20==0) {
+            com.hfr.packet.tile.CityCenterPacket appearance=new com.hfr.packet.tile.CityCenterPacket(worldObj.provider.dimensionId,xCoord,yCoord,zCoord,name,
+                owner==null?"":owner.name);
+            appearance.flagHash=owner==null?"":owner.customFlagHash;
+            com.hfr.packet.PacketDispatcher.wrapper.sendToAllAround(appearance,
+                new cpw.mods.fml.common.network.NetworkRegistry.TargetPoint(worldObj.provider.dimensionId,xCoord,yCoord,zCoord,256));
+        }
+
 
 
 		

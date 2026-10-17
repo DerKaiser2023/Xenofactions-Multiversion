@@ -202,7 +202,7 @@ public abstract class TileEntityMachineBase extends TileEntity implements ISided
 	public void updateGauge(int val, int id, int range) {
 
 		if(!worldObj.isRemote)
-			PacketDispatcher.wrapper.sendToAllAround(new AuxGaugePacket(xCoord, yCoord, zCoord, val, id), new TargetPoint(this.worldObj.provider.dimensionId, xCoord, yCoord, zCoord, range));
+			PacketDispatcher.wrapper.sendToAllAround(new AuxGaugePacket(worldObj.provider.dimensionId, xCoord, yCoord, zCoord, val, id), new TargetPoint(this.worldObj.provider.dimensionId, xCoord, yCoord, zCoord, range));
 	}
 
 	public void processGauge(int val, int id) { }

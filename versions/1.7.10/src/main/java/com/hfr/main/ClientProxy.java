@@ -50,6 +50,8 @@ import cpw.mods.fml.relauncher.ReflectionHelper;
 
 public class ClientProxy extends ServerProxy
 {
+    @Override public void recordMillStructureCheck() { if(com.hfr.client.render.RenderMetrics.ENABLED)com.hfr.client.render.RenderMetrics.structures++; }
+    @Override public net.minecraft.util.AxisAlignedBB modelBounds(net.minecraft.tileentity.TileEntity tile) { return com.hfr.client.render.ModelBounds.forTile(tile); }
     @Override public void receiveDecoration(final TileEntityFactionDecoration tile, final NBTTagCompound data) {
         final Minecraft mc = Minecraft.getMinecraft();
         mc.func_152344_a(() -> {
@@ -108,7 +110,7 @@ public class ClientProxy extends ServerProxy
 		} });
 	}
 	@Override public void openWallArtGui(TileEntityWallImage tile) { Minecraft.getMinecraft().displayGuiScreen(new com.hfr.inventory.gui.GuiWallArt(tile)); }
-	@Override public void acceptWallArtChunk(String hash, int index, int total, int fullLength, byte[] bytes) { com.hfr.client.wallart.WallArtTextureCache.accept(hash,index,total,fullLength,bytes); }
+	@Override public void acceptWallArtChunk(String hash, long token, int dimension, int index, int total, int fullLength, byte[] bytes) { com.hfr.client.wallart.WallArtTextureCache.accept(hash,token,dimension,index,total,fullLength,bytes); }
 	@Override
 	public void receiveClaimOverlay(final long subscription, final int dimension, final int generation, final int part, final int parts, final List<com.hfr.clowder.ClaimOverlayData.Claim> claims) {
 		final Minecraft mc = Minecraft.getMinecraft();
@@ -131,11 +133,17 @@ public class ClientProxy extends ServerProxy
 	@Override
 	public void registerRenderInfo()
 	{
-		com.hfr.client.earth.XFEarthHeightClient.register();
+		com.hfr.client.render.GpuModelManager.register();
+        ((net.minecraft.client.resources.IReloadableResourceManager)Minecraft.getMinecraft().getResourceManager()).registerReloadListener(manager -> {
+            ResourceManager.reloadBlockModels();
+            com.hfr.client.flag.FactionFlagTextureManager.reload();
+            com.hfr.tmt.ModelRendererTurbo.reloadGeometry();
+            com.hfr.client.wallart.WallArtTextureCache.clear();
+        });
+        com.hfr.client.earth.XFEarthHeightClient.register();
 		net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new com.hfr.client.earth.XFEarthCreateWorldHandler());
 		new EventHandlerClient().register();
 		com.hfr.client.earth.EarthMapTileCache.registerReloadListener();
-		ResourceManager.registerReloadListener();
 		com.hfr.client.journeymap.XFJourneyMapIntegration.register();
 		com.hfr.client.journeymap.XFEarthJourneyMapImport.register();
 		
@@ -243,7 +251,7 @@ public class ClientProxy extends ServerProxy
 		
 		if(type.equals("clowderNotif")) {
 			
-			EventHandlerClient.lookup.put(nbt.getString("player"), nbt.getString("clowder"));
+			EventHandlerClient.updateFactionName(nbt.getString("player"), nbt.getString("clowder"));
 			return;
 		}
 		

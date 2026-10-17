@@ -30,6 +30,7 @@ public final class GUIAdminEditor extends GuiScreen {
     private String confirmation = "";
     private final NBTTagCompound data;
     private final RenderItem itemRenderer = new RenderItem();
+    private final ItemStack[] preparedInventory=new ItemStack[40];
     private GuiTextField input;
     private boolean dragging;
     private int dragX, dragY;
@@ -43,6 +44,11 @@ public final class GUIAdminEditor extends GuiScreen {
         spawnType = this.data.getInteger("spawnType");
         rewardIndex = this.data.getInteger("rewardIndex");
         updateSelection(this.data.getCompoundTag("selection"));
+        NBTTagList previews=this.data.getTagList("preview",10);
+        for(int i=0;i<previews.tagCount();i++) {
+            NBTTagCompound tag=previews.getCompoundTagAt(i);int slot=tag.getByte("slot")&255;
+            if(slot<preparedInventory.length)preparedInventory[slot]=ItemStack.loadItemStackFromNBT((NBTTagCompound)tag.getCompoundTag("item").copy());
+        }
     }
     public static void updateSelection(NBTTagCompound selection) {
         liveSelection = selection == null ? new NBTTagCompound() : (NBTTagCompound)selection.copy();
@@ -343,11 +349,7 @@ public final class GUIAdminEditor extends GuiScreen {
     private String shorten(String s, int max) { return s.length() <= max ? s : s.substring(0, max - 3) + "..."; }
     private void line(String text, int x, int y, int color) { drawString(fontRendererObj, shorten(text, 40), x, y, color); }
     private void drawInventory(int x, int y) {
-        ItemStack[] slots = new ItemStack[40]; NBTTagList tags = list("preview");
-        for (int i = 0; i < tags.tagCount(); i++) {
-            NBTTagCompound tag = tags.getCompoundTagAt(i); int slot = tag.getByte("slot") & 255;
-            if (slot < slots.length) slots[slot] = ItemStack.loadItemStackFromNBT(tag.getCompoundTag("item"));
-        }
+        ItemStack[] slots = preparedInventory;
         RenderHelper.enableGUIStandardItemLighting();
         for (int i = 0; i < 36; i++) {
             int col = i < 9 ? i : (i - 9) % 9, row = i < 9 ? 3 : (i - 9) / 9;

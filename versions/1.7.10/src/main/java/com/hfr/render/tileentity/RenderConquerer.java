@@ -1,6 +1,7 @@
 package com.hfr.render.tileentity;
 
 import org.lwjgl.opengl.GL11;
+import com.hfr.client.render.RenderState;
 
 import com.hfr.client.flag.FactionFlagTextureManager;
 import com.hfr.clowder.ClowderFlag;
@@ -20,8 +21,12 @@ public class RenderConquerer extends TileEntitySpecialRenderer {
 
 	@Override
 	public void renderTileEntityAt(TileEntity te, double x, double y, double z, float interp) {
+        com.hfr.client.render.RenderMetrics.tesr(8);
 		
+        TileEntityConquerer flagpole = (TileEntityConquerer)te;
+        try(RenderState state = RenderState.model()) {
         GL11.glPushMatrix();
+        try {
         GL11.glTranslated(x + 0.5D, y, z + 0.5D);
         GL11.glEnable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_CULL_FACE);
@@ -38,12 +43,11 @@ public class RenderConquerer extends TileEntitySpecialRenderer {
 			GL11.glRotatef(0, 0F, 1F, 0F); break;
 		}
         
-        TileEntityConquerer flagpole = (TileEntityConquerer)te;
-		
-        bindTexture(ResourceManager.flag_conq_tex);
+
+        com.hfr.client.render.RenderMetrics.bind(ResourceManager.flag_conq_tex);
         
         GL11.glShadeModel(GL11.GL_SMOOTH);
-        ResourceManager.flag.renderOnly("Pole");
+        ResourceManager.flag.renderPart("Pole");
         GL11.glShadeModel(GL11.GL_FLAT);
 
         GL11.glDisable(GL11.GL_CULL_FACE);
@@ -60,6 +64,7 @@ public class RenderConquerer extends TileEntitySpecialRenderer {
 	    int b = (color & 0xFF) / 2;
 
 	    GL11.glPushMatrix();
+        try {
         GL11.glTranslatef(0, -4F, 0);
         GL11.glTranslatef(0, flagpole.height * 4, 0);
 
@@ -68,25 +73,25 @@ public class RenderConquerer extends TileEntitySpecialRenderer {
         GL11.glDisable(GL11.GL_ALPHA_TEST);
         
         boolean hasCustomFlag = flagpole.customFlagHash != null && flagpole.customFlagHash.length() > 0;
-        if(hasCustomFlag)
-            FactionFlagTextureManager.handleMetadata(flagpole.ownerName, flagpole.customFlagHash);
-        bindTexture(hasCustomFlag ? FactionFlagTextureManager.getFlagTexture(flagpole.ownerName) : flag.getFlag());
+        com.hfr.client.render.RenderMetrics.bind(hasCustomFlag ? FactionFlagTextureManager.getFlagTexture(flagpole.ownerName) : flag.getFlag());
         if(hasCustomFlag)
             GL11.glColor3b((byte)127, (byte)127, (byte)127);
         else
             GL11.glColor3b((byte)r, (byte)g, (byte)b);
-        ResourceManager.flag.renderOnly("Flag");
+        com.hfr.client.render.ModelLighting.cloth(te, flagpole.height * 4 + .5);
+        ResourceManager.flag.renderPart("Flag");
 
         if(!hasCustomFlag) {
-            bindTexture(flag.getFlagOverlay());
+            com.hfr.client.render.RenderMetrics.bind(flag.getFlagOverlay());
             GL11.glColor3b((byte)127, (byte)127, (byte)127);
-            ResourceManager.flag.renderOnly("Flag");
+            ResourceManager.flag.renderPart("Flag");
         }
-	    GL11.glPopMatrix();
+	    } finally { GL11.glPopMatrix(); }
 	    
 	    if(flagpole.height < 1) {
 	    	
 	        GL11.glPushMatrix();
+            try {
 		    GL11.glDisable(GL11.GL_TEXTURE_2D);
 	        GL11.glShadeModel(GL11.GL_SMOOTH);
 	        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
@@ -120,7 +125,7 @@ public class RenderConquerer extends TileEntitySpecialRenderer {
 		    GL11.glEnable(GL11.GL_TEXTURE_2D);
 	        GL11.glShadeModel(GL11.GL_FLAT);
 	        GL11.glDepthMask(true);
-		    GL11.glPopMatrix();
+		    } finally { GL11.glPopMatrix(); }
 	    }
 	    
         GL11.glEnable(GL11.GL_ALPHA_TEST);
@@ -129,14 +134,15 @@ public class RenderConquerer extends TileEntitySpecialRenderer {
 		RenderHelper.enableStandardItemLighting();
 
         GL11.glEnable(GL11.GL_CULL_FACE);
-        GL11.glPopMatrix();
 
+        } finally { GL11.glPopMatrix(); }
 	    if(flagpole.height < 1) {
 	        GL11.glDisable(GL11.GL_FOG);
 	        renderFlare(te.getWorldObj(), x, y + 5, z, interp);
 	        GL11.glEnable(GL11.GL_FOG);
 	    }
 
+        }
 	}
 	
     private static final ResourceLocation field_147523_b = new ResourceLocation("textures/entity/beacon_beam.png");
@@ -149,7 +155,7 @@ public class RenderConquerer extends TileEntitySpecialRenderer {
         if (f1 > 0.0F)
         {
             Tessellator tessellator = Tessellator.instance;
-            this.bindTexture(field_147523_b);
+            com.hfr.client.render.RenderMetrics.bind(field_147523_b);
             GL11.glTexParameterf(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, 10497.0F);
             GL11.glTexParameterf(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, 10497.0F);
             GL11.glDisable(GL11.GL_LIGHTING);

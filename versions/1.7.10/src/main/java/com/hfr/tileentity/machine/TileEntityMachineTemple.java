@@ -67,4 +67,8 @@ public class TileEntityMachineTemple extends TileEntityMachineBase {
 		if(owner != null)
 			nbt.setString("owner", owner.name);
 	}
+    @Override @cpw.mods.fml.relauncher.SideOnly(cpw.mods.fml.relauncher.Side.CLIENT)
+    public net.minecraft.util.AxisAlignedBB getRenderBoundingBox() { return com.hfr.main.MainRegistry.proxy.modelBounds(this); }
+    @Override @cpw.mods.fml.relauncher.SideOnly(cpw.mods.fml.relauncher.Side.CLIENT)
+    public double getMaxRenderDistanceSquared() { return 16384D; }
 }

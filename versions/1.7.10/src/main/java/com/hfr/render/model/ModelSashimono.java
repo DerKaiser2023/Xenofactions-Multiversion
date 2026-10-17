@@ -16,6 +16,7 @@ import net.minecraft.item.ItemStack;
 
 public class ModelSashimono extends ModelCustomArmor //Same as Filename
 {
+	private static final ClowderFlag[] FLAGS=ClowderFlag.values();
 	int textureX = 64;
 	int textureY = 128;
 
@@ -57,9 +58,8 @@ public class ModelSashimono extends ModelCustomArmor //Same as Filename
 			ref = null;
 		}
 		
-		super.render(entity, f, f1, f2, f3, f4, f5);
-		
-		ref = null;
+		try { super.render(entity, f, f1, f2, f3, f4, f5); }
+        finally { ref = null; }
 	}
 	
 	@Override
@@ -91,13 +91,11 @@ public class ModelSashimono extends ModelCustomArmor //Same as Filename
 			return;
 
 		int ordinal = banner.stackTagCompound.getInteger("flag");
-		ClowderFlag flag = ordinal >= 0 && ordinal < ClowderFlag.values().length ? ClowderFlag.values()[ordinal] : ClowderFlag.TRICOLOR;
+		ClowderFlag flag = ordinal >= 0 && ordinal < FLAGS.length ? FLAGS[ordinal] : ClowderFlag.TRICOLOR;
 		int color = banner.stackTagCompound.getInteger("color");
 		String faction = banner.stackTagCompound.getString("flagFaction");
 		String hash = banner.stackTagCompound.getString("flagHash");
 		boolean custom = faction.length() > 0 && hash.length() > 0;
-		if(custom)
-			FactionFlagTextureManager.handleMetadata(faction, hash);
         
         if(flag == ClowderFlag.NONE || flag == null) {
         	flag = ClowderFlag.TRICOLOR;
@@ -115,16 +113,16 @@ public class ModelSashimono extends ModelCustomArmor //Same as Filename
         Minecraft.getMinecraft().renderEngine.bindTexture(custom ? FactionFlagTextureManager.getFlagTexture(faction) : flag.getFlag());
         if(custom) GL11.glColor4f(1F, 1F, 1F, 1F);
         else GL11.glColor3b((byte)r, (byte)g, (byte)b);
-		models[3].rotateAngleX += (-Math.PI / 2D);
-        models[3].render(f5);
-		models[3].rotateAngleX -= (-Math.PI / 2D);
+		float previous=models[3].rotateAngleX;
+        try { models[3].rotateAngleX=previous-(float)(Math.PI/2);models[3].render(f5); }
+        finally { models[3].rotateAngleX=previous; }
 		if(custom)
 			return;
 
         Minecraft.getMinecraft().renderEngine.bindTexture(flag.getFlagOverlay());
 	    GL11.glColor3b((byte)127, (byte)127, (byte)127);
-		models[3].rotateAngleX += (-Math.PI / 2D);
-        models[3].render(f5);
-		models[3].rotateAngleX -= (-Math.PI / 2D);
+		previous=models[3].rotateAngleX;
+        try { models[3].rotateAngleX=previous-(float)(Math.PI/2);models[3].render(f5); }
+        finally { models[3].rotateAngleX=previous; }
 	}
 }
