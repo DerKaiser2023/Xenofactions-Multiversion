@@ -66,6 +66,7 @@ public final class XFAchievements {
     public static final Achievement kill150 = goal("kill150", -3, -5, new ItemStack(Items.diamond_sword), "kills", 150);
     public static final Achievement kill200 = goal("kill200", -1, -5, new ItemStack(Items.diamond_sword), "kills", 200);
     public static final Achievement kill500 = goal("kill500", 1, -5, new ItemStack(Items.diamond_sword), "kills", 500);
+    public static final Achievement kill1000 = goal("kill1000", 3, -5, new ItemStack(Items.diamond_sword), "kills", 1000, false);
     public static final Achievement city = goal("city", -1, 0, new ItemStack(ModBlocks.clowder_flag), "action", 1);
     public static final Achievement statue = goal("statue", 1, 0, new ItemStack(ModBlocks.statue), "action", 1);
     public static final Achievement university = goal("university", 3, 0, new ItemStack(ModBlocks.machine_uni), "action", 1);
@@ -75,15 +76,20 @@ public final class XFAchievements {
     public static final Achievement mapInspector = goal("mapInspector", 3, 5, new ItemStack(Items.map), "travel", 0);
 
     private static Achievement goal(String id, int x, int y, ItemStack icon, String source, long target) {
-        Goal goal = new Goal(id, x, y, icon, source, target);
+        return goal(id, x, y, icon, source, target, true);
+    }
+    private static Achievement goal(String id, int x, int y, ItemStack icon, String source, long target, boolean grantsSpin) {
+        Goal goal = new Goal(id, x, y, icon, source, target, grantsSpin);
         GOALS.add(goal); return goal.registerStat();
     }
     private static final class Goal extends Achievement {
         final String id, source;
         final long amount;
-        Goal(String id, int x, int y, ItemStack icon, String source, long amount) {
+        final boolean grantsSpin;
+        Goal(String id, int x, int y, ItemStack icon, String source, long amount, boolean grantsSpin) {
             super("achievement.hfr." + id, "hfr." + id, x, y, icon, null);
             this.id = id; this.source = source; this.amount = amount;
+            this.grantsSpin = grantsSpin;
         }
         long target() { return source.equals("travel") ? 100L * DailyRewardConfig.achievementTravelBlocks : amount; }
         @Override @SideOnly(Side.CLIENT) public IChatComponent func_150951_e() {
@@ -101,14 +107,14 @@ public final class XFAchievements {
             String text = super.getDescription(), name = super.func_150951_e().getUnformattedText();
             if (mc.fontRenderer.getStringWidth(name) > 160) text = name + "\n" + text;
             if (mc.thePlayer == null || clientPlayer == null || clientPlayer.get() != mc.thePlayer || clientData == null)
-                return text + "\n" + net.minecraft.client.resources.I18n.format("achievement.hfr.waiting");
+                return text + "\n" + net.minecraft.client.resources.I18n.format(grantsSpin ? "achievement.hfr.waiting" : "achievement.hfr.waitingProgress");
             NBTTagCompound entry = clientData.getCompoundTag(id);
             long target = entry.getLong("target"), current = Math.min(target, entry.getLong("progress"));
             String progress = source.equals("travel") ? String.format(java.util.Locale.ROOT, "%.2f / %,d", current / 100D, target / 100)
                 : String.format(java.util.Locale.ROOT, "%,d / %,d", current, target);
             return text + "\n" + net.minecraft.client.resources.I18n.format("achievement.hfr.progress", progress)
                 + "\n" + net.minecraft.client.resources.I18n.format(entry.getBoolean("complete") ? "achievement.hfr.complete" : "achievement.hfr.incomplete")
-                + "\n" + net.minecraft.client.resources.I18n.format(entry.getBoolean("rewarded") ? "achievement.hfr.rewarded" : "achievement.hfr.reward");
+                + (grantsSpin ? "\n" + net.minecraft.client.resources.I18n.format(entry.getBoolean("rewarded") ? "achievement.hfr.rewarded" : "achievement.hfr.reward") : "");
         }
     }
     @SideOnly(Side.CLIENT) private static java.lang.ref.WeakReference<EntityPlayer> clientPlayer;
@@ -204,7 +210,7 @@ public final class XFAchievements {
                 long value = goal.source.equals("mining") ? mined : goal.source.equals("kills") ? kills
                     : goal.source.equals("travel") ? traveled : goal.source.equals("action") ? progress.getLong(goal.id) : stat(player, goal);
                 if (value >= goal.target()) complete.setBoolean(goal.id, true);
-                if (complete.getBoolean(goal.id) && !rewarded.getBoolean(goal.id)) {
+                if (goal.grantsSpin && complete.getBoolean(goal.id) && !rewarded.getBoolean(goal.id)) {
                     spins = Math.addExact(spins, 1); rewarded.setBoolean(goal.id, true);
                 }
                 NBTTagCompound entry = new NBTTagCompound(); entry.setLong("target", goal.target());

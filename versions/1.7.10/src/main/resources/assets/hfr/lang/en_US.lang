@@ -20,6 +20,8 @@ achievement.hfr.kill200=That one's 'cause I can!
 achievement.hfr.kill200.desc=Kill 200 players in total.
 achievement.hfr.kill500=I know what you're thinkin', but the funny thing is, I don't even like video games.
 achievement.hfr.kill500.desc=Kill 500 players in total.
+achievement.hfr.kill1000=Guns don't kill people, I do
+achievement.hfr.kill1000.desc=Kill 1,000 players in total.
 achievement.hfr.city=There Goes the Neighborhood!
 achievement.hfr.city.desc=Successfully found a new city by placing its named City Center.
 achievement.hfr.statue=Glad to see my tax dollars aren't going to waste!
@@ -40,6 +42,7 @@ achievement.hfr.incomplete=Incomplete
 achievement.hfr.reward=Reward: 1 achievement spin in /xdaily
 achievement.hfr.rewarded=Reward: 1 achievement spin credited (once)
 achievement.hfr.waiting=Waiting for server progress. Reward: 1 achievement spin.
+achievement.hfr.waitingProgress=Waiting for server progress.
 
 potion.hfr_emp=EMP
 

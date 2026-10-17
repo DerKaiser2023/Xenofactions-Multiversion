@@ -128,9 +128,9 @@ public class ModBlocks {
 		clowder_cap = new Cap(Material.iron).setStepSound(soundTypeMetal).setBlockName("clowder_cap").setHardness(Float.POSITIVE_INFINITY).setResistance(Float.POSITIVE_INFINITY).setCreativeTab(null).setBlockTextureName(RefStrings.MODID + ":clowder_cap");
 		clowder_flag_big = new FlagBig(Material.iron).setStepSound(soundTypeMetal).setBlockName("clowder_flag_big").setLightLevel(1F).setHardness(Float.POSITIVE_INFINITY).setResistance(Float.POSITIVE_INFINITY).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":clowder_flag_big");
 		faction_banner = new FactionBanner().setStepSound(Block.soundTypeCloth).setBlockName("faction_banner")
-			.setHardness(.5F).setResistance(1F).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":clowder_flag");
+			.setHardness(.5F).setResistance(1F).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":faction_banner");
 		large_faction_flag = new LargeFactionFlag().setStepSound(soundTypeMetal).setBlockName("large_faction_flag")
-			.setHardness(2F).setResistance(5F).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":clowder_flag_big");
+			.setHardness(2F).setResistance(5F).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":large_faction_flag");
 
 		clowder_conquerer = new Conquerer(Material.cloth).setStepSound(Block.soundTypeCloth).setBlockName("clowder_conquerer").setHardness(0.8F).setResistance(4F).setCreativeTab(MainRegistry.tab).setBlockTextureName(RefStrings.MODID + ":clowder_conquerer");
 
