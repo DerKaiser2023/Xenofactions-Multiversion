@@ -1,16 +1,13 @@
 package com.hfr.packet.effect;
 
-import com.hfr.client.flag.FactionFlagTextureManager;
+import com.hfr.main.MainRegistry;
 import com.hfr.clowder.flag.CustomFlagService;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 public class FactionFlagMetadataPacket implements IMessage {
@@ -39,10 +36,8 @@ public class FactionFlagMetadataPacket implements IMessage {
 
 	public static class ClientHandler implements IMessageHandler<FactionFlagMetadataPacket, IMessage> {
 		@Override
-		@SideOnly(Side.CLIENT)
 		public IMessage onMessage(final FactionFlagMetadataPacket m, MessageContext ctx) {
-            net.minecraft.world.World receiving=Minecraft.getMinecraft().theWorld;
-            if(receiving!=null)com.hfr.client.render.ClientRenderSession.enqueue(ctx.netHandler,receiving.provider.dimensionId,() -> FactionFlagTextureManager.handleMetadata(m.factionName, m.hash));
+			MainRegistry.proxy.receiveFactionFlagMetadata(ctx.netHandler, m.factionName, m.hash);
 			return null;
 		}
 	}

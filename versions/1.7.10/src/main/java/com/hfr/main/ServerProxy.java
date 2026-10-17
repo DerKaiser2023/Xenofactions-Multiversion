@@ -5,6 +5,8 @@ import java.util.List;
 import com.hfr.clowder.ClaimOverlayData.Claim;
 
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.INetHandler;
+import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import com.hfr.tileentity.TileEntityWallImage;
@@ -27,6 +29,11 @@ public class ServerProxy
 
 
 	public void effectNT(NBTTagCompound nbt) { }
+	// Clientbound handlers are also constructed during dedicated-server registration.
+	public void receiveClowderBorder(INetHandler handler, long subscription, int dimension, int x1, int z1, int x2, int z2, int color) { }
+	public void receiveFactionFlagBytes(INetHandler handler, String factionName, String hash, byte[] png) { }
+	public void receiveFactionFlagMetadata(INetHandler handler, String factionName, String hash) { }
+	public void receiveParticleEffect(INetHandler handler, PacketBuffer buffer) { }
     public void receiveDailyReward(NBTTagCompound data) { }
 	public void receiveClaimOverlay(long subscription, int dimension, int generation, int part, int parts, List<Claim> claims) { }
 	public void openWallArtGui(TileEntityWallImage tile) { }

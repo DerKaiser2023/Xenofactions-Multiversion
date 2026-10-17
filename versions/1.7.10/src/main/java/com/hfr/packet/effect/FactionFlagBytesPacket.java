@@ -1,15 +1,12 @@
 package com.hfr.packet.effect;
 
-import com.hfr.client.flag.FactionFlagTextureManager;
+import com.hfr.main.MainRegistry;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.client.Minecraft;
 
 public class FactionFlagBytesPacket implements IMessage {
 
@@ -49,10 +46,8 @@ public class FactionFlagBytesPacket implements IMessage {
 
 	public static class Handler implements IMessageHandler<FactionFlagBytesPacket, IMessage> {
 		@Override
-		@SideOnly(Side.CLIENT)
 		public IMessage onMessage(final FactionFlagBytesPacket m, MessageContext ctx) {
-            net.minecraft.world.World receiving=Minecraft.getMinecraft().theWorld;
-            if(receiving!=null)com.hfr.client.render.ClientRenderSession.enqueue(ctx.netHandler,receiving.provider.dimensionId,() -> FactionFlagTextureManager.handleBytes(m.factionName, m.hash, m.png));
+			MainRegistry.proxy.receiveFactionFlagBytes(ctx.netHandler, m.factionName, m.hash, m.png);
 			return null;
 		}
 	}

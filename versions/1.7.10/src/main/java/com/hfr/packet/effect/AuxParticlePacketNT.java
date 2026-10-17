@@ -9,7 +9,6 @@ import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.PacketBuffer;
 
@@ -57,24 +56,7 @@ public class AuxParticlePacketNT implements IMessage {
 		
 		@Override
 		public IMessage onMessage(AuxParticlePacketNT m, MessageContext ctx) {
-			
-			if(Minecraft.getMinecraft().theWorld == null)
-				return null;
-			
-			try {
-				
-				NBTTagCompound nbt = m.buffer.readNBTTagCompoundFromBuffer();
-				
-				if(nbt != null)
-					{
-                        final net.minecraft.world.World receiving=Minecraft.getMinecraft().theWorld;
-                        if(receiving!=null)com.hfr.client.render.ClientRenderSession.enqueue(ctx.netHandler,receiving.provider.dimensionId,() -> MainRegistry.proxy.effectNT(nbt));
-                    }
-				
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			
+			MainRegistry.proxy.receiveParticleEffect(ctx.netHandler, m.buffer);
 			return null;
 		}
 	}

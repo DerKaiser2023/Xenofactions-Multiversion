@@ -1,12 +1,11 @@
 package com.hfr.packet.effect;
 
+import com.hfr.main.MainRegistry;
+
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.client.Minecraft;
 
 public class ClowderBorderPacket implements IMessage {
 	long subscription;
@@ -60,13 +59,9 @@ public class ClowderBorderPacket implements IMessage {
 	public static class Handler implements IMessageHandler<ClowderBorderPacket, IMessage> {
 		
 		@Override
-		@SideOnly(Side.CLIENT)
 		public IMessage onMessage(final ClowderBorderPacket m, MessageContext ctx) {
-            com.hfr.client.render.ClientRenderSession.enqueue(ctx.netHandler, m.dimension, () -> {
-                if (com.hfr.client.journeymap.ClientClaimOverlayCache.isCurrentSubscription(m.subscription, m.dimension))
-                    com.hfr.client.journeymap.ClientBorderParticles.enqueue(Minecraft.getMinecraft().theWorld,
-                        m.x1, m.z1, m.x2, m.z2, m.color);
-            });
+			MainRegistry.proxy.receiveClowderBorder(ctx.netHandler, m.subscription, m.dimension,
+					m.x1, m.z1, m.x2, m.z2, m.color);
 			return null;
 		}
 	}

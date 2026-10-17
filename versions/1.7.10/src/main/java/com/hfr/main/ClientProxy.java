@@ -19,6 +19,8 @@ import net.minecraft.entity.passive.EntityPig;
 import net.minecraft.entity.passive.EntitySheep;
 import net.minecraft.init.Items;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.INetHandler;
+import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
@@ -50,6 +52,42 @@ import cpw.mods.fml.relauncher.ReflectionHelper;
 
 public class ClientProxy extends ServerProxy
 {
+    @Override public void receiveClowderBorder(final INetHandler handler, final long subscription, final int dimension,
+            final int x1, final int z1, final int x2, final int z2, final int color) {
+        com.hfr.client.render.ClientRenderSession.enqueue(handler, dimension, () -> {
+            if (com.hfr.client.journeymap.ClientClaimOverlayCache.isCurrentSubscription(subscription, dimension))
+                com.hfr.client.journeymap.ClientBorderParticles.enqueue(Minecraft.getMinecraft().theWorld,
+                        x1, z1, x2, z2, color);
+        });
+    }
+
+    @Override public void receiveFactionFlagBytes(final INetHandler handler, final String factionName,
+            final String hash, final byte[] png) {
+        final World receiving = Minecraft.getMinecraft().theWorld;
+        if (receiving != null) com.hfr.client.render.ClientRenderSession.enqueue(handler, receiving.provider.dimensionId,
+                () -> com.hfr.client.flag.FactionFlagTextureManager.handleBytes(factionName, hash, png));
+    }
+
+    @Override public void receiveFactionFlagMetadata(final INetHandler handler, final String factionName, final String hash) {
+        final World receiving = Minecraft.getMinecraft().theWorld;
+        if (receiving != null) com.hfr.client.render.ClientRenderSession.enqueue(handler, receiving.provider.dimensionId,
+                () -> com.hfr.client.flag.FactionFlagTextureManager.handleMetadata(factionName, hash));
+    }
+
+    @Override public void receiveParticleEffect(final INetHandler handler, final PacketBuffer buffer) {
+        if (Minecraft.getMinecraft().theWorld == null) return;
+        try {
+            final NBTTagCompound nbt = buffer.readNBTTagCompoundFromBuffer();
+            if (nbt != null) {
+                final World receiving = Minecraft.getMinecraft().theWorld;
+                if (receiving != null) com.hfr.client.render.ClientRenderSession.enqueue(handler, receiving.provider.dimensionId,
+                        () -> effectNT(nbt));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override public void recordMillStructureCheck() { if(com.hfr.client.render.RenderMetrics.ENABLED)com.hfr.client.render.RenderMetrics.structures++; }
     @Override public net.minecraft.util.AxisAlignedBB modelBounds(net.minecraft.tileentity.TileEntity tile) { return com.hfr.client.render.ModelBounds.forTile(tile); }
     @Override public void receiveDecoration(final TileEntityFactionDecoration tile, final NBTTagCompound data) {
