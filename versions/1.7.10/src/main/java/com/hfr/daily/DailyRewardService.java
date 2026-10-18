@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
@@ -25,6 +26,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatComponentTranslation;
 
 /** All state, selection and inventory mutation is confined to the owning server thread. */
@@ -33,6 +35,9 @@ public final class DailyRewardService {
     private static final Map<EntityPlayer, Boolean> BLOCKED = new WeakHashMap<EntityPlayer, Boolean>();
     private static final Map<EntityPlayerMP, Completion> COMPLETIONS = new WeakHashMap<EntityPlayerMP, Completion>();
     private static final Map<EntityPlayer, Boolean> LOGIN_OPENED = new WeakHashMap<EntityPlayer, Boolean>();
+    // UUIDs retain each online player's interval across respawns and dimension changes.
+    private static final Map<UUID, Long> ACHIEVEMENT_REMINDERS = new HashMap<UUID, Long>();
+    private static final long ACHIEVEMENT_REMINDER_MILLIS = 5 * 60 * 1000L;
     private static final Random RANDOM = new Random();
     private int ticks;
     private static final class Session {
@@ -73,7 +78,7 @@ public final class DailyRewardService {
         if (BLOCKED.containsKey(player)) throw new IllegalStateException("Daily player data failed to load");
         return DailyRewardStore.read(player);
     }
-    public static void clear() { SESSIONS.clear(); BLOCKED.clear(); COMPLETIONS.clear(); LOGIN_OPENED.clear(); com.hfr.main.XFAchievements.clearTracking(); }
+    public static void clear() { SESSIONS.clear(); BLOCKED.clear(); COMPLETIONS.clear(); LOGIN_OPENED.clear(); ACHIEVEMENT_REMINDERS.clear(); com.hfr.main.XFAchievements.clearTracking(); }
     public static NBTTagCompound achievementState(EntityPlayerMP player) { return state(player); }
     public static void achievementBalanceChanged(EntityPlayerMP player) {
         Session session = SESSIONS.get(player);
@@ -335,6 +340,7 @@ public final class DailyRewardService {
     }
     @SubscribeEvent public void login(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.player instanceof EntityPlayerMP)) return;
+        ACHIEVEMENT_REMINDERS.putIfAbsent(event.player.getUniqueID(), System.currentTimeMillis() + ACHIEVEMENT_REMINDER_MILLIS);
         try {
             NBTTagCompound saved = state(event.player);
             if (!LOGIN_OPENED.containsKey(event.player)) LOGIN_OPENED.put(event.player, false);
@@ -345,6 +351,7 @@ public final class DailyRewardService {
     }
     @SubscribeEvent public void logout(PlayerEvent.PlayerLoggedOutEvent event) {
         SESSIONS.remove(event.player); BLOCKED.remove(event.player); COMPLETIONS.remove(event.player); LOGIN_OPENED.remove(event.player);
+        ACHIEVEMENT_REMINDERS.remove(event.player.getUniqueID());
     }
     @SubscribeEvent public void dimension(PlayerEvent.PlayerChangedDimensionEvent event) { SESSIONS.remove(event.player); }
     @SubscribeEvent public void clone(net.minecraftforge.event.entity.player.PlayerEvent.Clone event) {
@@ -379,6 +386,26 @@ public final class DailyRewardService {
         finally { if (session != null) snapshot(player, session, false, false); }
         return true;
     }
+    private static void remindAchievementSpins(long now) {
+        for (Object raw : MinecraftServer.getServer().getConfigurationManager().playerEntityList) {
+            EntityPlayerMP player = (EntityPlayerMP)raw;
+            if (!online(player)) continue;
+            UUID id = player.getUniqueID();
+            Long checkAt = ACHIEVEMENT_REMINDERS.get(id);
+            if (checkAt == null) {
+                ACHIEVEMENT_REMINDERS.put(id, now + ACHIEVEMENT_REMINDER_MILLIS);
+            } else if (now >= checkAt) {
+                // Advance before checking/sending so repeated callbacks cannot duplicate reminders.
+                ACHIEVEMENT_REMINDERS.put(id, now + ACHIEVEMENT_REMINDER_MILLIS);
+                try {
+                    if (state(player).getInteger("AchievementSpins") > 0)
+                        player.addChatMessage(new ChatComponentText("You have unclaimed achievement spin rewards! Run /xdaily to use them."));
+                } catch (IllegalStateException e) {
+                    // Invalid or blocked data already has load diagnostics; do not infer a balance.
+                }
+            }
+        }
+    }
     @SubscribeEvent public void tick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         long now = System.currentTimeMillis();
@@ -397,7 +424,9 @@ public final class DailyRewardService {
                 }
             }
         }
-        if (++ticks % 20 != 0 || SESSIONS.isEmpty()) return;
+        if (++ticks % 20 != 0) return;
+        remindAchievementSpins(now);
+        if (SESSIONS.isEmpty()) return;
         long day = today();
         for (Map.Entry<EntityPlayerMP, Session> entry : SESSIONS.entrySet())
             if ((entry.getValue().day != day || entry.getValue().unlockAt > 0 && entry.getValue().unlockAt <= System.currentTimeMillis())
