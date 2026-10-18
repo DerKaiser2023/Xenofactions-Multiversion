@@ -33,6 +33,8 @@ public class GUIFactory extends GuiContainer {
 		
 		this.fontRendererObj.drawString(name, this.xSize / 2 - this.fontRendererObj.getStringWidth(name) / 2, 6, 4210752);
 		this.fontRendererObj.drawString(I18n.format("container.inventory"), 8, this.ySize - 96 + 2, 4210752);
+        if (x >= guiLeft && x < guiLeft + xSize && y >= guiTop + 4 && y < guiTop + 17)
+            this.func_146283_a(java.util.Arrays.asList(com.hfr.blocks.StructureInfo.size(diFurnace.getBlockType()), com.hfr.blocks.StructureInfo.axes()), x - guiLeft, y - guiTop);
 
 		if(!diFurnace.operational()) {
 			if(guiLeft + 99 <= x && guiLeft + 99 + 10 > x && guiTop + 38 < y && guiTop + 38 + 10 >= y) {

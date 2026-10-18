@@ -24,12 +24,12 @@ public final class ItemBlockFactionDecoration extends ItemBlock {
         if(field_150939_a instanceof LargeFactionFlag) {
             if(!field_150939_a.canPlaceBlockAt(world, x, y, z)) return false;
             int rotation = LargeFactionFlag.rotation(player);
-            for(int level = 0; level <= 10; level++) {
+            for(int level = 0; level < LargeFactionFlag.HEIGHT; level++) {
                 if(!world.isAirBlock(x, y + level, z) || !player.canPlayerEdit(x, y + level, z, side, stack))
                     return reject(player, "factiondecoration.error.space");
             }
             // The model's cloth occupies Y 8.5..10, extending 2.375 blocks from the pole.
-            for(int level = 8; level <= 9; level++) for(int distance = 1; distance <= 2; distance++) {
+            for(int level = 8; level <= 9; level++) for(int distance = 1; distance <= LargeFactionFlag.CLOTH_REACH; distance++) {
                 int cx = x + LargeFactionFlag.clothX(rotation) * distance;
                 int cz = z + LargeFactionFlag.clothZ(rotation) * distance;
                 // blockExists is a loaded-only check, before any block access across chunk edges.

@@ -6,6 +6,10 @@ public final class XFCommandCatalog { private static final List<XFCommandDefinit
  private static XFCommandArgument a(String k, Type t, boolean r){return new XFCommandArgument(k,t,r);} private static XFCommandArgument text(String k, boolean r, boolean spaces){return new XFCommandArgument(k, spaces?Type.FREE_TEXT:Type.OPTIONAL_TEXT, r, spaces);} private static void add(String id, Category c, String root, String sub, String usage, boolean danger, int op, String rank, String cfg, XFCommandArgument... args){COMMANDS.add(new XFCommandDefinition(id,c,"xf.command."+id+".name","xf.command."+id+".desc",root,sub,aliases(root,sub),usage.startsWith("/")?"xf.command."+id+".usage":usage,args,op,rank,danger,cfg));}
  private static String[] aliases(String root,String sub){ if("clowder".equals(root)) return new String[]{"/c"+(sub==null?"":" "+sub)}; if("xclowder".equals(root)) return new String[]{"/xc"+(sub==null?"":" "+sub)}; if("xdaily".equals(root)) return new String[]{"/daily"}; if("xshop".equals(root)) return new String[]{"/shop"+(sub==null?"":" "+sub)}; return new String[0]; }
  private static void build(){
+ add("xc_presence_show",Category.ADMIN,"xclowder","presence show","commands.hfr.presence.usage",false,3,null,null);
+ for(String setting:com.hfr.config.PlayerPresenceConfig.SETTINGS)
+     add("xc_presence_"+setting,Category.ADMIN,"xclowder","presence set "+setting,"commands.hfr.presence."+setting+".usage",false,3,null,null,
+         a("afkTimeoutSeconds".equals(setting)?"xf.arg.presence_timeout":"xf.arg.presence_enabled","afkTimeoutSeconds".equals(setting)?Type.INTEGER:Type.BOOLEAN,true));
  add("xdaily",Category.UTILITIES,"xdaily",null,"commands.hfr.daily.usage",false,0,null,null);
  for(String action:new String[]{"help","list","status","reload","settings","enable","disable","milestone list"})
      daily(action,"disable".equals(action));

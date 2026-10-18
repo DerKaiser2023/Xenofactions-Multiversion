@@ -19,6 +19,8 @@ import com.hfr.tileentity.clowder.TileEntityFactionDecoration;
 
 /** 0..3: core yaw; 4..13: pole segments at core Y + metadata - 3. */
 public final class LargeFactionFlag extends BlockContainer {
+    public static final int HEIGHT = 11;
+    public static final int CLOTH_REACH = 2;
     private boolean removing;
     public LargeFactionFlag() { super(Material.iron); }
     @Override public boolean hasTileEntity(int meta) { return meta < 4; }
@@ -32,14 +34,14 @@ public final class LargeFactionFlag extends BlockContainer {
     public static int clothZ(int rotation) { return rotation == 0 ? -1 : rotation == 2 ? 1 : 0; }
 
     @Override public boolean canPlaceBlockAt(World world, int x, int y, int z) {
-        return super.canPlaceBlockAt(world, x, y, z) && y >= 1 && y + 10 < world.getHeight()
+        return super.canPlaceBlockAt(world, x, y, z) && y >= 1 && y + HEIGHT - 1 < world.getHeight()
             && world.isSideSolid(x, y - 1, z, ForgeDirection.UP);
     }
 
     @Override public void onBlockPlacedBy(World world, int x, int y, int z, EntityLivingBase placer, ItemStack stack) {
         if(world.isRemote) return;
         world.setBlockMetadataWithNotify(x, y, z, rotation(placer), 2);
-        for(int level = 1; level <= 10; level++) world.setBlock(x, y + level, z, this, level + 3, 2);
+        for(int level = 1; level < HEIGHT; level++) world.setBlock(x, y + level, z, this, level + 3, 2);
         FactionBanner.bind(world, x, y, z, placer);
     }
 

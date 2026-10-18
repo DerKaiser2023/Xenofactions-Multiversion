@@ -579,6 +579,7 @@ public class MainRegistry
 		FMLCommonHandler.instance().bus().register(claimOverlaySync);
 		FMLCommonHandler.instance().bus().register(new StoneDropSnapshotSync());
 		FMLCommonHandler.instance().bus().register(new MachineDisplaySnapshotSync());
+		FMLCommonHandler.instance().bus().register(new PlayerActivityTracker());
 		if(XFConfig.enableDynmapIntegration) {
 			FMLCommonHandler.instance().bus().register(dynmap);
 			MinecraftForge.EVENT_BUS.register(dynmap);
@@ -664,6 +665,7 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStarting(FMLServerStartingEvent event) {
+        PlayerActivityTracker.clear();
         com.hfr.rewards.ChatRewardService.clear();
         com.hfr.rewards.ChatRewardConfig.load();
         event.registerServerCommand(new com.hfr.command.CommandXRewards());
@@ -714,6 +716,7 @@ public class MainRegistry
 
 	@Mod.EventHandler
 	public void serverStopping(FMLServerStoppingEvent event) {
+        PlayerActivityTracker.clear();
         XFAchievements.flushActions();
         com.hfr.rewards.ChatRewardService.clear();
         com.hfr.daily.DailyRewardService.clear();

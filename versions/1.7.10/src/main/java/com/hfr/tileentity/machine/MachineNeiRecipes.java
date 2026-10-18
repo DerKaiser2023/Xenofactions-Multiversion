@@ -28,11 +28,11 @@ public final class MachineNeiRecipes {
     }
 
     public static ItemStack grainMillInput() { return new ItemStack(Items.wheat); }
-    public static ItemStack grainMillOutput() { return new ItemStack(ModItems.flour); }
+    public static ItemStack grainMillOutput() { return new ItemStack(ModItems.flour, MachineDisplaySnapshot.forClientDisplay().grainmillOutput); }
     public static int grainMillTicks() { return TileEntityMachineGrainmill.maxProgress; }
-    public static ItemStack universityOutput() { return new ItemStack(ModItems.science); }
-    public static ItemStack productionLineOutput() { return new ItemStack(ModItems.cog); }
-    public static ItemStack templeOutput() { return new ItemStack(ModItems.scroll); }
+    public static ItemStack universityOutput() { return new ItemStack(ModItems.science, MachineDisplaySnapshot.forClientDisplay().universityOutput); }
+    public static ItemStack productionLineOutput() { return new ItemStack(ModItems.cog, MachineDisplaySnapshot.forClientDisplay().factoryOutput); }
+    public static ItemStack templeOutput() { return new ItemStack(ModItems.scroll, MachineDisplaySnapshot.forClientDisplay().templeOutput); }
 
     public static List<ChanceEntry> universityJams() {
         List<ChanceEntry> list = new ArrayList<ChanceEntry>();
@@ -54,8 +54,8 @@ public final class MachineNeiRecipes {
 
     public static List<ItemStack> fishingOutputsAndJams() {
         List<ItemStack> list = new ArrayList<ItemStack>();
-        list.add(new ItemStack(Items.fish));
-        list.add(new ItemStack(ModItems.whale_meat));
+        list.add(new ItemStack(Items.fish, MachineDisplaySnapshot.forClientDisplay().fishingOutput));
+        list.add(new ItemStack(ModItems.whale_meat, MachineDisplaySnapshot.forClientDisplay().fishingOutput));
         list.add(new ItemStack(Items.stick).setStackDisplayName("Driftwood"));
         list.add(new ItemStack(Blocks.sapling));
         list.add(new ItemStack(Blocks.waterlily));

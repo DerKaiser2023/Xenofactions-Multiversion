@@ -36,15 +36,7 @@ public class TileEntityMachineFactory extends TileEntityMachineBase {
 				
 				if(worldObj.rand.nextInt(Math.max(1, MainRegistry.factoryRate) * 20) == 0) {
 					
-					for(int i = 0; i < 4; i++) {
-						if(slots[i] == null) {
-							slots[i] = new ItemStack(ModItems.cog);
-							break;
-						} else if(slots[i].getItem() == ModItems.cog && slots[i].stackSize < slots[i].getMaxStackSize()){
-							slots[i].stackSize++;
-							break;
-						}
-					}
+					StructureOutput.insert(slots, 0, 4, ModItems.cog, com.hfr.config.XFConfig.factoryOutputAmount);
 					this.markDirty();
 				}
 				if(worldObj.rand.nextInt(Math.max(1, MainRegistry.factoryJamRate) * 20) == 0) {

@@ -61,6 +61,10 @@ public class CommandClowderAdmin extends CommandBase {
 
 	@Override
 	public void processCommand(ICommandSender sender, String[] args) {
+        if (args.length > 0 && "presence".equalsIgnoreCase(args[0])) {
+            PlayerPresenceCommandHandler.execute(sender, Arrays.copyOfRange(args, 1, args.length));
+            return;
+        }
         if (args.length > 0 && "daily".equalsIgnoreCase(args[0])) {
             DailyRewardCommandHandler.execute(sender, Arrays.copyOfRange(args, 1, args.length));
             return;
@@ -220,6 +224,7 @@ public class CommandClowderAdmin extends CommandBase {
 	}
 
 	private String getUsageFor(String cmd) {
+        if(cmd.equals("presence")) return PlayerPresenceCommandHandler.USAGE;
         if(cmd.equals("enderchest")) return EnderChestCommandHandler.USAGE;
         if(cmd.equals("leaderboard")) return "/xc leaderboard give | /xc leaderboard <x> <y> <z> <territory|prestige|money|kills>";
 		if(cmd.equals("factiontimeoutcreationreset")) return "/xc factiontimeoutcreationreset <player>";
@@ -272,6 +277,7 @@ public class CommandClowderAdmin extends CommandBase {
 
 		if(p == 2) {
 			sender.addChatMessage(new ChatComponentText(TITLE + "Claims, prestige & protection"));
+            sender.addChatMessage(new net.minecraft.util.ChatComponentTranslation("commands.hfr.presence.help"));
             sender.addChatMessage(new ChatComponentText(COMMAND_ADMIN + "-enderchest [show [setting] | set <setting> <value...|clear>]" + TITLE + " - Global ender chest deposit settings"));
             com.hfr.rewards.ChatRewardService.say(sender, "admin.help");
             DailyRewardCommandHandler.say(sender, "help");
@@ -664,6 +670,7 @@ public class CommandClowderAdmin extends CommandBase {
 
 		String cmd = args[0].toLowerCase();
 		if (cmd.equals("chatreward")) return ChatRewardCommandHandler.complete(sender, Arrays.copyOfRange(args, 1, args.length));
+		if (cmd.equals("presence")) return PlayerPresenceCommandHandler.complete(sender, Arrays.copyOfRange(args, 1, args.length));
         if (cmd.equals("daily")) return DailyRewardCommandHandler.complete(sender, Arrays.copyOfRange(args, 1, args.length));
 		if(cmd.equals("earth") && args.length == 2)
 			return getListOfStringsMatchingLastWord(args, new String[] { "status", "packs", "verify", "check", "source", "pregen", "geo", "roads", "features" });
@@ -704,7 +711,7 @@ public class CommandClowderAdmin extends CommandBase {
     }
 
 	private String[] getAdminCommandNames() {
-		return new String[] { "help", "daily", "chatreward", "enderchest", "leaderboard", "factiontimeoutcreationreset", "earth", "worldborder", "editor", "clearcreationcooldown", "resetcreationcooldown", "forcejoin", "fj", "forcekick", "fk", "forcedisband", "fd", "forcerename", "fr",
+		return new String[] { "help", "presence", "daily", "chatreward", "enderchest", "leaderboard", "factiontimeoutcreationreset", "earth", "worldborder", "editor", "clearcreationcooldown", "resetcreationcooldown", "forcejoin", "fj", "forcekick", "fk", "forcedisband", "fd", "forcerename", "fr",
 				"hijack", "hi", "deletedata", "deldat", "setclaim", "sc", "addprestige", "ap", "disband", "rename",
 				"warenable", "wardisable", "newplayerprotection", "resetnewplayerprotection", "endnewplayerprotection",
 				"skipwarcooldowns", "ignorewarcooldowncheck", "ignorewaronlinecheck", "ignorewarstatecheck",

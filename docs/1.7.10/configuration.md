@@ -136,11 +136,13 @@ Category: `XENOFACTIONS_02_PRESTIGE_GENERATION`
 | `startingPrestige` | `250` | Prestige granted to new factions. |
 | `basePrestigeGeneration` | `25` | Base prestige generation amount. |
 | `prestigeGenerationCap` | `2500` | Cap for generated prestige. |
-| `grainmillPrestigeGeneration` | `3` | Grain mill contribution. |
-| `universityPrestigeGeneration` | `60` | University contribution. |
-| `templePrestigeGeneration` | `90` | Temple contribution. |
-| `statuePrestigeGeneration` | `15` | Statue contribution. |
+| `grainmillPrestigeGeneration` | `15` | Grain mill contribution (previous default 3). |
+| `universityPrestigeGeneration` | `300` | University contribution (previous default 60). |
+| `templePrestigeGeneration` | `450` | Temple contribution (previous default 90). |
+| `statuePrestigeGeneration` | `75` | Statue contribution (previous default 15). |
 | `cityCenterPrestigeGeneration` | `0` | City center contribution. |
+
+Only missing settings receive the fivefold building defaults; existing explicit values remain unchanged. City center income remains `0 × 5 = 0`. Base faction income, starting prestige, generation cap, upkeep and costs are unchanged. These are amounts per accounting period; `prestigeDelay` still controls the accounting interval.
 
 ## Costs, upkeep, and bankruptcy
 
@@ -380,9 +382,28 @@ Earth overworld profile and offline imagery. See
 
 `XENOFACTIONS_10_MACHINES_POWER` keeps its historical category name for configuration compatibility, but contains no power behavior. Supported settings are fishing intervals (`superFishrate`, `goodFishrate`, `averageFishrate`, `crapFishrate`), net `jamRate`/`whaleChance`, University `uniRate`/`uniJamRate`, Temple `templeRate`, and Production Line `factoryRate`/`factoryJamRate`. Defaults remain 20/40/60/1000000 seconds, 900 seconds/5 percent, 180/900 seconds, 1800 seconds, and 180/900 seconds respectively.
 
+The same category now exposes item quantities, each defaulting to **5** instead of the former hardcoded **1**: `fishingOutputAmount` (fish or whale meat per catch), `grainmillOutputAmount` (flour per wheat), `universityOutputAmount` (research), `factoryOutputAmount` (cogs) and `templeOutputAmount` (scrolls). Range: 1–64. Explicit values are used directly without another multiplier. Production/jam intervals, whale chance, grainmill's 60-tick processing time and one-wheat input, and inventory/stack limits are unchanged. Automatic generators fill only available output space; grainmills wait for enough room for their complete batch before consuming wheat.
+
+Item tooltips, NEI machine information and hovering machine GUI titles show placement dimensions in blocks as width × height × depth. Multiblocks derive sizes from their inclusive placement extents; variants use their actual block definition. Foundation, surrounding water, sky and other operational clearance remain separate requirements: the single-block Fishing Net and City Center are displayed as 1 × 1 × 1, rather than presenting their operating area as placed blocks. University/Production Line are 9 × 4 × 9, Grain Mill 3 × 6 × 3, Temple 17 × 6 × 13, Statue 3 × 4 × 3 and Warp Tent 5 × 3 × 5. Rotating a structure swaps its world X/Z extents without changing its local width/depth. Large faction flags show their required cloth clearance envelope (3 × 11 × 1), including the 1 × 11 × 1 pole. Machine login snapshots carry server quantities and prestige values for tooltips/NEI; updated clients and servers must match.
+
 World/entity restrictions, entity effects/immunity, cave sickness, rectangular border, vanilla stone drops, chat filter and diagnostic logging remain configurable. Radar/forcefield, RF/oil/nuclear, weapons, stock/tax, obsolete-building rates and Builder Depot settings are no longer read or generated. Old keys may remain in an existing Forge config and are ignored; no destructive rewrite is performed.
 
 The `enableChatFilter` setting defaults to `true`. On the server, it applies the existing substitutions to public player chat before Minecraft delivery and optional external relay. Clients recognize these finalized public messages and do not filter them again; their local toggle cannot undo server filtering. The client setting still filters other displayed text and translation arguments while preserving component formatting, click actions and hover events. URL clicks use Minecraft's normal Web Links and Prompt on Links settings; the filter leaves action targets and hover contents unchanged.
+
+## AFK announcements and admin chat prefix
+
+Category: `XENOFACTIONS_26_PLAYER_PRESENCE` in `hfr.cfg`.
+
+| Key | Default | Meaning |
+| --- | ---: | --- |
+| `enableAfkDetection` | `true` | Track player input and idle state on the server. Disabling silently clears tracking. |
+| `enableAfkAnnouncements` | `true` | Broadcast `<player> is now afk` and `<player> is no longer afk` exactly once per state change. |
+| `afkTimeoutSeconds` | `300` | Idle seconds before AFK; range 1–86400. Independent of vanilla idle kicking. |
+| `enableAdminPrefix` | `true` | Add a red `[Admin]`, reset formatting, then preserve the existing name/message colors for server-recognized operators in public, faction and alliance chat. No permissions are granted. |
+
+Level-3 operators and the console can use `/xc presence show` and `/xc presence set <key> <value>`; boolean values are `true`/`false`. These actions also appear individually in the command menu. Settings are validated and atomically persisted before becoming active; rejected/failed writes retain the previous active and saved values. Changes apply immediately. Direct file edits use the normal startup configuration load; there is no file watcher.
+
+The server owns elapsed-time timers and broadcasts. Vanilla's explicit-activity timestamp covers chat, commands and gameplay interactions; intercepted reward phrases, creative inventory actions and flight toggles also count. Updated clients send a throttled, empty activity intent for movement controls (including riding/swimming/flying) and actual mouse input equivalent to at least one degree of cumulative yaw/pitch at the current sensitivity. Position and rotation updates alone never count: gravity, water currents, knockback, passive vehicle travel, teleports, keepalives and passive server updates do not reset AFK. Activity intents carry no positions, permissions or gameplay state. Network callbacks only coalesce connection identities; the server END tick applies them to the current connection. State survives respawn/dimension changes, clears on disconnect/server shutdown, and disconnecting never broadcasts a return. Normal activity detection can be delayed by up to one second for input intents plus server tick lag. Client/server builds must match for input detection and machine display packets.
 
 ## Custom stone drops JSON
 

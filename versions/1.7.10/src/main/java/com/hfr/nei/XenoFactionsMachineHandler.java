@@ -51,6 +51,10 @@ public abstract class XenoFactionsMachineHandler extends TemplateRecipeHandler {
     public String getRecipeName() { return tr("hfr.nei." + key() + ".title"); }
     public String getGuiTexture() { return "textures/gui/options_background.png"; }
     public String getOverlayIdentifier() { return id; }
+    @Override public int getRecipeHeight(int recipe) {
+        return INFO_TEXT_START_Y + (((LineRecipe) arecipes.get(recipe)).lines().length + 2) * INFO_LINE_HEIGHT + 4;
+    }
+    @Override public int recipiesPerPage() { return 1; }
 
     public void drawBackground(int recipe) { XenoFactionsStoneDropHandler.drawCleanRecipeBackground(30, ITEM_ROW_Y, 116, ITEM_ROW_Y); }
 
@@ -61,8 +65,8 @@ public abstract class XenoFactionsMachineHandler extends TemplateRecipeHandler {
     private void loadAll() {
 
         if (NET.equals(id)) {
-            arecipes.add(new SimpleRecipe(new ItemStack(Blocks.water), new ItemStack(Items.fish), netLines(false)));
-            arecipes.add(new SimpleRecipe(new ItemStack(Blocks.water), new ItemStack(ModItems.whale_meat), netLines(true)));
+            arecipes.add(new SimpleRecipe(new ItemStack(Blocks.water), new ItemStack(Items.fish, MachineDisplaySnapshot.forClientDisplay().fishingOutput), netLines(false)));
+            arecipes.add(new SimpleRecipe(new ItemStack(Blocks.water), new ItemStack(ModItems.whale_meat, MachineDisplaySnapshot.forClientDisplay().fishingOutput), netLines(true)));
             for (ItemStack jam : MachineNeiRecipes.fishingOutputsAndJams().subList(2, 6)) {
                 arecipes.add(new SimpleRecipe(new ItemStack(Blocks.water), jam, jamLines(jam)));
             }
@@ -127,6 +131,10 @@ public abstract class XenoFactionsMachineHandler extends TemplateRecipeHandler {
             fr.drawString(trim(fr, line, textWidth), INFO_TEXT_X, y, 0x404040);
             y += INFO_LINE_HEIGHT;
         }
+        net.minecraft.block.Block structure = NET.equals(id) ? ModBlocks.machine_net : GRAIN_MILL.equals(id) ? ModBlocks.machine_grainmill
+            : UNIVERSITY.equals(id) ? ModBlocks.machine_uni : PRODUCTION_LINE.equals(id) ? ModBlocks.machine_factory : ModBlocks.machine_temple;
+        fr.drawString(com.hfr.blocks.StructureInfo.size(structure), INFO_TEXT_X, y, 0x404040);
+        fr.drawString(com.hfr.blocks.StructureInfo.axes(), INFO_TEXT_X, y + INFO_LINE_HEIGHT, 0x404040);
         GL11.glColor4f(1, 1, 1, 1);
     }
 

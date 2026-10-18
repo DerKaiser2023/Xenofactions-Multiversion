@@ -31,6 +31,8 @@ public class GUIGrainmill extends GuiContainer {
 		
 		this.fontRendererObj.drawString(name, this.xSize / 2 - this.fontRendererObj.getStringWidth(name) / 2, 6, 4210752);
 		this.fontRendererObj.drawString(I18n.format("container.inventory"), 8, this.ySize - 96 + 2, 4210752);
+        if (i >= guiLeft && i < guiLeft + xSize && j >= guiTop + 4 && j < guiTop + 17)
+            this.func_146283_a(java.util.Arrays.asList(com.hfr.blocks.StructureInfo.size(diFurnace.getBlockType()), com.hfr.blocks.StructureInfo.axes()), i - guiLeft, j - guiTop);
 	}
 	
 	@Override

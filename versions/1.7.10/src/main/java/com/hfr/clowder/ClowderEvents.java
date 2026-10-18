@@ -168,7 +168,7 @@ public void handleChatServer(ServerChatEvent event) {
 
 	EntityPlayerMP sender = (EntityPlayerMP) event.player;
 	UUID senderUUID = sender.getUniqueID();
-	String playerName = sender.getCommandSenderName();
+	String playerName = chatName(sender, sender.getCommandSenderName(), EnumChatFormatting.WHITE.toString());
 	String message = event.message;
 
 	Clowder clowder = Clowder.getClowderFromPlayer(sender);
@@ -282,7 +282,7 @@ public void handleChatServer(ServerChatEvent event) {
 			name += "<Citizen> ";
 		}
 		
-		name += "[" + player.getDisplayName() + "]";
+		name += chatName(player, "[" + player.getDisplayName() + "]", CommandClowderChat.HELP);
 		
 		clowder.notifyAll(player.worldObj, new ChatComponentText(CommandClowderChat.HELP + name + " " + message));
 		System.out.println(name + " " + message);
@@ -301,7 +301,7 @@ public void handleChatServer(ServerChatEvent event) {
 			name += "<Citizen> ";
 		}
 
-		name += "[" + player.getDisplayName() + "]";
+		name += chatName(player, "[" + player.getDisplayName() + "]", CommandClowderChat.LIST);
 
 		clowder.notifyAll(player.worldObj, new ChatComponentText(CommandClowderChat.LIST + name + " " + message));
 
@@ -309,7 +309,7 @@ public void handleChatServer(ServerChatEvent event) {
 
 		for (Clowder a : clowder.allies.keySet())
 		{
-			a.notifyAll(player.worldObj, new ChatComponentText(CommandClowderChat.LIST + "<Ally> [" + player.getDisplayName() + "] " + message)); //send to all allies
+			a.notifyAll(player.worldObj, new ChatComponentText(CommandClowderChat.LIST + "<Ally> " + chatName(player, "[" + player.getDisplayName() + "]", CommandClowderChat.LIST) + " " + message)); //send to all allies
 		}
 
 	}
@@ -390,6 +390,14 @@ public void handleChatServer(ServerChatEvent event) {
 		}
 	}
 	
+    private static String chatName(EntityPlayer player, String name, String color) {
+        MinecraftServer server = MinecraftServer.getServer();
+        if (!com.hfr.config.PlayerPresenceConfig.enableAdminPrefix || server == null
+                || !server.getConfigurationManager().func_152596_g(player.getGameProfile())
+                || EnumChatFormatting.getTextWithoutFormattingCodes(name).contains("[Admin]")) return name;
+        return EnumChatFormatting.RED + "[Admin]" + EnumChatFormatting.RESET + " " + color + name;
+    }
+
 	private void onBreak(World world, Block b, int x, int y, int z, Ownership owner) {
 		
 		if(owner != null && owner.zone == Zone.FACTION && owner.owner != null) {

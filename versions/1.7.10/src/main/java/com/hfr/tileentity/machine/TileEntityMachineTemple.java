@@ -45,12 +45,7 @@ public class TileEntityMachineTemple extends TileEntityMachineBase {
 
 			if(worldObj.rand.nextInt(MainRegistry.temple * 20) == 0) {
 				
-				if(slots[0] == null) {
-					slots[0] = new ItemStack(ModItems.scroll);
-					
-				} else if(slots[0].getItem() == ModItems.scroll && slots[0].stackSize < 64) {
-					slots[0].stackSize++;
-				}
+				if (StructureOutput.insert(slots, 0, 1, ModItems.scroll, com.hfr.config.XFConfig.templeOutputAmount) > 0) markDirty();
 			}
 		}
 	}

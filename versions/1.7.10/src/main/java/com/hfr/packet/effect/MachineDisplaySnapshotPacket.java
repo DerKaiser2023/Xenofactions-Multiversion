@@ -8,7 +8,7 @@ import cpw.mods.fml.relauncher.Side;
 import io.netty.buffer.ByteBuf;
 
 public class MachineDisplaySnapshotPacket implements IMessage {
-    private static final int FIELD_COUNT = 11;
+    private static final int FIELD_COUNT = 22;
     public MachineDisplaySnapshot snapshot;
     public MachineDisplaySnapshotPacket() { }
     public MachineDisplaySnapshotPacket(MachineDisplaySnapshot snapshot) { this.snapshot = snapshot; }
@@ -18,6 +18,9 @@ public class MachineDisplaySnapshotPacket implements IMessage {
         buf.writeInt(s.superFishrate); buf.writeInt(s.goodFishrate); buf.writeInt(s.averageFishrate); buf.writeInt(s.crapFishrate);
         buf.writeInt(s.jamRate); buf.writeInt(s.whaleChance); buf.writeInt(s.uniRate); buf.writeInt(s.uniJamRate);
         buf.writeInt(s.factoryRate); buf.writeInt(s.factoryJamRate); buf.writeInt(s.temple);
+        buf.writeInt(s.fishingOutput); buf.writeInt(s.grainmillOutput); buf.writeInt(s.universityOutput); buf.writeInt(s.factoryOutput); buf.writeInt(s.templeOutput);
+        buf.writeFloat(s.grainmillPrestige); buf.writeFloat(s.universityPrestige); buf.writeFloat(s.templePrestige);
+        buf.writeFloat(s.statuePrestige); buf.writeFloat(s.cityCenterPrestige); buf.writeFloat(s.tentUpkeep);
 
     }
     public void fromBytes(ByteBuf buf) {
@@ -25,7 +28,9 @@ public class MachineDisplaySnapshotPacket implements IMessage {
             snapshot = null;
             return;
         }
-        MachineDisplaySnapshot decoded = new MachineDisplaySnapshot(buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt());
+        MachineDisplaySnapshot decoded = new MachineDisplaySnapshot(buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(),
+            new int[] { buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt() },
+            new float[] { buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat() });
         snapshot = decoded;
     }
     public static class Handler implements IMessageHandler<MachineDisplaySnapshotPacket, IMessage> {

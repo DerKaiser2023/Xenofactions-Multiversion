@@ -65,6 +65,18 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.world.WorldEvent;
 
 public class EventHandlerClient {
+    @SubscribeEvent
+    public void activityMouse(net.minecraftforge.client.event.MouseEvent event) {
+        com.hfr.client.PlayerActivityInput.mouse(event.dx, event.dy);
+    }
+    @SubscribeEvent
+    public void structureTooltip(net.minecraftforge.event.entity.player.ItemTooltipEvent event) {
+        String size = com.hfr.blocks.StructureInfo.size(event.itemStack);
+        if (size != null) {
+            event.toolTip.add(size);
+            event.toolTip.add(com.hfr.blocks.StructureInfo.axes());
+        }
+    }
 	
 	boolean lock = false;
 	
@@ -567,6 +579,7 @@ public class EventHandlerClient {
 
 	@SubscribeEvent
 	public void xenofactionsClientTick(ClientTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) com.hfr.client.PlayerActivityInput.tick();
 		if(event.phase == TickEvent.Phase.START) GUIXenofactionsMenu.updateSession();
 		if(event.phase == TickEvent.Phase.START) com.hfr.client.journeymap.ClientClaimOverlayCache.tick();
 		if(event.phase == TickEvent.Phase.START) {

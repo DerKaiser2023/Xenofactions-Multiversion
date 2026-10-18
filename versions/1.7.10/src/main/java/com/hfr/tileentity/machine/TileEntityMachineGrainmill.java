@@ -149,28 +149,11 @@ public class TileEntityMachineGrainmill extends TileEntityMachineBase {
 	}
 	
 	public boolean hasSpace() {
-		
-		for(int i = 3; i < 6; i++) {
-			
-			if((slots[i] == null || (slots[i] != null && slots[i].getItem() == ModItems.flour && slots[i].stackSize < slots[i].getMaxStackSize())))
-				return true;
-		}
-		
-		return false;
+		return StructureOutput.space(slots, 3, 6, ModItems.flour) >= com.hfr.config.XFConfig.grainmillOutputAmount;
 	}
 	
 	public void addFlour() {
-		
-		for(int i = 3; i < 6; i++) {
-			
-			if(slots[i] != null && slots[i].getItem() == ModItems.flour && slots[i].stackSize < slots[i].getMaxStackSize()) {
-				slots[i].stackSize++;
-				return;
-			} else if(slots[i] == null) {
-				slots[i] = new ItemStack(ModItems.flour);
-				return;
-			}
-		}
+		StructureOutput.insert(slots, 3, 6, ModItems.flour, com.hfr.config.XFConfig.grainmillOutputAmount);
 	}
 
 	@Override

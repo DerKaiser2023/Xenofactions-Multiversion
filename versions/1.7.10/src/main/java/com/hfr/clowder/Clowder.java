@@ -250,11 +250,12 @@ public class Clowder {
 	public static final float FALLEN_NATION_UPKEEP_MULT = 2.00F;
 	public static final float tentRate = -75F;
 
-	public static final float GrainRate = 3F;
-	public static final float UniRate = 60F;
+	// Legacy public default constants. Production uses the configuration-backed methods below.
+	public static final float GrainRate = 15F;
+	public static final float UniRate = 300F;
 
-	public static final float TempleRate = 90F;
-	public static final float statueRate = 15F;
+	public static final float TempleRate = 450F;
+	public static final float statueRate = 75F;
 	public static final float flagRate = 0F;
 	public static final float flagReq = 10F;
 

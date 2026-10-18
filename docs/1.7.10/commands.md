@@ -14,6 +14,8 @@ Minecraft Forge 1.7.10 commands use permission levels when `getRequiredPermissio
 
 ## GUI command list
 
+Level-3 `/xc presence show` lists AFK detection, AFK announcements, idle timeout and the cosmetic operator prefix. `/xc presence set <enableAfkDetection|enableAfkAnnouncements|enableAdminPrefix> <true|false>` and `/xc presence set afkTimeoutSeconds <1..86400>` validate, atomically save to `hfr.cfg` and apply immediately. Save failures preserve previous settings. Console use is supported. Each setting has its own command-menu action; these commands do not change operator status or permissions.
+
 Press the configured Xenofactions menu key (K by default). Search spans all categories; clearing it restores the selected category. `>` beside an argument cycles the handler's literal choices or server-provided values. Text fields remain editable. Longer forms use the `<` / `>` buttons beside **Arguments**; paging retains entered values. Fill earlier optional arguments before later ones to avoid shifting their command positions. The preview shows the exact slash command; **Run Command** and **Open in Chat** use normal server chat-command dispatch. Dangerous actions retain GUI confirmation, and `chatreward reset` also includes the required literal `confirm` token. Server validation, permissions, faction ranks, saving and synchronization still belong to the existing handlers.
 
 Entries use action names such as **Teleport to Faction Home**, **Set Faction Home**, **Create Faction**, and **Add Daily Reward**. Usage, aliases and the preview retain command syntax; search matches action names, descriptions, canonical command syntax and aliases.

@@ -211,15 +211,7 @@ public class TileEntityMachineNet extends TileEntity implements ISidedInventory 
 					if(worldObj.rand.nextInt(100) < MainRegistry.whaleChance)
 						fish = ModItems.whale_meat;
 						
-					for(int i = 0; i < 4; i++) {
-						if(slots[i] == null) {
-							slots[i] = new ItemStack(fish);
-							break;
-						} else if(slots[i].getItem() == fish && slots[i].stackSize < slots[i].getMaxStackSize()){
-							slots[i].stackSize++;
-							break;
-						}
-					}
+					if (StructureOutput.insert(slots, 0, 4, fish, com.hfr.config.XFConfig.fishingOutputAmount) > 0) markDirty();
 				}
 				
 				//15 minutes

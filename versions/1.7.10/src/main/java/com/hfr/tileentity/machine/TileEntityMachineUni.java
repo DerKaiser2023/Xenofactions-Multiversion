@@ -62,15 +62,7 @@ public class TileEntityMachineUni extends TileEntityMachineBase {
 
 				if(worldObj.rand.nextInt(MainRegistry.uniRate * 20) == 0) {
 					
-					for(int i = 0; i < 4; i++) {
-						if(slots[i] == null) {
-							slots[i] = new ItemStack(ModItems.science);
-							break;
-						} else if(slots[i].getItem() == ModItems.science && slots[i].stackSize < slots[i].getMaxStackSize()){
-							slots[i].stackSize++;
-							break;
-						}
-					}
+					if (StructureOutput.insert(slots, 0, 4, ModItems.science, com.hfr.config.XFConfig.universityOutputAmount) > 0) markDirty();
 				}
 				
 				if(worldObj.rand.nextInt(MainRegistry.uniJamRate * 20) == 0) {
