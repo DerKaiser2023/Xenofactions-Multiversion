@@ -561,6 +561,7 @@ public class EventHandlerClient {
 	}
 	
 	private volatile boolean disconnectCleanup;
+    private net.minecraft.client.network.NetHandlerPlayClient dailyReadyConnection;
     private boolean xfHadWorld = false;
 	private boolean xfTutorialQueued = false;
 
@@ -592,6 +593,15 @@ public class EventHandlerClient {
 		if(event.phase==TickEvent.Phase.END)com.hfr.client.journeymap.ClientTDMMapOverlay.emitWorldBorder();
 		if(event.phase == TickEvent.Phase.END) com.hfr.client.journeymap.ClientBorderParticles.endTick();
 		Minecraft xfMc = Minecraft.getMinecraft();
+		if(event.phase == TickEvent.Phase.END) {
+            net.minecraft.client.network.NetHandlerPlayClient connection = xfMc.getNetHandler();
+            if(connection == null) dailyReadyConnection = null;
+            else if(connection != dailyReadyConnection && xfMc.theWorld != null && xfMc.thePlayer != null
+                && !(xfMc.currentScreen instanceof net.minecraft.client.gui.GuiDownloadTerrain)) {
+                dailyReadyConnection = connection;
+                PacketDispatcher.wrapper.sendToServer(com.hfr.packet.daily.DailyActionPacket.loginReady());
+            }
+        }
 		boolean xfHasWorld = xfMc.theWorld != null;
 		if(xfHadWorld&&!xfHasWorld) { com.hfr.client.render.GpuModelManager.release(); resetTDMClientState(); GUIAdminEditor.clearSelectionPreview(); com.hfr.client.journeymap.ClientTDMMapOverlay.clear(); }
 		if(!xfHadWorld && xfHasWorld) xfTutorialQueued = true;

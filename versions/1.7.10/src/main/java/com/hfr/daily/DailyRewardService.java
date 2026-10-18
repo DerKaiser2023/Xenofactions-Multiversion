@@ -32,6 +32,7 @@ public final class DailyRewardService {
     private static final Map<EntityPlayerMP, Session> SESSIONS = new WeakHashMap<EntityPlayerMP, Session>();
     private static final Map<EntityPlayer, Boolean> BLOCKED = new WeakHashMap<EntityPlayer, Boolean>();
     private static final Map<EntityPlayerMP, Completion> COMPLETIONS = new WeakHashMap<EntityPlayerMP, Completion>();
+    private static final Map<EntityPlayer, Boolean> LOGIN_OPENED = new WeakHashMap<EntityPlayer, Boolean>();
     private static final Random RANDOM = new Random();
     private int ticks;
     private static final class Session {
@@ -72,7 +73,7 @@ public final class DailyRewardService {
         if (BLOCKED.containsKey(player)) throw new IllegalStateException("Daily player data failed to load");
         return DailyRewardStore.read(player);
     }
-    public static void clear() { SESSIONS.clear(); BLOCKED.clear(); COMPLETIONS.clear(); com.hfr.main.XFAchievements.clearTracking(); }
+    public static void clear() { SESSIONS.clear(); BLOCKED.clear(); COMPLETIONS.clear(); LOGIN_OPENED.clear(); com.hfr.main.XFAchievements.clearTracking(); }
     public static NBTTagCompound achievementState(EntityPlayerMP player) { return state(player); }
     public static void achievementBalanceChanged(EntityPlayerMP player) {
         Session session = SESSIONS.get(player);
@@ -103,9 +104,20 @@ public final class DailyRewardService {
     }
     public static void open(EntityPlayerMP player) {
         if (!online(player)) return;
+        if (LOGIN_OPENED.containsKey(player)) LOGIN_OPENED.put(player, true);
         player.closeScreen();
         Session session = new Session(); SESSIONS.put(player, session);
         snapshot(player, session, true, false);
+    }
+    /** Readiness is only a hint: loaded server state authorizes this once-per-login opening. */
+    public static void loginReady(EntityPlayerMP player) {
+        if (!Boolean.FALSE.equals(LOGIN_OPENED.get(player)) || !online(player)) return;
+        LOGIN_OPENED.put(player, true);
+        try {
+            NBTTagCompound saved = state(player);
+            if (!unfinished(saved) && !saved.getBoolean("DeliveryDue")
+                && DailyRewardConfig.ready() && eligible(saved, today())) open(player);
+        } catch (IllegalStateException e) { say(player, "unavailable"); }
     }
     private static boolean online(EntityPlayerMP player) {
         return !player.isDead && MinecraftServer.getServer().getConfigurationManager().playerEntityList.contains(player)
@@ -325,18 +337,21 @@ public final class DailyRewardService {
         if (!(event.player instanceof EntityPlayerMP)) return;
         try {
             NBTTagCompound saved = state(event.player);
+            if (!LOGIN_OPENED.containsKey(event.player)) LOGIN_OPENED.put(event.player, false);
             schedule((EntityPlayerMP)event.player, saved);
             if (!unfinished(saved) && DailyRewardConfig.ready() && eligible(saved, today())) say(event.player, "login");
             if (saved.getTagList("Pending", 10).tagCount() > 0) say(event.player, "pending");
         } catch (IllegalStateException e) { say(event.player, "unavailable"); }
     }
     @SubscribeEvent public void logout(PlayerEvent.PlayerLoggedOutEvent event) {
-        SESSIONS.remove(event.player); BLOCKED.remove(event.player); COMPLETIONS.remove(event.player);
+        SESSIONS.remove(event.player); BLOCKED.remove(event.player); COMPLETIONS.remove(event.player); LOGIN_OPENED.remove(event.player);
     }
     @SubscribeEvent public void dimension(PlayerEvent.PlayerChangedDimensionEvent event) { SESSIONS.remove(event.player); }
     @SubscribeEvent public void clone(net.minecraftforge.event.entity.player.PlayerEvent.Clone event) {
         SESSIONS.remove(event.original);
         COMPLETIONS.remove(event.original);
+        Boolean opened = LOGIN_OPENED.remove(event.original);
+        if (opened != null) LOGIN_OPENED.put(event.entityPlayer, opened);
         if (BLOCKED.containsKey(event.original)) BLOCKED.put(event.entityPlayer, true);
         // Forge clonePlayer already carries PlayerPersisted, including escrow and milestone receipts.
         if (event.entityPlayer instanceof EntityPlayerMP && !BLOCKED.containsKey(event.entityPlayer))

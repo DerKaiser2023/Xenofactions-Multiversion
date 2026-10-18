@@ -12,19 +12,22 @@ import net.minecraft.entity.player.EntityPlayerMP;
 /** Intent only: clients cannot send rewards, dates, streaks or animation outcomes. */
 public final class DailyActionPacket implements IMessage {
     public static final long SPIN_MILLIS = 4200L;
+    public static final int LOGIN_READY = 6;
     private String token = "";
     private String claim = "";
     private long revision;
     private int action;
     public DailyActionPacket() { }
+    public static DailyActionPacket loginReady() { return new DailyActionPacket("", 0, LOGIN_READY); }
     public DailyActionPacket(String token, long revision, int action) { this.token = token; this.revision = revision; this.action = action; }
     public DailyActionPacket(String token, long revision, String claim) { this(token, revision, 3); this.claim = claim; }
     public DailyActionPacket(String token, long revision, int action, String claim) { this(token, revision, action); this.claim = claim; }
     public void fromBytes(ByteBuf buf) {
         token = ByteBufUtils.readUTF8String(buf);
-        if (token.length() != 36) throw new IllegalArgumentException("Invalid daily session");
         revision = buf.readLong(); action = buf.readUnsignedByte();
-        if (action > 5) throw new IllegalArgumentException("Invalid daily action");
+        if (action > LOGIN_READY) throw new IllegalArgumentException("Invalid daily action");
+        if (action == LOGIN_READY ? !token.isEmpty() || revision != 0 : token.length() != 36)
+            throw new IllegalArgumentException("Invalid daily session");
         if (action == 3 || action == 4) {
             claim = ByteBufUtils.readUTF8String(buf);
             if (claim.length() != 36) throw new IllegalArgumentException("Invalid daily claim");
@@ -38,7 +41,10 @@ public final class DailyActionPacket implements IMessage {
         public IMessage onMessage(final DailyActionPacket message, MessageContext context) {
             final EntityPlayerMP player = context.getServerHandler().playerEntity;
             TDMServerTaskQueue.schedule(new Runnable() {
-                public void run() { DailyRewardService.action(player, message.token, message.revision, message.action, message.claim); }
+                public void run() {
+                    if (message.action == LOGIN_READY) DailyRewardService.loginReady(player);
+                    else DailyRewardService.action(player, message.token, message.revision, message.action, message.claim);
+                }
             });
             return null;
         }
