@@ -136,13 +136,13 @@ Category: `XENOFACTIONS_02_PRESTIGE_GENERATION`
 | `startingPrestige` | `250` | Prestige granted to new factions. |
 | `basePrestigeGeneration` | `25` | Base prestige generation amount. |
 | `prestigeGenerationCap` | `2500` | Cap for generated prestige. |
-| `grainmillPrestigeGeneration` | `15` | Grain mill contribution (previous default 3). |
-| `universityPrestigeGeneration` | `300` | University contribution (previous default 60). |
-| `templePrestigeGeneration` | `450` | Temple contribution (previous default 90). |
-| `statuePrestigeGeneration` | `75` | Statue contribution (previous default 15). |
+| `grainmillPrestigeGeneration` | `3` | Grain mill contribution. |
+| `universityPrestigeGeneration` | `60` | University contribution. |
+| `templePrestigeGeneration` | `90` | Temple contribution. |
+| `statuePrestigeGeneration` | `15` | Statue contribution. |
 | `cityCenterPrestigeGeneration` | `0` | City center contribution. |
 
-Only missing settings receive the fivefold building defaults; existing explicit values remain unchanged. City center income remains `0 × 5 = 0`. Base faction income, starting prestige, generation cap, upkeep and costs are unchanged. These are amounts per accounting period; `prestigeDelay` still controls the accounting interval.
+Missing settings use the original building defaults above; existing explicit values remain unchanged. If a configuration was generated with the increased defaults, restore these four keys manually to use the original rates. Existing saved faction generation totals are not recalculated. City center income remains `0`. These are amounts per accounting period; `prestigeDelay` still controls the accounting interval.
 
 ## Costs, upkeep, and bankruptcy
 

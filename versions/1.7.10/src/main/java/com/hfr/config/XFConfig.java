@@ -96,10 +96,10 @@ public final class XFConfig {
 	public static float prestigeGenCap = 2500F;
 	public static float warpCost = 125F;
 	public static float warpTentUpkeep = 75F;
-	public static float grainmillPrestige = 15F;
-	public static float universityPrestige = 300F;
-	public static float templePrestige = 450F;
-	public static float statuePrestige = 75F;
+	public static float grainmillPrestige = 3F;
+	public static float universityPrestige = 60F;
+	public static float templePrestige = 90F;
+	public static float statuePrestige = 15F;
 	public static float cityCenterPrestige = 0F;
 	public static int fishingOutputAmount = 5, grainmillOutputAmount = 5, universityOutputAmount = 5;
 	public static int factoryOutputAmount = 5, templeOutputAmount = 5;
